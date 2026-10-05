@@ -1,0 +1,11 @@
+{
+    "app": ".",
+    "title": "broterm",
+    "width": 1100,
+    "height": 700,
+    "minWidth": 420,
+    "minHeight": 260,
+    "resizable": true,
+    "splash": false,
+    "watch": false
+}

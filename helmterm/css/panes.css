@@ -1,0 +1,101 @@
+/* Tabs' contents, splits and panes. Every tab's content is laid out all the
+   time (stacked, the inactive ones hidden), so a background tab's terminals
+   keep their size and their programs never see a resize for a tab switch. */
+
+.tab-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    visibility: hidden;
+}
+.tab-content.active { visibility: visible; }
+
+.split {
+    display: flex;
+    flex: 1 1 0px;
+    min-width: 0;
+    min-height: 0;
+}
+.split.row { flex-direction: row; }
+.split.column { flex-direction: column; }
+
+.divider {
+    flex: 0 0 4px;
+    background: var(--chrome-border);
+}
+.divider.row { cursor: col-resize; }
+.divider.column { cursor: row-resize; }
+.divider:hover { background: var(--accent); }
+
+.pane {
+    position: relative;
+    flex: 1 1 0px;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--term-bg);
+}
+
+.pane > terminal {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    display: block;
+}
+
+/* With more than one pane, the focused one is marked. */
+.split .pane.focused::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    height: 2px;
+    background: var(--accent);
+    opacity: 0.7;
+}
+
+/* Zoom: the zoomed pane covers the tab; the others stay laid out beneath. */
+.tab-content.zoomed .pane { visibility: hidden; }
+.tab-content.zoomed .pane.zoomed {
+    visibility: visible;
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 5;
+}
+
+.pane.bell::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--bell);
+    opacity: 0.18;
+    z-index: 6;
+}
+
+.pane-banner {
+    display: none;
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    background: var(--panel-bg);
+    border: 1px solid var(--chrome-border);
+    color: var(--chrome-fg);
+    z-index: 7;
+}
+.pane.has-banner .pane-banner { display: block; }

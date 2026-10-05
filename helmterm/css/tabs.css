@@ -1,0 +1,107 @@
+/* The tab strip. */
+
+#tabbar {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+    height: var(--strip-height);
+    flex: 0 0 var(--strip-height);
+    padding: 0 6px;
+    background: var(--chrome-bg);
+    border-bottom: 1px solid var(--chrome-border);
+    user-select: none;
+}
+
+#tabs {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+    min-width: 0;
+    flex: 0 1 auto;
+    overflow: hidden;
+    height: 100%;
+}
+
+.tab {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    flex: 0 1 220px;
+    min-width: 72px;
+    max-width: 240px;
+    height: 30px;
+    margin-right: 2px;
+    padding: 0 6px 0 10px;
+    border-radius: 7px 7px 0 0;
+    color: var(--chrome-dim);
+    cursor: default;
+}
+.tab:hover { background: var(--chrome-hover); color: var(--chrome-fg); }
+.tab.active {
+    background: var(--chrome-active);
+    color: var(--chrome-fg);
+    border: 1px solid var(--chrome-border);
+    border-bottom: none;
+}
+.tab.dragging { opacity: 0.75; background: var(--chrome-hover); }
+
+.tab-mark {
+    flex: 0 0 8px;
+    width: 8px;
+    height: 8px;
+    margin-right: 7px;
+    border-radius: 4px;
+    background: transparent;
+}
+.tab.activity .tab-mark { background: var(--activity); }
+.tab.bell .tab-mark { background: var(--bell); }
+.tab.exited .tab-title { font-style: italic; }
+
+.tab-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.tab-close {
+    flex: 0 0 20px;
+    width: 20px;
+    height: 20px;
+    margin-left: 4px;
+    line-height: 19px;
+    text-align: center;
+    border-radius: 4px;
+    font-size: 15px;
+    color: var(--chrome-dim);
+    visibility: hidden;
+}
+.tab:hover .tab-close, .tab.active .tab-close { visibility: visible; }
+.tab-close:hover { background: var(--chrome-border); color: var(--chrome-fg); }
+
+.tab-rename {
+    width: 100%;
+    font-family: var(--ui-font);
+    font-size: 13px;
+    color: var(--chrome-fg);
+    background: var(--term-bg);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    padding: 1px 4px;
+}
+
+.strip-button {
+    flex: 0 0 auto;
+    height: 28px;
+    min-width: 28px;
+    margin: 0 1px 3px 1px;
+    border-radius: 6px;
+    font-size: 17px;
+    color: var(--chrome-dim);
+}
+.strip-button:hover { background: var(--chrome-hover); color: var(--chrome-fg); }
+#new-tab-menu { font-size: 14px; }
+
+.strip-fill { flex: 1 1 auto; }
