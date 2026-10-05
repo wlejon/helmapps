@@ -220,7 +220,8 @@ export class App {
 
     quit() {
         this.quitRequested = true;
-        this.settings.close();
-        if (!host.quit()) this.toast('Every tab is closed.');
+        // Headless, the driving script decides when the process ends.
+        if (host.quit()) this.settings.close();
+        else this.toast('Every tab is closed.');
     }
 }

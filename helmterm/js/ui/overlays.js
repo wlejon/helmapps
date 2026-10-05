@@ -25,6 +25,16 @@ export class Overlays {
             const c = this.current;
             if (c && c.kind === 'menu' && !c.el.contains(e.target)) this.close();
         }, true);
+        // Escape closes the open overlay wherever the focus happens to be.
+        window.addEventListener('keydown', (e) => {
+            const c = this.current;
+            if (e.key === 'Escape' && c && !app.recordingKey &&
+                (c.el.classList.contains('modal') || c.el.contains(document.activeElement))) {
+                e.preventDefault();
+                e.stopPropagation();
+                c.close(undefined);
+            }
+        }, true);
     }
 
     isOpen(kind) { return !!this.current && (!kind || this.current.kind === kind); }

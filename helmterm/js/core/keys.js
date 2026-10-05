@@ -200,14 +200,12 @@ export class Keymap {
     /// The first key bound to `command` (with matching args, when given), for
     /// menus and the palette. '' when unbound.
     keyFor(command, args) {
-        const want = args === undefined ? null : JSON.stringify(args);
-        let found = '';
-        for (const b of this.bindings) {
-            if (b.command !== command) continue;
-            if (want !== null && JSON.stringify(b.args === undefined ? {} : b.args) !== want) continue;
-            if (!found) found = b.key;
-        }
-        return found;
+        // No args asked for: a binding without args, if there is one.
+        const want = JSON.stringify(args === undefined ? {} : args);
+        const mine = this.bindings.filter((b) => b.command === command);
+        const exact = mine.find((b) => JSON.stringify(b.args === undefined ? {} : b.args) === want);
+        if (exact) return exact.key;
+        return args === undefined && mine.length ? mine[0].key : '';
     }
 }
 

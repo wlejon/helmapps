@@ -98,17 +98,19 @@ export class SettingsStore extends Emitter {
         if (user !== null && !isPlainObject(user)) { errors.push('settings.json: the top level must be an object'); user = null; }
         if (keys !== null && !Array.isArray(keys)) { errors.push('keybindings.json: the top level must be an array'); keys = null; }
         this.errors = errors;
-        if (user !== null) {
+        const settingsChanged = user !== null && (sText !== this._lastText.settings || reason === 'start');
+        const keysChanged = keys !== null && (kText !== this._lastText.keybindings || reason === 'start');
+        if (settingsChanged) {
             this._lastText.settings = sText;
             this.values = mergeSettings(DEFAULT_SETTINGS, user);
             this.raw = user;
         }
-        if (keys !== null) {
+        if (keysChanged) {
             this._lastText.keybindings = kText;
             this.userKeybindings = keys.filter((k) => isPlainObject(k));
         }
-        if (user === null && keys === null) {
-            this.emit('error', errors);
+        if (!settingsChanged && !keysChanged) {
+            if (errors.length) this.emit('error', errors);
             return false;
         }
         this.generation++;
