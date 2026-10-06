@@ -5,6 +5,7 @@
 
 import { app, waitFor, settle, eq, CHILD, childAvailable, requireApp, reportPath, writeSettings,
          childProfile } from './lib/harness.js';
+import * as term from '../ui/js/term/adapter.js';
 
 const tabEl = (t) => document.querySelector('#tabs .tab[data-tab-id="' + t.id + '"]');
 const lower = (c) => String(c || '').toLowerCase();
@@ -68,6 +69,8 @@ if (requireApp() && !childAvailable()) {
     const el = p1.el;
     eq(lower(el.theme.ansi[1]), lower(scheme.red), 'the scheme is the theme (red)');
     eq(lower(el.theme.background), lower(scheme.background), 'the scheme is the theme (background)');
+    eq(lower(p1.palette.ansi[1]), lower(scheme.red), 'p1.palette has theme red');
+    eq(lower(term.palette(el).background), lower(scheme.background), 'term.palette has theme background');
     ws.activate(t1);
     el.feed('\x1b[H\x1b[2J\x1b[41m      \x1b[0m');
     const hex = (c) => '#' + [c.r, c.g, c.b].map((v) => v.toString(16).padStart(2, '0')).join('');
@@ -86,15 +89,29 @@ if (requireApp() && !childAvailable()) {
     shows(scheme.red, 'colour 1 in effect is the scheme\'s');
     el.feed('\x1b]4;1;#123456\x1b\\');
     shows('#123456', 'the program\'s OSC 4 takes effect');
+    waitFor(() => lower(p1.palette.ansi[1]) === '#123456', 'p1.palette reflects OSC 4 override');
+    eq(lower(term.palette(el).ansi[1]), '#123456', 'term.palette reflects OSC 4 override');
+
+    // OSC 10 (foreground) and OSC 11 (background) overrides
+    el.feed('\x1b]10;#112233\x1b\\\x1b]11;#445566\x1b\\');
+    waitFor(() => lower(p1.palette.foreground) === '#112233', 'p1.palette reflects OSC 10 foreground override');
+    eq(lower(p1.palette.background), '#445566', 'p1.palette reflects OSC 11 background override');
+    el.feed('\x1b]110\x1b\\\x1b]111\x1b\\');
+    waitFor(() => lower(p1.palette.foreground) === lower(scheme.foreground), 'OSC 110 resets foreground');
+    eq(lower(p1.palette.background), lower(scheme.background), 'OSC 111 resets background');
+
     el.feed('\x1b]104\x1b\\');
     shows(scheme.red, 'OSC 104 returns to the scheme, not to bropty\'s own palette');
+    eq(lower(p1.palette.ansi[1]), lower(scheme.red), 'palette resets to scheme red');
     // A scheme change in settings reaches running terminals, and a reset keeps it.
     app.settings.set('colorScheme', 'Dracula');
     const dracula = app.schemeFor('Dracula');
     waitFor(() => lower(el.theme.ansi[1]) === lower(dracula.red), 'a new scheme reaches the terminal');
     shows(dracula.red, 'the cell takes the new scheme');
+    eq(lower(p1.palette.ansi[1]), lower(dracula.red), 'p1.palette updates with new scheme');
     el.feed('\x1b]4;1;#654321\x1b\\\x1b]104\x1b\\');
     shows(dracula.red, 'and a reset after it keeps the new scheme');
+    eq(lower(p1.palette.ansi[1]), lower(dracula.red), 'p1.palette resets to Dracula red');
 
     // ── the bell ──
     ws.activate(t1);
@@ -140,5 +157,20 @@ if (requireApp() && !childAvailable()) {
         'the taskbar shows it too: ' + JSON.stringify(app.host.desktopLog.filter((e) => e.kind === 'progress')));
     bg.el.feed('\x1b]9;4;0;0\x07');
     waitFor(() => !tabEl(t2).classList.contains('has-progress'), 'progress cleared');
+
+    // ── cwd reporting as clean filesystem path ──
+    const targetUri = process.platform === 'win32' ? 'file:///C:/temp/broterm%20cwd%20test' : 'file://localhost/tmp/broterm%20cwd%20test';
+    bg.el.feed('\x1b]7;' + targetUri + '\x07');
+    waitFor(() => t2.focused.cwd && t2.focused.cwd.includes('broterm cwd test'), 'cwd updated via OSC 7');
+    const cwdVal = t2.focused.cwd;
+    assert(!cwdVal.startsWith('file://'), 'cwd is not a URI: ' + cwdVal);
+    assert(!cwdVal.includes('%20'), 'cwd is percent-decoded: ' + cwdVal);
+    eq(term.cwd(bg.el), cwdVal, 'term.cwd(el) matches pane.cwd');
+    eq(bg.el.cwdUri, targetUri, 'cwdUri holds raw URI');
+
+    // Fallback when el.cwd is empty
+    const mockEl = { cwd: '', cwdUri: 'file:///usr/share/doc' };
+    eq(term.cwd(mockEl), '/usr/share/doc', 'term.cwd falls back to cwdUri when cwd is empty');
+
     console.log('test_events: finished');
 }

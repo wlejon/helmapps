@@ -324,15 +324,7 @@ export class Workspace extends Emitter {
         this.app.tabbar.render();
     }
 
-    /// Activity in background tabs: the one thing still polled, because the
-    /// element has no output event yet (term/adapter.js caps.outputEvent).
-    pollActivity() {
-        if (!this.app.settings.values.tabActivity) return;
-        for (const tab of this.tabs) {
-            if (tab === this.active) continue;
-            for (const p of tab.panes()) p.pollActivity();
-        }
-    }
+
 
     snapshot() {
         return {

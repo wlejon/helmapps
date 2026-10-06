@@ -131,6 +131,7 @@ export class PaneGuard {
         if (st === 'prompt') return true;
         if (st === 'running') return false;
         const v = term.viewport(this.pane.el);
+        const bp = this.pane.bracketedPaste;
         return !!this.pane.profile.isShell && !this.pane.launch.commandline && !(v && v.altScreen);
     }
 
@@ -167,13 +168,14 @@ export class PaneGuard {
         const lines = t.split(/\r\n|\r|\n/);
         const preview = lines.slice(0, 6).map((l) => (l.length > 90 ? l.slice(0, 89) + '…' : l)).join('\n') +
             (lines.length > 6 ? '\n… and ' + (lines.length - 6) + ' more lines' : '');
-        this.log.push({ kind: 'paste', decision: 'ask', lines: lines.length });
+        const bp = pane.bracketedPaste;
+        this.log.push({ kind: 'paste', decision: 'ask', lines: lines.length, bracketed: bp });
         return this.app.overlays.confirm({
             title: 'Paste ' + lines.length + ' lines?',
             message: 'Each line may run as a command at the shell\'s prompt.\n\n' + preview,
             confirm: 'Paste',
         }).then((ok) => {
-            this.log.push({ kind: 'paste', decision: ok ? 'paste' : 'cancel', lines: lines.length });
+            this.log.push({ kind: 'paste', decision: ok ? 'paste' : 'cancel', lines: lines.length, bracketed: bp });
             if (ok) pane.el.paste(t);
             pane.focus();
             return ok;

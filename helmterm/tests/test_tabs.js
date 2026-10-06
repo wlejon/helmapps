@@ -78,9 +78,12 @@ if (requireApp()) {
 
         // Activity and bell on a background tab.
         app.commands.run('switchToTab', { index: 0 });
-        settle(400);
+        settle(100);
+        assert(!t.activity, 'background tab starts with no activity mark');
+        // Output triggers activity event immediately without waiting for a 500ms poll
         p.el.feed('more output\r\n');
-        waitFor(() => t.activity, 'activity on the background tab');
+        advanceTime(16);
+        waitFor(() => t.activity, 'activity on the background tab fires immediately on output');
         const mark = () => document.querySelector('#tabs .tab[data-tab-id="' + t.id + '"]');
         assert(mark().classList.contains('activity'), 'the strip marks it');
         p.ring();
@@ -88,6 +91,17 @@ if (requireApp()) {
         ws.activate(t);
         assert(!t.activity && !t.bell, 'selecting the tab clears its marks');
         assert(!mark().classList.contains('activity') && !mark().classList.contains('bell'), 'and the strip\'s');
+
+        // Persistent sessions dispatch activity with detail { bytes: null }
+        app.commands.run('switchToTab', { index: 0 });
+        settle(100);
+        assert(!t.activity, 'tab activity cleared when selected');
+        p.el.dispatchEvent(new CustomEvent('activity', { detail: { bytes: null } }));
+        advanceTime(16);
+        waitFor(() => t.activity, 'persistent session activity (bytes: null) triggers tab activity');
+        assert(mark().classList.contains('activity'), 'the strip marks persistent session activity');
+        ws.activate(t);
+        assert(!t.activity, 'selecting tab clears persistent activity mark');
     }
 
     // Close by command and by the close button.

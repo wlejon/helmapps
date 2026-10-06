@@ -2,6 +2,7 @@
 // the last good settings and says why, and the settings UI edits the file.
 
 import { app, waitFor, eq, press, settle, clickEl, requireApp, writeSettings, configDir } from './lib/harness.js';
+import * as term from '../ui/js/term/adapter.js';
 
 const fs = require('fs');
 
@@ -72,6 +73,39 @@ if (requireApp()) {
     eq(fileJson(st.settingsPath).cursorStyle, 'bar', 'the UI wrote cursorStyle to settings.json');
     eq(st.values.cursorStyle, 'bar', 'and it applied');
     waitFor(() => pane.el.cursor.shape === 'bar', 'the pane\'s cursor became a bar');
+    eq(pane.el.options.cursorStyle, 'bar', 'options.cursorStyle took effect');
+
+    // Cursor blink through UI
+    const blink = document.getElementById('set-cursorBlink');
+    assert(blink, 'the cursor blink control');
+    blink.checked = false;
+    blink.dispatchEvent(new Event('change'));
+    eq(fileJson(st.settingsPath).cursorBlink, false, 'cursorBlink written');
+    eq(st.values.cursorBlink, false, 'cursorBlink setting applied');
+    eq(pane.el.options.cursorBlink, false, 'options.cursorBlink took effect');
+
+    // Scrollback through UI
+    const sb = document.getElementById('set-scrollback');
+    assert(sb, 'the scrollback control');
+    sb.value = '50000';
+    sb.dispatchEvent(new Event('change'));
+    eq(fileJson(st.settingsPath).scrollback, 50000, 'scrollback written');
+    eq(pane.el.options.scrollback, 50000, 'options.scrollback took effect');
+
+    // Direct applyCursor and applyScrollback via options
+    term.applyCursor(pane.el, 'underline', true);
+    eq(pane.el.options.cursorStyle, 'underline', 'applyCursor configured options.cursorStyle');
+    eq(pane.el.options.cursorBlink, true, 'applyCursor configured options.cursorBlink');
+    term.applyScrollback(pane.el, 30000);
+    eq(pane.el.options.scrollback, 30000, 'applyScrollback configured options.scrollback');
+
+    // Previewing effective palette in settings UI
+    const preview = document.querySelector('.scheme-preview');
+    assert(preview, 'preview element exists');
+    assert(preview.dataset.effective === 'true', 'preview marks effective palette');
+    assert(app.settingsUI.activePalette, 'settingsUI inspects active palette');
+    eq(app.settingsUI.activePalette.foreground, pane.palette.foreground, 'settingsUI activePalette foreground matches pane.palette');
+
     const size = document.getElementById('set-fontSize');
     size.value = '16';
     size.dispatchEvent(new Event('change'));

@@ -30,6 +30,7 @@ function fn(name) {
 export const caps = {
     element: !!proto,
     theme: has('theme'),
+    palette: has('palette'),
     options: has('options'),
     viewport: has('viewport') && fn('scrollLines'),
     search: fn('search') && has('searchStatus'),
@@ -40,6 +41,7 @@ export const caps = {
     links: fn('linkAt'),
     clipboardAnswer: fn('answerClipboard'),
     paste: fn('paste'),
+    bracketedPaste: has('bracketedPaste'),
     metrics: has('metrics'),
     // Inline images (kitty graphics, sixel, iTerm2), with a memory quota
     // in options.imageMemoryLimit and what is held in `images`.
@@ -49,9 +51,8 @@ export const caps = {
     persistent: fn('attach') && fn('detach') && typeof bro !== 'undefined' && !!bro.terminal &&
         bro.terminal.persistentAvailable === true,
     foreground: has('foregroundProcess') || has('foreground'),
-    // No output event yet: activity in background tabs is the one thing
-    // still polled (see Workspace.pollActivity).
-    outputEvent: false,
+    activity: true,
+    outputEvent: true,
 };
 
 /// Attach listeners. `handlers` maps event names to functions; names the
@@ -64,9 +65,13 @@ export function watch(el, handlers) {
             for (const n of ['foregroundchange', 'processchange', 'foregroundprocess']) el.addEventListener(n, h);
             continue;
         }
-        if (name === 'output') {
-            for (const n of ['output', 'activity']) {
-                el.addEventListener(n, (e) => { caps.outputEvent = true; h(e); });
+        if (name === 'activity' || name === 'output') {
+            for (const n of ['activity', 'output']) {
+                el.addEventListener(n, (e) => {
+                    caps.activity = true;
+                    caps.outputEvent = true;
+                    h(e);
+                });
             }
             continue;
         }
@@ -110,7 +115,23 @@ export function uriToPath(uri, platform) {
 }
 
 export function cwd(el) {
-    return uriToPath(safe(() => el.cwd, ''), process.platform) || null;
+    const direct = safe(() => el.cwd, '');
+    if (direct && typeof direct === 'string') {
+        if (/^[a-z][a-z0-9+.-]*:\/\//i.test(direct)) {
+            return uriToPath(direct, process.platform) || direct;
+        }
+        return direct;
+    }
+    const uri = safe(() => el.cwdUri, '');
+    return uriToPath(uri, process.platform) || null;
+}
+
+export function palette(el) {
+    return safe(() => el.palette, null);
+}
+
+export function bracketedPaste(el) {
+    return safe(() => !!el.bracketedPaste, false);
 }
 
 export function viewport(el) {
@@ -207,7 +228,7 @@ export function applyTheme(el, scheme) {
 }
 
 const OPTION_KEYS = ['copyOnSelect', 'middleClickPaste', 'scrollOnInput', 'boldIsBright', 'minimumContrast',
-    'ligatures', 'wheelLines', 'clipboard', 'imageMemoryLimit'];
+    'ligatures', 'wheelLines', 'clipboard', 'imageMemoryLimit', 'scrollback', 'cursorStyle', 'cursorBlink'];
 
 const MIB = 1024 * 1024;
 const DEFAULT_IMAGE_MIB = 320;   // the element's own default (docs/terminal-api.js)
@@ -233,6 +254,15 @@ export function optionsFrom(b) {
     // imageMemory is in MiB (0 turns images off); null is bro's default.
     const im = b.imageMemory === null || b.imageMemory === undefined || b.imageMemory === '' ? DEFAULT_IMAGE_MIB : Number(b.imageMemory);
     if (caps.images) o.imageMemoryLimit = Math.max(0, Math.min(4096, Math.round(Number.isFinite(im) ? im : DEFAULT_IMAGE_MIB))) * MIB;
+    if (b.scrollback !== undefined && b.scrollback !== null && b.scrollback !== '') {
+        const sb = Number(b.scrollback);
+        if (Number.isFinite(sb)) o.scrollback = Math.max(0, Math.min(1000000, Math.round(sb)));
+    }
+    if (typeof b.cursorStyle === 'string') {
+        const cs = b.cursorStyle.toLowerCase();
+        if (cs === 'block' || cs === 'underline' || cs === 'bar') o.cursorStyle = cs;
+    }
+    if (typeof b.cursorBlink === 'boolean') o.cursorBlink = b.cursorBlink;
     return o;
 }
 
@@ -251,17 +281,31 @@ export function applyOptions(el, b) {
 
 const CURSOR_CODES = { block: [1, 2], underline: [3, 4], bar: [5, 6] };
 
-/// The cursor shape: DECSCUSR fed to the emulator (a program can change it,
-/// and RIS puts it back to the terminal's default).
+/// The cursor shape: options.cursorStyle and cursorBlink on el.options,
+/// falling back to DECSCUSR fed to the emulator on older elements.
 export function applyCursor(el, style, blink) {
+    const opts = {};
+    if (style && (style === 'block' || style === 'underline' || style === 'bar')) opts.cursorStyle = style;
+    if (typeof blink === 'boolean') opts.cursorBlink = blink;
+    if (caps.options && Object.keys(opts).length > 0) {
+        try { el.options = opts; return true; } catch (e) {
+            console.error('broterm: applyCursor: ' + e.message);
+        }
+    }
     const codes = CURSOR_CODES[style] || CURSOR_CODES.block;
-    el.feed('\x1b[' + (blink === false ? codes[1] : codes[0]) + ' q');
+    if (typeof el.feed === 'function') el.feed('\x1b[' + (blink === false ? codes[1] : codes[0]) + ' q');
+    return false;
 }
 
 export function applyScrollback(el, lines) {
-    if (!(lines > 0)) return false;
-    if (has('scrollbackLimit')) { el.scrollbackLimit = lines; return true; }
-    if (has('scrollbackLines')) { el.scrollbackLines = lines; return true; }
+    const n = Math.max(0, Math.min(1000000, Math.round(Number(lines) || 0)));
+    if (caps.options) {
+        try { el.options = { scrollback: n }; return true; } catch (e) {
+            console.error('broterm: applyScrollback: ' + e.message);
+        }
+    }
+    if (has('scrollbackLimit')) { el.scrollbackLimit = n; return true; }
+    if (has('scrollbackLines')) { el.scrollbackLines = n; return true; }
     return false;
 }
 

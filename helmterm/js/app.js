@@ -49,9 +49,6 @@ export class App {
         this.settings.on('error', (errs) => this.toast(errs.join('\n'), 'error'));
         this.workspace.on('change', () => this.session.save());
         window.addEventListener('keydown', (e) => this.onKeyDown(e), true);
-        // Titles, directories, the bell and the rest arrive as events; only
-        // background activity is polled (the element has no output event).
-        this._poll = setInterval(() => this.workspace.pollActivity(), 500);
         this.applyChrome();
         this.settings.watch();
     }

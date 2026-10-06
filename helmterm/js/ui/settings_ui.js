@@ -129,17 +129,29 @@ export class SettingsUI {
         const v = this.app.settings.values;
         const s = section('Appearance', 'Defaults for every profile; a profile can override each of them.');
         const schemes = this.app.schemes.list.map((x) => x.name);
+        const activePane = this.app.workspace && this.app.workspace.activePane();
+        const activePal = activePane ? activePane.palette : null;
+        this.activePalette = activePal;
         const preview = el('div', 'scheme-preview');
         const paint = (name) => {
             while (preview.firstChild) preview.removeChild(preview.firstChild);
             const sc = this.app.schemes.byName.get(name);
-            if (!sc) return;
-            preview.style.backgroundColor = sc.background;
-            preview.style.color = sc.foreground;
-            for (const k of PALETTE_KEYS) {
+            const isCurrent = !name || name === v.colorScheme;
+            const pal = (isCurrent && activePal) ? activePal : null;
+            preview.dataset.effective = pal ? 'true' : 'false';
+            const bg = (pal && pal.background) || (sc && sc.background);
+            const fg = (pal && pal.foreground) || (sc && sc.foreground);
+            if (bg) preview.style.backgroundColor = bg;
+            if (fg) preview.style.color = fg;
+            for (let i = 0; i < PALETTE_KEYS.length; i++) {
+                const k = PALETTE_KEYS[i];
                 const sw = el('span', 'swatch');
-                sw.style.backgroundColor = sc[k];
-                sw.title = k;
+                const col = (pal && pal.ansi && pal.ansi[i]) || (sc && sc[k]);
+                if (col) {
+                    sw.style.backgroundColor = col;
+                    sw.dataset.color = col;
+                }
+                sw.title = k + (col ? ': ' + col : '');
                 preview.appendChild(sw);
             }
         };

@@ -37,7 +37,6 @@ export class Pane extends Emitter {
         this.notified = false;       // a notification arrived while unseen
         this.progress = null;        // { state, value } from OSC 9;4
         this.titleState = { programTitle: '', programTitleAt: 0, foreground: null, foregroundAt: 0 };
-        this._stamp = '';
 
         this.root = document.createElement('div');
         this.root.className = 'pane';
@@ -52,6 +51,8 @@ export class Pane extends Emitter {
 
     get profile() { return this.launch.profile; }
     get behaviour() { return this.launch.behaviour || {}; }
+    get palette() { return term.palette(this.el); }
+    get bracketedPaste() { return term.bracketedPaste(this.el); }
 
     _newElement() {
         if (this.el) this.el.remove();
@@ -63,19 +64,19 @@ export class Pane extends Emitter {
         this.root.insertBefore(el, this.root.firstChild);
         term.watch(el, {
             titlechange: (e) => this._programTitle(e.detail && e.detail.title),
-            cwdchange: (e) => this._cwdChanged(e.detail && e.detail.cwd),
+            cwdchange: (e) => this._cwdChanged(e.detail),
             bell: () => this.ring(),
             notification: (e) => this._notification(e.detail || {}),
             progress: (e) => this._progress(e.detail || {}),
             promptmark: (e) => this.commandLog.mark(el, e.detail),
-            scroll: (e) => { this.chrome.update(e.detail); this._output(); },
+            scroll: (e) => this.chrome.update(e.detail),
             searchchange: (e) => this.emit('searchchange', this, e.detail || {}),
             linkactivate: (e) => this._link(e),
             clipboardread: (e) => this.guard.clipboardRead(e),
             clipboardwrite: (e) => this.guard.clipboardWrite(e),
             paste: (e) => this.guard.paste(e),
             foreground: () => this._foreground(),
-            output: () => this._output(),
+            activity: (e) => this._activity(e),
             resize: () => this.chrome.update(),
             exit: (e) => this._exit(e),
             detach: () => this._detached(),
@@ -221,24 +222,10 @@ export class Pane extends Emitter {
 
     hasFocus() { return document.activeElement === this.el; }
 
-    /// The workspace's activity poll for panes nobody is looking at: the
-    /// element has no output event yet, so a fingerprint of the screen.
-    pollActivity() {
-        if (term.caps.outputEvent || this.exited) { this._stamp = ''; return; }
-        let text = '';
-        try { text = this.el.screenText(); } catch (e) { return; }
-        let h = 0;
-        for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) | 0;
-        const stamp = text.length + ':' + h;
-        if (this._stamp && stamp !== this._stamp) this._output();
-        this._stamp = stamp;
-    }
-
     markSeen() {
         this.activity = false;
         this.bell = false;
         this.notified = false;
-        this._stamp = '';
     }
 
     ring() {
@@ -252,9 +239,14 @@ export class Pane extends Emitter {
         this.emit('bell', this, mode);
     }
 
-    _output() {
+    _activity(e) {
+        if (this.exited) return;
         this.activity = true;
-        this.emit('activity', this);
+        this.emit('activity', this, e && e.detail);
+    }
+
+    _output(e) {
+        this._activity(e);
     }
 
     _programTitle(t) {
@@ -279,8 +271,14 @@ export class Pane extends Emitter {
         }
     }
 
-    _cwdChanged(raw) {
-        const c = term.uriToPath(raw || '', process.platform) || term.cwd(this.el);
+    _cwdChanged(detail) {
+        let c = null;
+        if (typeof detail === 'string') {
+            c = /^[a-z][a-z0-9+.-]*:\/\//i.test(detail) ? term.uriToPath(detail, process.platform) : detail;
+        } else if (detail && typeof detail === 'object') {
+            c = detail.cwd || (detail.uri ? term.uriToPath(detail.uri, process.platform) : null);
+        }
+        if (!c) c = term.cwd(this.el);
         if (c && c !== this.lastCwd) {
             this.lastCwd = c;
             this.emit('cwd', this);
