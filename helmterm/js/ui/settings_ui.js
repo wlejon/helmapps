@@ -6,11 +6,13 @@
 import { el, row, select, text, number, checkbox, button, section } from './form.js';
 import { renderProfiles } from './settings_profiles.js';
 import { renderKeybindings } from './settings_keys.js';
+import { renderTerminal } from './settings_terminal.js';
 import { PALETTE_KEYS } from '../core/schemes.js';
 
 const PAGES = [
     { id: 'general', label: 'General' },
     { id: 'appearance', label: 'Appearance' },
+    { id: 'terminal', label: 'Terminal' },
     { id: 'profiles', label: 'Profiles' },
     { id: 'keys', label: 'Keybindings' },
     { id: 'files', label: 'Files' },
@@ -83,6 +85,7 @@ export class SettingsUI {
         const page = {
             general: () => this.general(),
             appearance: () => this.appearance(),
+            terminal: () => renderTerminal(this),
             profiles: () => renderProfiles(this),
             keys: () => renderKeybindings(this),
             files: () => this.files(),
@@ -114,8 +117,6 @@ export class SettingsUI {
         s.appendChild(row('Restore tabs at start', checkbox(v.restoreSession, (x) => this.set('restoreSession', x), 'set-restoreSession'),
             'Reopen the previous session\'s tabs, panes and directories.'));
         s.appendChild(row('Mark tabs with new output', checkbox(v.tabActivity, (x) => this.set('tabActivity', x), 'set-tabActivity')));
-        s.appendChild(row('Bell', select([{ value: 'visual', label: 'Flash the pane and mark the tab' }, { value: 'none', label: 'Ignore' }],
-            v.bell, (x) => this.set('bell', x), 'set-bell')));
         return s;
     }
 

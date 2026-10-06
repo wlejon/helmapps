@@ -51,9 +51,15 @@ export class TabBar {
         close.className = 'tab-close';
         close.textContent = '×';
         close.title = 'Close tab';
+        const progress = document.createElement('span');
+        progress.className = 'tab-progress';
+        const bar = document.createElement('span');
+        bar.className = 'tab-progress-bar';
+        progress.appendChild(bar);
         el.appendChild(mark);
         el.appendChild(title);
         el.appendChild(close);
+        el.appendChild(progress);
 
         close.addEventListener('mousedown', (e) => e.stopPropagation());
         close.addEventListener('click', (e) => {
@@ -75,8 +81,15 @@ export class TabBar {
         el.classList.toggle('active', active);
         el.classList.toggle('activity', !active && tab.activity);
         el.classList.toggle('bell', !active && tab.bell);
+        el.classList.toggle('notified', !active && tab.notified);
         el.classList.toggle('exited', tab.panes().every((p) => p.exited));
         el.classList.toggle('split', tab.panes().length > 1);
+        // OSC 9;4 progress along the tab's bottom edge.
+        const pr = tab.progress;
+        el.classList.toggle('has-progress', !!pr);
+        el.dataset.progress = pr ? pr.state : '';
+        const bar = el.querySelector('.tab-progress-bar');
+        if (bar) bar.style.width = (pr ? (pr.state === 'indeterminate' ? 100 : pr.value) : 0) + '%';
         if (this.renaming && this.renaming.tab === tab) return;
         const title = el.querySelector('.tab-title');
         if (title.textContent !== tab.title) title.textContent = tab.title;

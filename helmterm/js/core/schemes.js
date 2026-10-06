@@ -78,19 +78,9 @@ export function validateScheme(raw, base) {
     return { scheme: out, problems };
 }
 
-/// The escape sequences that put a scheme into a terminal's palette: OSC 4
-/// for the sixteen ANSI colours, OSC 10/11/12 for foreground, background and
-/// cursor. Fed to the emulator, not sent to the program. A program that resets
-/// the palette (OSC 104/110/111) falls back to bropty's defaults until the
-/// element has a palette API to set the defaults themselves.
-export function paletteSequence(scheme) {
-    let seq = '';
-    PALETTE_KEYS.forEach((k, i) => { seq += '\x1b]4;' + i + ';' + scheme[k] + '\x1b\\'; });
-    seq += '\x1b]10;' + scheme.foreground + '\x1b\\';
-    seq += '\x1b]11;' + scheme.background + '\x1b\\';
-    seq += '\x1b]12;' + (scheme.cursorColor || scheme.foreground) + '\x1b\\';
-    return seq;
-}
+// A scheme reaches a terminal as the element's `theme` (term/adapter.js
+// themeFromScheme): base colours, which a program's OSC 104 / 110 / 111 / 112
+// resets return to.
 
 function rgb(hex) {
     const h = hex.slice(1);

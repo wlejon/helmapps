@@ -7,8 +7,14 @@
 // every profile, and the top-level appearance settings under that.
 
 import { host } from './host.js';
+import { applyIntegration } from '../term/integration.js';
 
 const APPEARANCE_KEYS = ['colorScheme', 'font', 'cursorStyle', 'cursorBlink', 'padding', 'scrollback', 'opacity'];
+
+/// Behaviour every profile can override (defaults.js has what each means).
+export const BEHAVIOUR_KEYS = ['copyOnSelect', 'middleClickPaste', 'scrollOnInput', 'boldIsBright', 'minimumContrast',
+    'ligatures', 'wheelLines', 'clipboardWrite', 'clipboardRead', 'shellIntegration', 'suppressApplicationTitle',
+    'bell', 'warnOnMultiLinePaste', 'trimPasteTrailingNewline'];
 
 function profile(name, command, args, extra) {
     return { name, command, args: args || [], cwd: null, env: {}, source: 'detected', isShell: true, ...extra };
@@ -184,6 +190,8 @@ export class ProfileSet {
         const appearance = {};
         for (const k of APPEARANCE_KEYS) appearance[k] = pick(k);
         appearance.font = { ...(s.font || {}), ...(defs.font || {}), ...(p.font || {}) };
+        const behaviour = {};
+        for (const k of BEHAVIOUR_KEYS) behaviour[k] = pick(k);
 
         let command = p.command || '';
         let args = p.args ? p.args.slice() : [];
@@ -212,11 +220,22 @@ export class ProfileSet {
             ...(o.env || {}),
         };
         for (const k of Object.keys(env)) env[k] = String(env[k]);
-        return {
+        const launch = {
             profile: p,
             spawn: { command, args, cwd: cwd || undefined, env },
             appearance,
-            title: o.title || p.tabTitle || null,
+            behaviour,
+            // A title the tab keeps (the command line's -t, a restored
+            // rename). The profile's tabTitle is not one: it is what the tab
+            // shows until the program names itself (see term/titles.js).
+            title: o.title || null,
         };
+        return applyIntegration(launch, o);
+    }
+
+    /// A profile's own starting directory, if it names one.
+    fixedCwd(p) {
+        const defs = (this.settings && this.settings.profiles && this.settings.profiles.defaults) || {};
+        return p.cwd || defs.cwd || null;
     }
 }

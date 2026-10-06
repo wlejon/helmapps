@@ -20,15 +20,37 @@ export const DEFAULT_SETTINGS = {
     cursorStyle: 'block',      // block | underline | bar
     cursorBlink: true,
     padding: 6,                // px around the grid
-    scrollback: 10000,         // lines (applied once <terminal> exposes it)
+    scrollback: 10000,         // lines (applied once <terminal> lets it be set)
     opacity: 1,                // window opacity (applied once bro supports it)
 
-    // Behaviour.
+    // The terminal's behaviour; every one of these can be overridden per
+    // profile too (README, "Settings").
+    copyOnSelect: false,       // a finished selection goes to the clipboard
+    middleClickPaste: host.platform === 'linux',
+    scrollOnInput: true,       // typing returns a scrolled-back view to the bottom
+    boldIsBright: false,
+    minimumContrast: 1,        // WCAG ratio every glyph keeps (1 = off, 4.5 = AA)
+    ligatures: false,
+    wheelLines: 3,
+    clipboardWrite: true,      // programs may set the clipboard (OSC 52)
+    clipboardRead: 'ask',      // programs reading the clipboard: ask | allow | deny
+    shellIntegration: true,    // load broterm's prompt marks into pwsh/bash/zsh/fish
+    suppressApplicationTitle: false,  // keep the profile's title, ignore the program's
+    bell: 'visual',            // visual | audible | both | none
+    warnOnMultiLinePaste: 'prompt',   // prompt | always | never (README, "Paste")
+    trimPasteTrailingNewline: true,   // a paste ending in a newline does not run itself
+
+    // Behaviour of the application.
     closeOnExit: 'graceful',   // always | graceful (exit code 0) | never
     confirmClose: 'running',   // always | running | never
     restoreSession: true,
-    bell: 'visual',            // visual | none
     tabActivity: true,         // mark background tabs that printed
+    desktopNotifications: 'unfocused',  // unfocused | always | never
+    notifyOnLongCommand: 10,   // seconds; a longer command finishing unseen notifies (0 = off)
+    inheritCwd: true,          // new tabs and splits start in the focused pane's directory
+    scrollbar: true,
+    commandMarks: true,        // marks beside prompts (shell integration)
+    stickyCommand: true,       // when scrolled back, the command whose output is shown
     environment: {},           // added to every profile's environment
 
     profiles: {
@@ -75,6 +97,19 @@ export const DEFAULT_KEYBINDINGS = [
     { key: mod + '+,', command: 'openSettings' },
     { key: mod + '+shift+,', command: 'openSettingsFile' },
     { key: mod + '+shift+f', command: 'find' },
+    { key: 'f3', command: 'findNext', when: 'findActive' },
+    { key: 'shift+f3', command: 'findPrevious', when: 'findActive' },
+    { key: mod + '+shift+up', command: 'scrollUp', when: 'terminalFocus && !altScreen' },
+    { key: mod + '+shift+down', command: 'scrollDown', when: 'terminalFocus && !altScreen' },
+    { key: 'shift+pageup', command: 'scrollPageUp', when: 'terminalFocus && !altScreen' },
+    { key: 'shift+pagedown', command: 'scrollPageDown', when: 'terminalFocus && !altScreen' },
+    { key: mod + '+shift+home', command: 'scrollToTop', when: 'terminalFocus && !altScreen' },
+    { key: mod + '+shift+end', command: 'scrollToBottom', when: 'terminalFocus && !altScreen' },
+    { key: mod + '+up', command: 'scrollToPreviousPrompt', when: 'terminalFocus && !altScreen' },
+    { key: mod + '+down', command: 'scrollToNextPrompt', when: 'terminalFocus && !altScreen' },
+    { key: mod + '+shift+a', command: 'selectAll', when: 'terminalFocus' },
+    { key: mod + '+shift+o', command: 'copyCommandOutput', when: 'terminalFocus' },
+    { key: mod + '+shift+h', command: 'recentCommands' },
     { key: mod + '+=', command: 'adjustFontSize', args: { delta: 1 } },
     { key: mod + '+-', command: 'adjustFontSize', args: { delta: -1 } },
     { key: mod + '+0', command: 'resetFontSize' },

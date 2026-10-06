@@ -78,7 +78,20 @@ function profileEditor(ui, p) {
         'Separated by spaces; "quote" an argument with spaces in it.'));
     box.appendChild(row('Starting directory', text(p.cwd || '', (v) => set('cwd', v || undefined), { id: 'profile-cwd', placeholder: '~ (home)' })));
     box.appendChild(row('Environment', textarea(formatEnvLines(p.env), (v) => set('env', parseEnvLines(v)), { id: 'profile-env', rows: 4, placeholder: 'NAME=value, one per line' })));
-    box.appendChild(row('Tab title', text(p.tabTitle || '', (v) => set('tabTitle', v || undefined), { id: 'profile-tabTitle', placeholder: 'the program\'s title' })));
+    box.appendChild(row('Tab title', text(p.tabTitle || '', (v) => set('tabTitle', v || undefined), { id: 'profile-tabTitle', placeholder: 'the profile\'s name' }),
+        'What the tab says until the program sets a title.'));
+    box.appendChild(row('Ignore the program\'s title', checkbox(p.suppressApplicationTitle, (v) => set('suppressApplicationTitle', v || undefined), 'profile-suppressApplicationTitle'),
+        'Keep the tab title above whatever the program asks for.'));
+    const tri = (value) => (value === true ? 'on' : value === false ? 'off' : '');
+    const fromTri = (v) => (v === 'on' ? true : v === 'off' ? false : undefined);
+    box.appendChild(row('Shell integration', select([{ value: '', label: '(default)' }, { value: 'on', label: 'On' }, { value: 'off', label: 'Off' }],
+        tri(p.shellIntegration), (v) => set('shellIntegration', fromTri(v)), 'profile-shellIntegration'),
+        'Prompt marks, command exit codes and directories for PowerShell, bash, zsh and fish.'));
+    box.appendChild(row('Programs reading the clipboard', select([{ value: '', label: '(default)' }, { value: 'ask', label: 'Ask' },
+        { value: 'allow', label: 'Allow' }, { value: 'deny', label: 'Deny' }], p.clipboardRead || '',
+    (v) => set('clipboardRead', v || undefined), 'profile-clipboardRead')));
+    box.appendChild(row('Bell', select([{ value: '', label: '(default)' }, 'visual', 'audible', 'both', 'none'], p.bell || '',
+        (v) => set('bell', v || undefined), 'profile-bell')));
 
     const schemes = [{ value: '', label: '(default)' }, ...app.schemes.list.map((x) => x.name)];
     box.appendChild(row('Color scheme', select(schemes, p.colorScheme || '', (v) => set('colorScheme', v || undefined), 'profile-colorScheme')));

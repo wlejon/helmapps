@@ -35,6 +35,29 @@ function ensureDir(dir) {
 // never quits the process there: the script that drives it decides.
 const headless = typeof advanceTime === 'function' && typeof flush === 'function';
 
+let notifier;  // the notify-send / osascript path, found once
+function notifyByCommand(title, body) {
+    if (platform === 'win32') return false;
+    try {
+        const cp = require('child_process');
+        if (notifier === undefined) {
+            notifier = null;
+            for (const d of (env('PATH') || '').split(':')) {
+                if (platform === 'darwin' && fs.existsSync(path.join(d, 'osascript'))) { notifier = path.join(d, 'osascript'); break; }
+                if (platform !== 'darwin' && fs.existsSync(path.join(d, 'notify-send'))) { notifier = path.join(d, 'notify-send'); break; }
+            }
+        }
+        if (!notifier) return false;
+        const args = platform === 'darwin'
+            ? ['-e', 'display notification ' + JSON.stringify(body) + ' with title ' + JSON.stringify(title || 'broterm')]
+            : ['--app-name=broterm', title || 'broterm', body];
+        cp.spawn(notifier, args, { detached: true, stdio: 'ignore' });
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
 export const host = {
     platform,
     headless,
@@ -44,6 +67,8 @@ export const host = {
     configDir: ensureDir(native ? native.configDir : fallbackConfigDir()),
     exePath: native ? native.exePath : (process.execPath || ''),
     homeDir: native && native.homeDir ? native.homeDir : os.homedir(),
+    // The bundled UI's directory (shell-integration scripts live under it).
+    uiDir: typeof bro !== 'undefined' && bro.appDir ? bro.appDir : '',
     pathSep: path.sep,
     env,
 
@@ -79,6 +104,59 @@ export const host = {
             console.error('broterm: new window failed: ' + e.message);
             return false;
         }
+    },
+
+    // ── the clipboard ──
+    // What broterm itself copies (a command's output, a command line) and
+    // reads (answering a program's OSC 52 request). Headless keeps it in the
+    // process, as bro's <terminal> does, so a test never touches the user's
+    // clipboard.
+    clipboard: {
+        local: '',
+        write(text) {
+            const t = String(text == null ? '' : text);
+            if (headless || typeof navigator === 'undefined' || !navigator.clipboard) { this.local = t; return Promise.resolve(true); }
+            return navigator.clipboard.writeText(t).then(() => true, (e) => {
+                console.error('broterm: clipboard write: ' + (e && e.message));
+                return false;
+            });
+        },
+        read() {
+            if (headless || typeof navigator === 'undefined' || !navigator.clipboard) return Promise.resolve(this.local);
+            return navigator.clipboard.readText().then((t) => t || '', () => '');
+        },
+    },
+
+    // ── the desktop ──
+    // Notifications, taskbar attention and progress, the bell sound, window
+    // focus. broterm's executable provides them (src/desktop.h) where the
+    // platform has them; notify-send / osascript cover notifications on
+    // Linux and macOS. Headless does nothing on the desktop and records
+    // what was asked in `desktopLog`, which is what the tests read.
+    desktopLog: [],
+    desktop(kind, ...args) {
+        if (headless) { this.desktopLog.push({ kind, args }); return false; }
+        if (kind === 'notify') {
+            if (native && typeof native.notify === 'function' && native.notify(String(args[0] || ''), String(args[1] || ''))) return true;
+            return notifyByCommand(String(args[0] || ''), String(args[1] || ''));
+        }
+        if (!native) return false;
+        try {
+            if (kind === 'attention' && typeof native.attention === 'function') return native.attention(!!args[0]);
+            if (kind === 'progress' && typeof native.setProgress === 'function') return native.setProgress(args[0] | 0, args[1] | 0);
+            if (kind === 'beep' && typeof native.beep === 'function') return native.beep();
+        } catch (e) { console.error('broterm: desktop ' + kind + ': ' + e.message); }
+        return false;
+    },
+    /// Whether the window has the keyboard: the native answer, else the
+    /// page's visibility (bro hides the page when the window loses focus).
+    windowFocused() {
+        if (native && typeof native.windowFocused === 'function') {
+            const f = native.windowFocused();
+            if (f === true || f === false) return f;
+        }
+        if (typeof document !== 'undefined' && document.visibilityState) return document.visibilityState !== 'hidden';
+        return true;
     },
 
     // ── files ──

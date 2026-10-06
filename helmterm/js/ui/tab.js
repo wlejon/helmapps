@@ -22,6 +22,7 @@ export class Tab extends Emitter {
         this.userTitle = null;
         this.activity = false;
         this.bell = false;
+        this.notified = false;
         this.el = document.createElement('div');
         this.el.className = 'tab-content';
         this.el.dataset.tabId = String(this.id);
@@ -244,9 +245,18 @@ export class Tab extends Emitter {
         return this.userTitle || (this.focused ? this.focused.title : 'Tab');
     }
 
+    /// OSC 9;4 progress to show on the tab: the focused pane's, else the
+    /// first pane's that has any. Null when none does.
+    get progress() {
+        if (this.focused && this.focused.progress) return this.focused.progress;
+        for (const p of this.panes()) if (p.progress) return p.progress;
+        return null;
+    }
+
     markSeen() {
         this.activity = false;
         this.bell = false;
+        this.notified = false;
         for (const p of this.panes()) p.markSeen();
     }
 

@@ -32,7 +32,7 @@
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
 }
 .dialog-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
-.dialog-message { color: var(--chrome-dim); line-height: 1.45; margin-bottom: 16px; }
+.dialog-message { color: var(--chrome-dim); line-height: 1.45; margin-bottom: 16px; white-space: pre-wrap; }
 .dialog-buttons { display: flex; flex-direction: row; justify-content: flex-end; }
 .dialog-buttons .btn { margin-left: 8px; }
 
@@ -117,7 +117,23 @@
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 .find-input { width: 240px; }
-.find-status { margin: 0 8px; color: var(--chrome-dim); font-size: 12px; }
+.find-status { margin: 0 8px; min-width: 64px; color: var(--chrome-dim); font-size: 12px; }
+.findbar[data-state="error"] .find-status, .findbar[data-state="none"] .find-status { color: var(--danger); }
+.findbar[data-state="error"] .find-input { border-color: var(--danger); }
+.find-toggle, .find-nav {
+    min-width: 26px;
+    height: 26px;
+    margin-left: 3px;
+    padding: 0 5px;
+    border-radius: 5px;
+    border: 1px solid transparent;
+    color: var(--chrome-dim);
+    font-family: monospace;
+    font-size: 12px;
+}
+.find-toggle:hover, .find-nav:hover { background: var(--chrome-hover); color: var(--chrome-fg); }
+.find-toggle.on { border-color: var(--accent); color: var(--accent); background: var(--chrome-hover); }
+.find-nav { font-family: var(--ui-font); font-size: 14px; }
 
 .toasts {
     position: absolute;
@@ -136,3 +152,4 @@
     white-space: pre-wrap;
 }
 .toast.error { border-color: var(--danger); }
+.toast.notify { border-color: var(--accent); }

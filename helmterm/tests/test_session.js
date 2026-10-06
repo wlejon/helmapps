@@ -65,7 +65,7 @@ if (requireApp() && !childAvailable()) {
     const back = ws.tabs[0];
     eq(back.title, 'restored', 'the title came back');
     eq(back.shape(), 'row(P,P)', 'the split came back');
-    eq(ws.active, back, 'the active tab came back');
+    assert(ws.active === back, 'the active tab came back');
     const [pa, pb] = back.panes();
     eq(pa.profile.name, 'Child S1', 'left profile');
     eq(pb.profile.name, 'Child S2', 'right profile');

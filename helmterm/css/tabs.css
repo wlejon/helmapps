@@ -58,7 +58,26 @@
     background: transparent;
 }
 .tab.activity .tab-mark { background: var(--activity); }
+.tab.notified .tab-mark { background: var(--accent); }
 .tab.bell .tab-mark { background: var(--bell); }
+
+/* OSC 9;4 progress along the tab's bottom edge. */
+.tab-progress {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: 2px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--chrome-border);
+    display: none;
+    overflow: hidden;
+}
+.tab.has-progress .tab-progress { display: block; }
+.tab-progress-bar { display: block; height: 100%; width: 0; background: var(--accent); }
+.tab[data-progress="error"] .tab-progress-bar { background: var(--danger); }
+.tab[data-progress="paused"] .tab-progress-bar { background: var(--bell); }
+.tab[data-progress="indeterminate"] .tab-progress-bar { opacity: 0.5; }
 .tab.exited .tab-title { font-style: italic; }
 
 .tab-title {

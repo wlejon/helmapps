@@ -2,7 +2,7 @@
 // (with optional args), as do the palette, the menus and the tests.
 
 import { host } from './core/host.js';
-import * as term from './term/adapter.js';
+import { registerTerminalActions } from './actions_terminal.js';
 
 export function registerActions(app) {
     const c = app.commands;
@@ -64,15 +64,8 @@ export function registerActions(app) {
     c.register('restartPane', { title: 'Restart pane', category: 'Pane', enabled: () => !!pane(),
         run: () => { const p = pane(); if (p.running) p.el.kill(); p.restart(); p.focus(); } });
 
-    // ── the terminal ──
-    c.register('find', { title: 'Find', category: 'Terminal', enabled: () => term.caps.search && !!pane(),
-        run: (a) => app.find(a.query) });
-    c.register('clearScrollback', { title: 'Clear scrollback', category: 'Terminal', enabled: () => !!pane(),
-        run: () => term.clearScrollback(pane().el) });
-    c.register('scrollUp', { title: 'Scroll up', category: 'Terminal', palette: false, enabled: () => term.caps.scrollView,
-        run: (a) => term.scrollLines(pane().el, -(a.lines || 3)) });
-    c.register('scrollDown', { title: 'Scroll down', category: 'Terminal', palette: false, enabled: () => term.caps.scrollView,
-        run: (a) => term.scrollLines(pane().el, a.lines || 3) });
+    // ── the terminal (find, scrolling, the clipboard, shell commands) ──
+    registerTerminalActions(app);
     c.register('sendInput', { title: 'Send input', category: 'Terminal', palette: false, enabled: () => !!pane(),
         run: (a) => pane().el.write(String(a.input || '')) });
     c.register('adjustFontSize', { title: 'Adjust font size', category: 'View', palette: false, enabled: () => !!pane(),

@@ -35,16 +35,36 @@ export class Workspace extends Emitter {
         const opts = o || {};
         const launch = profiles.resolve(profile, opts);
         if (opts.commandline && opts.commandline.length) launch.commandline = opts.commandline.slice();
-        const pane = new Pane(launch, this.app.schemeFor(launch.appearance.colorScheme));
+        const pane = new Pane(launch, this.app.schemeFor(launch.appearance.colorScheme), this.app);
+        const att = this.app.attention;
         pane.on('focus', (p) => this._paneFocused(p));
         pane.on('title', (p) => this._paneTitle(p));
-        pane.on('activity', (p) => this._paneAttention(p, 'activity'));
-        pane.on('bell', (p) => this._paneAttention(p, 'bell'));
+        pane.on('activity', (p) => this._paneActivity(p));
+        pane.on('bell', (p, mode) => att.bell(p, mode));
+        pane.on('notification', (p, n) => att.notification(p, n));
+        pane.on('progress', (p) => att.progress(p));
+        pane.on('commandfinish', (p, info) => att.commandFinished(p, info));
         pane.on('exit', (p) => this._paneExited(p));
         pane.on('cwd', () => this.emitChange('cwd'));
         pane.on('restart', () => this.emitChange('restart'));
-        pane.on('notification', (d) => this.app.toast((d.title ? d.title + ': ' : '') + (d.body || d.message || '')));
+        pane.on('searchchange', (p, d) => this.app.findbar.searchChanged(p, d));
+        pane.on('link', (p, link) => { this.app.lastLink = link; });
+        pane.on('clipboardprompt', (p) => this._paneActivity(p));
         return pane;
+    }
+
+    /// The directory a new tab or split starts in when none was asked for:
+    /// with inheritCwd, the one the focused pane's shell last reported
+    /// (shell integration's OSC 7), unless the new profile names its own.
+    inheritedCwd(profileRef, from) {
+        if (!this.app.settings.values.inheritCwd) return null;
+        const src = from || this.activePane();
+        if (!src || !src.reportedCwd) return null;
+        const profiles = this.app.profiles;
+        const p = typeof profileRef === 'string' ? profiles.get(profileRef)
+            : profileRef || profiles.defaultProfile();
+        if (p && profiles.fixedCwd(p)) return null;
+        return host.isDir(src.reportedCwd) ? src.reportedCwd : null;
     }
 
     _paneFocused(pane) {
@@ -62,13 +82,12 @@ export class Workspace extends Emitter {
         if (pane === this.activePane()) this._refreshTitle();
     }
 
-    _paneAttention(pane, kind) {
+    _paneActivity(pane) {
         const tab = this.tabOf(pane);
         if (!tab) return;
-        const seen = tab === this.active;
-        if (kind === 'activity' && (seen || !this.app.settings.values.tabActivity)) { pane.activity = false; return; }
-        if (kind === 'bell' && seen) { pane.bell = false; return; }
-        tab[kind] = true;
+        if (tab === this.active || !this.app.settings.values.tabActivity) { pane.activity = false; return; }
+        if (tab.activity) return;
+        tab.activity = true;
         this.app.tabbar.updateTab(tab);
     }
 
@@ -91,12 +110,15 @@ export class Workspace extends Emitter {
     /// Open a tab. `o`: { profile (name), profileIndex, cwd, commandline,
     /// title, index, activate (default true) }. Returns the tab.
     openTab(o) {
-        const opts = o || {};
+        const opts = { ...(o || {}) };
         let profile = opts.profile || null;
         if (typeof opts.profileIndex === 'number') {
             const p = this.app.profiles.visible()[opts.profileIndex];
             if (!p) return null;
             profile = p;
+        }
+        if (!opts.cwd && opts.inherit !== false && !(opts.commandline && opts.commandline.length)) {
+            opts.cwd = this.inheritedCwd(profile);
         }
         const pane = this.createPane(profile, opts);
         const tab = new Tab(pane);
@@ -121,6 +143,7 @@ export class Workspace extends Emitter {
         if (prev && prev !== tab) this.app.tabbar.updateTab(prev);
         this.app.tabbar.render();
         this._refreshTitle();
+        this.app.attention.refreshTaskbar();
         if (!o || o.focus !== false) {
             const p = tab.focused;
             if (p && !this.app.overlayOpen()) p.focus();
@@ -176,8 +199,9 @@ export class Workspace extends Emitter {
         let cwd = opts.cwd || null;
         if (opts.duplicate !== false && !profile && from) {
             profile = from.profile;
-            if (!cwd) cwd = from.cwd || from.launch.spawn.cwd || null;
+            if (!cwd) cwd = this.inheritedCwd(profile, from) || from.launch.spawn.cwd || null;
         }
+        if (!cwd && from) cwd = this.inheritedCwd(profile, from);
         const pane = this.createPane(profile, { ...opts, cwd });
         tab.split(from, pane, opts.direction || 'auto', opts.ratio);
         pane.start();
@@ -294,17 +318,19 @@ export class Workspace extends Emitter {
             const fresh = this.app.profiles.get(pane.profile.name) || pane.profile;
             const r = this.app.profiles.resolve(fresh, {});
             pane.launch.profile = fresh;
-            pane.applyAppearance(r.appearance, this.app.schemeFor(r.appearance.colorScheme));
+            pane.applyAppearance(r.appearance, this.app.schemeFor(r.appearance.colorScheme), r.behaviour);
         }
         this.app.applyChrome();
         this.app.tabbar.render();
     }
 
-    poll() {
-        const watchActivity = !!this.app.settings.values.tabActivity;
+    /// Activity in background tabs: the one thing still polled, because the
+    /// element has no output event yet (term/adapter.js caps.outputEvent).
+    pollActivity() {
+        if (!this.app.settings.values.tabActivity) return;
         for (const tab of this.tabs) {
-            const visible = tab === this.active;
-            for (const p of tab.panes()) p.poll(watchActivity && !visible);
+            if (tab === this.active) continue;
+            for (const p of tab.panes()) p.pollActivity();
         }
     }
 

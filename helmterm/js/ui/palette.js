@@ -1,10 +1,12 @@
 // The command palette: one fuzzy search over every command, every profile
-// (new tab / split with it), every open tab and every colour scheme.
+// (new tab / split with it), every open tab, the active pane's recent shell
+// commands (run again) and every colour scheme.
 
 import { fuzzyFilter } from '../core/fuzzy.js';
 import { displayKey } from '../core/keys.js';
+import { recentCommandItems } from '../actions_terminal.js';
 
-const MAX_ROWS = 60;
+const MAX_ROWS = 250;
 
 export class Palette {
     constructor(app) {
@@ -38,6 +40,7 @@ export class Palette {
             out.push({ id: 'tab:' + t.id, label: 'Switch to tab: ' + t.title, detail: String(i + 1),
                 run: () => app.workspace.activate(t) });
         });
+        out.push(...recentCommandItems(app));
         for (const s of app.schemes.list) {
             out.push({ id: 'scheme:' + s.name, label: 'Color scheme: ' + s.name,
                 run: () => app.commands.run('setColorScheme', { name: s.name }) });

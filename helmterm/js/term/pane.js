@@ -1,19 +1,28 @@
 // A pane: one <terminal> running one profile's process, with the frame
-// around it (padding, the exit banner, the bell flash).
+// around it: the exit banner, the bell flash, the scrollbar and command
+// marks (PaneChrome), the clipboard prompt and paste guard (PaneGuard).
 //
-// A <terminal> runs one process in its life, so restarting a pane replaces
-// its element with a fresh one in the same place.
+// The element tells the pane what happens by events (titles, directories,
+// the bell, notifications, progress, OSC 52, OSC 133 marks, links, scrolling,
+// search). A <terminal> runs one process in its life, so restarting a pane
+// replaces its element with a fresh one in the same place.
 
 import { Emitter } from '../core/emitter.js';
 import * as term from './adapter.js';
+import { resolveTitle } from './titles.js';
+import { CommandLog } from './command_log.js';
+import { PaneChrome } from './pane_chrome.js';
+import { PaneGuard } from './pane_guard.js';
 
 let nextId = 1;
 
 export class Pane extends Emitter {
-    /// `launch` is ProfileSet.resolve()'s answer; `scheme` the colour scheme.
-    constructor(launch, scheme) {
+    /// `launch` is ProfileSet.resolve()'s answer; `scheme` the colour scheme;
+    /// `app` the application (settings, overlays, the clipboard).
+    constructor(launch, scheme, app) {
         super();
         this.id = nextId++;
+        this.app = app || null;
         this.launch = launch;
         this.scheme = scheme;
         this.fontDelta = 0;
@@ -25,6 +34,9 @@ export class Pane extends Emitter {
         this.startError = null;
         this.activity = false;
         this.bell = false;
+        this.notified = false;       // a notification arrived while unseen
+        this.progress = null;        // { state, value } from OSC 9;4
+        this.titleState = { programTitle: '', programTitleAt: 0, foreground: null, foregroundAt: 0 };
         this._stamp = '';
 
         this.root = document.createElement('div');
@@ -33,28 +45,52 @@ export class Pane extends Emitter {
         this.banner = document.createElement('div');
         this.banner.className = 'pane-banner';
         this.root.appendChild(this.banner);
+        this.chrome = new PaneChrome(this);
+        this.guard = new PaneGuard(this);
         this._newElement();
     }
 
     get profile() { return this.launch.profile; }
+    get behaviour() { return this.launch.behaviour || {}; }
 
     _newElement() {
         if (this.el) this.el.remove();
         const el = term.create();
         this.el = el;
-        this.root.insertBefore(el, this.banner);
+        this.commandLog = new CommandLog();
+        this.commandLog.on('finish', (info) => this.emit('commandfinish', this, info));
+        this.commandLog.on('change', () => this.chrome.update());
+        this.root.insertBefore(el, this.root.firstChild);
         term.watch(el, {
-            title: () => this._titleMaybeChanged(),
-            cwd: () => this._cwdMaybeChanged(),
+            titlechange: (e) => this._programTitle(e.detail && e.detail.title),
+            cwdchange: (e) => this._cwdChanged(e.detail && e.detail.cwd),
             bell: () => this.ring(),
+            notification: (e) => this._notification(e.detail || {}),
+            progress: (e) => this._progress(e.detail || {}),
+            promptmark: (e) => this.commandLog.mark(el, e.detail),
+            scroll: (e) => { this.chrome.update(e.detail); this._output(); },
+            searchchange: (e) => this.emit('searchchange', this, e.detail || {}),
+            linkactivate: (e) => this._link(e),
+            clipboardread: (e) => this.guard.clipboardRead(e),
+            clipboardwrite: (e) => this.guard.clipboardWrite(e),
+            paste: (e) => this.guard.paste(e),
+            foreground: () => this._foreground(),
             output: () => this._output(),
-            notification: (e) => this.emit('notification', e.detail || {}),
-            prompt: (e) => this._prompt(e),
+            resize: () => this.chrome.update(),
             exit: (e) => this._exit(e),
             focus: () => this.emit('focus', this),
             keydown: (e) => this._keydown(e),
         });
+        this.chrome.attach(el);
         this.applyAppearance(this.launch.appearance, this.scheme);
+    }
+
+    /// The spawn() options: the launch spec, persistent where the element
+    /// can keep a session alive (bro T2b) and settings ask for it.
+    _spawnOptions() {
+        const s = { ...this.launch.spawn };
+        if (term.caps.persistent && this.app && this.app.settings.values.persistentSessions) s.persistent = true;
+        return s;
     }
 
     /// Start the process. False (and a banner saying why) when it could not.
@@ -65,7 +101,7 @@ export class Pane extends Emitter {
         this.root.classList.remove('exited');
         this.banner.textContent = '';
         try {
-            this.pid = this.el.spawn(this.launch.spawn);
+            this.pid = this.el.spawn(this._spawnOptions());
             return true;
         } catch (e) {
             this.startError = (e && e.message) || String(e);
@@ -84,8 +120,11 @@ export class Pane extends Emitter {
         return ok;
     }
 
-    applyAppearance(appearance, scheme) {
+    /// Fonts, colours, cursor and padding, and the element's behaviour
+    /// switches (`behaviour`, when given).
+    applyAppearance(appearance, scheme, behaviour) {
         this.launch.appearance = appearance;
+        if (behaviour) this.launch.behaviour = behaviour;
         if (scheme) this.scheme = scheme;
         const a = appearance;
         const el = this.el;
@@ -100,10 +139,13 @@ export class Pane extends Emitter {
             el.style.backgroundColor = this.scheme.background;
             el.style.color = this.scheme.foreground;
             this.root.style.backgroundColor = this.scheme.background;
-            term.applyPalette(el, this.scheme);
+            term.applyTheme(el, this.scheme);
         }
         term.applyCursor(el, a.cursorStyle || 'block', a.cursorBlink !== false);
         term.applyScrollback(el, Number(a.scrollback) || 0);
+        term.applyOptions(el, this.behaviour);
+        this.chrome.configure(this.app ? this.app.settings.values : {});
+        this._refreshTitle();
     }
 
     adjustFont(delta) {
@@ -117,53 +159,60 @@ export class Pane extends Emitter {
         try { return !!this.el.running; } catch (e) { return false; }
     }
 
-    /// The pane's title: the user's, else the program's, else the profile's.
+    /// The pane's title (term/titles.js has the rules).
     get title() {
-        return this.userTitle || term.title(this.el) || this.profile.name;
+        return resolveTitle({
+            userTitle: this.userTitle,
+            profile: this.profile,
+            command: this.launch.spawn.command,
+            ...this.titleState,
+        });
     }
 
-    get cwd() {
-        return term.cwd(this.el) || this.lastCwd;
-    }
+    /// The directory the shell last reported (OSC 7), else null.
+    get reportedCwd() { return this.lastCwd; }
+
+    get cwd() { return this.lastCwd || term.cwd(this.el); }
+
+    /// The shell is waiting at its prompt (OSC 133), or nothing says
+    /// otherwise: 'prompt' | 'running' | 'unknown'.
+    get shellState() { return this.commandLog.state; }
+
+    get busy() { return this.commandLog.state === 'running' ? true : this.commandLog.integrated ? false : undefined; }
 
     focus() { this.el.focus(); }
 
     hasFocus() { return document.activeElement === this.el; }
 
-    /// Called by the application's poll (where the element has no event for
-    /// it): titles, and output in panes nobody is looking at.
-    poll(watchActivity) {
-        if (!term.caps.titleEvent) this._titleMaybeChanged();
-        if (!term.caps.cwdEvent) this._cwdMaybeChanged();
-        if (watchActivity && !term.caps.outputEvent && !this.exited) {
-            const stamp = term.screenStamp(this.el);
-            if (this._stamp && stamp !== this._stamp) this._output();
-            this._stamp = stamp;
-        } else {
-            this._stamp = '';
-        }
+    /// The workspace's activity poll for panes nobody is looking at: the
+    /// element has no output event yet, so a fingerprint of the screen.
+    pollActivity() {
+        if (term.caps.outputEvent || this.exited) { this._stamp = ''; return; }
+        let text = '';
+        try { text = this.el.screenText(); } catch (e) { return; }
+        let h = 0;
+        for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) | 0;
+        const stamp = text.length + ':' + h;
+        if (this._stamp && stamp !== this._stamp) this._output();
+        this._stamp = stamp;
     }
 
     markSeen() {
         this.activity = false;
         this.bell = false;
+        this.notified = false;
         this._stamp = '';
     }
 
     ring() {
+        const mode = this.behaviour.bell || 'visual';
+        if (mode === 'none') return;
         this.bell = true;
-        this.root.classList.add('bell');
-        setTimeout(() => this.root.classList.remove('bell'), 180);
-        this.emit('bell', this);
-    }
-
-    // OSC 133 prompt marks: A prompt start, B command start (input), C command
-    // executing, D command finished. Between C and D the shell is busy.
-    _prompt(e) {
-        const d = (e && e.detail) || {};
-        const kind = String(d.kind || d.type || d.mark || '').toUpperCase();
-        if (kind === 'C' || kind === 'EXECUTING' || kind === 'COMMAND-START') this.busy = true;
-        else if (kind === 'A' || kind === 'D' || kind === 'PROMPT' || kind === 'COMMAND-END') this.busy = false;
+        if (mode === 'visual' || mode === 'both') {
+            this.root.classList.add('bell');
+            setTimeout(() => this.root.classList.remove('bell'), 180);
+        }
+        this.emit('bell', this, mode);
     }
 
     _output() {
@@ -171,26 +220,62 @@ export class Pane extends Emitter {
         this.emit('activity', this);
     }
 
-    _titleMaybeChanged() {
-        const t = term.title(this.el);
+    _programTitle(t) {
+        const title = typeof t === 'string' ? t : term.title(this.el);
+        this.titleState.programTitle = title;
+        this.titleState.programTitleAt = Date.now();
+        this._refreshTitle();
+    }
+
+    _foreground() {
+        this.titleState.foreground = term.foreground(this.el);
+        this.titleState.foregroundAt = Date.now();
+        this._refreshTitle();
+        this.emit('foreground', this);
+    }
+
+    _refreshTitle() {
+        const t = this.title;
         if (t !== this.lastTitle) {
             this.lastTitle = t;
             this.emit('title', this);
         }
     }
 
-    _cwdMaybeChanged() {
-        const c = term.cwd(this.el);
+    _cwdChanged(raw) {
+        const c = term.uriToPath(raw || '', process.platform) || term.cwd(this.el);
         if (c && c !== this.lastCwd) {
             this.lastCwd = c;
             this.emit('cwd', this);
         }
     }
 
+    _notification(d) {
+        this.notified = true;
+        this.emit('notification', this, {
+            title: String(d.title || ''), body: String(d.body || d.message || ''),
+            id: d.id || '', source: d.source || '', urgency: d.urgency,
+        });
+    }
+
+    _progress(d) {
+        const state = d.state || 'none';
+        const value = Math.max(0, Math.min(100, Number(d.value) || 0));
+        this.progress = state === 'none' ? null : { state, value };
+        this.emit('progress', this);
+    }
+
+    _link(e) {
+        const d = e.detail || {};
+        this.lastLink = { uri: d.uri, kind: d.kind, text: d.text };
+        this.emit('link', this, this.lastLink, e);
+    }
+
     _exit(e) {
         this.exited = true;
         this.exitCode = e && e.detail ? e.detail.exitCode : this.el.exitCode;
         this.root.classList.add('exited');
+        this.guard.dismissAll();
         const code = this.exitCode === null || this.exitCode === undefined ? '' : ' with code ' + this.exitCode;
         this._showBanner('Process exited' + code + '. Enter restarts, Ctrl+Shift+W closes.');
         this.emit('exit', this);
@@ -211,9 +296,33 @@ export class Pane extends Emitter {
         }
     }
 
+    // ── commands (OSC 133) ──
+
+    commands() { return term.commands(this.el); }
+
+    /// The last finished command, or the one at `row`.
+    command(row) {
+        const list = this.commands();
+        if (typeof row === 'number') {
+            let best = null;
+            for (const c of list) { if (c.prompt.row <= row) best = c; else break; }
+            return best;
+        }
+        for (let i = list.length - 1; i >= 0; i--) if (list[i].finished) return list[i];
+        return null;
+    }
+
+    /// Run a command line again (at the prompt, as if typed).
+    run(commandLine) {
+        if (!commandLine || this.exited) return false;
+        try { this.el.scrollToBottom(); } catch (e) { /* older element */ }
+        return this.el.write(commandLine + '\r');
+    }
+
     /// Stop the process (if any) and take the pane out of the document.
     dispose() {
         try { if (this.running) this.el.kill(); } catch (e) { /* already gone */ }
+        this.guard.dismissAll();
         this.root.remove();
         this.emit('dispose', this);
     }

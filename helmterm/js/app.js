@@ -16,7 +16,9 @@ import { Overlays } from './ui/overlays.js';
 import { Palette } from './ui/palette.js';
 import { SettingsUI } from './ui/settings_ui.js';
 import { FindBar } from './ui/findbar.js';
+import { Attention } from './ui/attention.js';
 import { registerActions } from './actions.js';
+import * as term from './term/adapter.js';
 
 export class App {
     constructor() {
@@ -32,6 +34,9 @@ export class App {
 
         this.overlays = new Overlays(this, document.getElementById('overlay-root'));
         this.dialog = this.overlays;
+        this.attention = new Attention(this);
+        this.lastLink = null;      // the last link a Ctrl+click activated
+        this.lastCopied = null;    // the last text broterm itself copied
         this.workspace = new Workspace(this, document.getElementById('workspace'));
         this.tabbar = new TabBar(this, document.getElementById('tabbar'));
         this.palette = new Palette(this);
@@ -44,7 +49,9 @@ export class App {
         this.settings.on('error', (errs) => this.toast(errs.join('\n'), 'error'));
         this.workspace.on('change', () => this.session.save());
         window.addEventListener('keydown', (e) => this.onKeyDown(e), true);
-        this._poll = setInterval(() => this.workspace.poll(), 300);
+        // Titles, directories, the bell and the rest arrive as events; only
+        // background activity is polled (the element has no output event).
+        this._poll = setInterval(() => this.workspace.pollActivity(), 500);
         this.applyChrome();
         this.settings.watch();
     }
@@ -87,6 +94,18 @@ export class App {
         this.workspace.applySettings();
     }
 
+    /// Set one key on a profile in settings.json (an override of a detected
+    /// profile, or the user profile itself). undefined removes it.
+    setProfileSetting(name, key, value) {
+        return this.settings.update((obj) => {
+            if (!obj.profiles || typeof obj.profiles !== 'object') obj.profiles = {};
+            if (!Array.isArray(obj.profiles.list)) obj.profiles.list = [];
+            let e = obj.profiles.list.find((x) => x && x.name === name);
+            if (!e) { e = { name }; obj.profiles.list.push(e); }
+            if (value === undefined) delete e[key]; else e[key] = value;
+        });
+    }
+
     schemeFor(name) {
         return this.schemes.byName.get(name) || this.schemes.byName.get(this.settings.values.colorScheme) || BUILTIN_SCHEMES[0];
     }
@@ -106,8 +125,13 @@ export class App {
         const a = document.activeElement;
         const ov = this.overlays.current;
         const tab = this.workspace.active;
+        const pane = this.workspace.activePane();
+        const v = pane ? term.viewport(pane.el) : null;
         return {
             terminalFocus: !!a && a.tagName === 'TERMINAL',
+            altScreen: !!v && !!v.altScreen,
+            findActive: this.findbar.open,
+            shellIntegration: !!pane && pane.commandLog.integrated,
             textInputFocus: !!a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT'),
             overlayOpen: !!ov,
             paletteOpen: !!ov && ov.kind === 'palette',
