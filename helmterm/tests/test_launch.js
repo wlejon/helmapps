@@ -2,7 +2,7 @@
 // args...]) and closing with something still running (the in-app
 // confirmation, never a native dialog).
 
-import { app, waitFor, eq, press, settle, clickEl, CHILD, childAvailable, requireApp, reportPath,
+import { app, waitFor, eq, press, mod, settle, clickEl, CHILD, childAvailable, requireApp, reportPath,
          readReport, writeSettings, childProfile, configDir } from './lib/harness.js';
 import { parseArgs } from '../ui/js/core/cli.js';
 
@@ -48,13 +48,13 @@ if (requireApp() && !childAvailable()) {
     // ── closing with something running ──
     const childTab = ws.tabs.find((t) => t.focused.profile.name === 'Child CLI');
     ws.activate(childTab);
-    press('ctrl+shift+w');
+    press(mod + '+shift+w');
     assert(app.overlays.isOpen('dialog'), 'closing a running program asks first');
     assert(document.querySelector('.dialog').textContent.includes('still running'), 'and says why');
     clickEl(document.getElementById('dialog-cancel'));
     assert(!app.overlays.isOpen(), 'Cancel closes the question');
     assert(ws.tabs.includes(childTab) && childTab.focused.running, '... and keeps the pane');
-    press('ctrl+shift+w');
+    press(mod + '+shift+w');
     clickEl(document.getElementById('dialog-confirm'));
     waitFor(() => !ws.tabs.includes(childTab), 'Close to close it');
 

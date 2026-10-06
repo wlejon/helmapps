@@ -1,7 +1,7 @@
 // Settings: settings.json is watched and reloaded live, a broken file keeps
 // the last good settings and says why, and the settings UI edits the file.
 
-import { app, waitFor, eq, press, settle, clickEl, requireApp, writeSettings, configDir } from './lib/harness.js';
+import { app, waitFor, eq, press, mod, settle, clickEl, requireApp, writeSettings, configDir } from './lib/harness.js';
 import * as term from '../ui/js/term/adapter.js';
 
 const fs = require('fs');
@@ -60,7 +60,7 @@ if (requireApp()) {
     eq(pane.scheme.blue, app.schemes.byName.get('Tokyo Night').blue, 'missing colours come from the base scheme');
 
     // ── the settings UI ──
-    press('ctrl+,');
+    press(mod + '+,');
     assert(app.settingsUI.open, 'ctrl+, opens the settings');
     assert(document.querySelector('.settings'), 'the settings panel is in the document');
 

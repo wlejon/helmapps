@@ -46,6 +46,7 @@ __broterm_cwd() {
 # First in PROMPT_COMMAND: the exit status, before anything else changes it.
 __broterm_precmd() {
     local __broterm_status=$?
+    __broterm_in_prompt=1
     if [ "$__broterm_ran" = 1 ]; then
         printf '\033]133;D;%s\007' "$__broterm_status"
     fi
@@ -63,6 +64,7 @@ __broterm_ps1() {
         *'133;A'*) ;;
         *) PS1='\[\033]133;A\007\]'"$PS1"'\[\033]133;B\007\]' ;;
     esac
+    __broterm_in_prompt=0
     return $__broterm_status
 }
 
@@ -73,8 +75,18 @@ else
     PROMPT_COMMAND="__broterm_precmd${PROMPT_COMMAND:+; $PROMPT_COMMAND}; __broterm_ps1"
 fi
 
-# PS0 is printed after a command is read and before it runs (bash 4.4+). The
-# array subscript is arithmetic, evaluated in this shell: it records that a
-# command ran, without a subshell and without printing anything.
-PS0='${__broterm_noop[__broterm_ran=1]}\033]133;C\007'"${PS0-}"
+# PS0 is printed after a command is read and before it runs (bash 4.4+).
+# On older bash (e.g. bash 3.2 on macOS), fall back to a DEBUG trap.
+if [ "${BASH_VERSINFO[0]:-0}" -lt 4 ] || ([ "${BASH_VERSINFO[0]:-0}" -eq 4 ] && [ "${BASH_VERSINFO[1]:-0}" -lt 4 ]); then
+    __broterm_preexec() {
+        if [ "${__broterm_in_prompt:-0}" = 1 ]; then return; fi
+        if [ "$__broterm_ran" = 0 ]; then
+            __broterm_ran=1
+            printf '\033]133;C\007'
+        fi
+    }
+    trap '__broterm_preexec' DEBUG
+else
+    PS0='${__broterm_noop[__broterm_ran=1]}\033]133;C\007'"${PS0-}"
+fi
 fi

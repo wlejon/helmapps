@@ -1,7 +1,7 @@
 // The command palette and the new-tab menu: fuzzy search over commands,
 // profiles, tabs and schemes, keyboard navigation, and running the choice.
 
-import { app, waitFor, eq, press, type, settle, clickEl, requireApp } from './lib/harness.js';
+import { app, waitFor, eq, press, mod, type, settle, clickEl, requireApp } from './lib/harness.js';
 import { fuzzyMatch, fuzzyFilter } from '../ui/js/core/fuzzy.js';
 
 // ── the matcher (pure) ──
@@ -16,7 +16,7 @@ if (requireApp()) {
     waitFor(() => ws.activePane() && ws.activePane().running, 'the first shell');
 
     // Open by key; the input has the focus.
-    press('ctrl+shift+p');
+    press(mod + '+shift+p');
     assert(app.palette.open, 'ctrl+shift+p opens the palette');
     const input = document.querySelector('.palette-input');
     assert(input && document.activeElement === input, 'the query box has the focus');
@@ -41,7 +41,7 @@ if (requireApp()) {
     eq(tab.shape(), 'row(P,P)', 'and ran Split right');
 
     // Arrow keys move the selection.
-    press('ctrl+shift+p');
+    press(mod + '+shift+p');
     type('tab');
     advanceTime(16);
     const first = app.palette.index;
@@ -55,7 +55,7 @@ if (requireApp()) {
     assert(!app.palette.open, 'Escape closes without running anything');
 
     // A scheme entry changes the setting.
-    press('ctrl+shift+p');
+    press(mod + '+shift+p');
     type('scheme nord');
     advanceTime(16);
     eq(app.palette.labels()[0], 'Color scheme: Nord', 'the scheme entry');
@@ -66,14 +66,14 @@ if (requireApp()) {
     ws.openTab({});
     app.commands.run('renameTab', { title: 'palette target' });
     ws.activateIndex(0);
-    press('ctrl+shift+p');
+    press(mod + '+shift+p');
     type('palette target');
     advanceTime(16);
     clickEl(document.querySelectorAll('.palette-row')[0]);
     eq(ws.active.title, 'palette target', 'clicking "Switch to tab" switched');
 
     // Nothing matches: says so.
-    press('ctrl+shift+p');
+    press(mod + '+shift+p');
     type('qqqqzzzz');
     advanceTime(16);
     assert(document.querySelector('.palette-empty'), 'an empty result says so');

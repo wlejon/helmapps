@@ -2,7 +2,7 @@
 // (by command and by double-click), per-tab titles from the terminal, and the
 // activity and bell marks on tabs in the background.
 
-import { app, waitFor, settle, eq, press, clickEl, CHILD, childAvailable, requireApp } from './lib/harness.js';
+import { app, waitFor, settle, eq, press, mod, clickEl, CHILD, childAvailable, requireApp } from './lib/harness.js';
 
 if (requireApp()) {
     const ws = app.workspace;
@@ -11,14 +11,14 @@ if (requireApp()) {
 
     // New tabs by command and by key.
     app.commands.run('newTab');
-    press('ctrl+shift+t');
+    press(mod + '+shift+t');
     eq(ws.tabs.length, 3, 'three tabs');
     eq(ws.tabs.indexOf(ws.active), 2, 'the newest tab is active');
     eq(document.querySelectorAll('#tabs .tab').length, 3, 'three tabs in the strip');
     assert(document.querySelector('.tab-content.active') === ws.active.el, 'the active tab\'s content is shown');
 
     // Switch.
-    press('ctrl+alt+1');
+    press(mod + '+alt+1');
     eq(ws.tabs.indexOf(ws.active), 0, 'ctrl+alt+1 selects the first tab');
     press('ctrl+tab');
     eq(ws.tabs.indexOf(ws.active), 1, 'ctrl+tab goes to the next');

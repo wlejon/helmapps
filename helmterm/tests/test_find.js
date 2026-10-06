@@ -4,7 +4,7 @@
 // matching, a bad regex says so, and Escape closes the bar and clears the
 // highlights.
 
-import { app, waitFor, eq, press, type, clickEl, CHILD, childAvailable, requireApp, writeSettings } from './lib/harness.js';
+import { app, waitFor, eq, press, mod, type, clickEl, CHILD, childAvailable, requireApp, writeSettings } from './lib/harness.js';
 
 if (requireApp() && !childAvailable()) {
     skipTest('broterm-testchild is not built beside the headless binary');
@@ -19,7 +19,7 @@ if (requireApp() && !childAvailable()) {
     waitFor(() => el.screenText().includes('error 7'), 'the text to search');
     pane.focus();
 
-    press('ctrl+shift+f');
+    press(mod + '+shift+f');
     const bar = () => document.querySelector('.findbar');
     assert(bar() && app.findbar.open, 'Ctrl+Shift+F opens the find bar');
     const input = bar().querySelector('.find-input');

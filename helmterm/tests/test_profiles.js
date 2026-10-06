@@ -3,7 +3,7 @@
 // opened. The detected shells are there, hidden profiles stay out of the
 // menus, and the exit behaviour follows closeOnExit.
 
-import { app, waitFor, eq, press, settle, CHILD, childAvailable, requireApp, reportPath, readReport,
+import { app, waitFor, eq, press, mod, settle, CHILD, childAvailable, requireApp, reportPath, readReport,
          writeSettings, childProfile, configDir } from './lib/harness.js';
 
 const fs = require('fs');
@@ -92,7 +92,7 @@ if (requireApp() && !childAvailable()) {
     // The same through ctrl+shift+<n>, the profile's position in the menu.
     const idx = app.profiles.visible().findIndex((p) => p.name === 'Child A');
     if (idx < 9) {
-        r = launchAndReport(repA, () => press('ctrl+shift+' + (idx + 1)));
+        r = launchAndReport(repA, () => press(mod + '+shift+' + (idx + 1)));
         expectA(r.data, 'ctrl+shift+' + (idx + 1));
     }
 
@@ -116,7 +116,7 @@ if (requireApp() && !childAvailable()) {
 
     // defaultProfile decides what a plain new tab runs.
     app.settings.set('defaultProfile', 'Child Default');
-    r = launchAndReport(repDefault, () => press('ctrl+shift+t'));
+    r = launchAndReport(repDefault, () => press(mod + '+shift+t'));
     eq(r.data.argv, [], 'the default profile ran with no arguments');
     eq(ws.activePane().profile.name, 'Child Default', 'ctrl+shift+t opened the default profile');
 

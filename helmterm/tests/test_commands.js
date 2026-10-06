@@ -7,7 +7,7 @@
 // on the track; a command mark opens a menu; a long command finishing in a
 // tab you are not looking at notifies.
 
-import { app, waitFor, settle, eq, press, clickEl, CHILD, requireApp, writeSettings } from './lib/harness.js';
+import { app, waitFor, settle, eq, press, mod, clickEl, CHILD, requireApp, writeSettings } from './lib/harness.js';
 import { shellProfiles, makeHome, homeEnv, script, run, waitPrompt, finished, norm } from './lib/shells.js';
 
 const fs = require('fs');
@@ -69,7 +69,7 @@ function check(profile, kind) {
 
         // ── copy output, copy the command line, run again ──
         const three = run(pane, s.lines(3), 'three lines');
-        press('ctrl+shift+o');
+        press(mod + '+shift+o');
         eq(tidy(app.lastCopied).split('\n'), ['line 1', 'line 2', 'line 3'], 'Ctrl+Shift+O copies the last command\'s output');
         eq(app.host.clipboard.local, app.lastCopied, 'to the clipboard');
         assert(app.commands.run('copyCommandLine'), 'copy the command line');
@@ -103,17 +103,17 @@ function check(profile, kind) {
         const thumbAtBottom = sb.querySelector('.sb-thumb').getBoundingClientRect();
 
         // Prompt to prompt.
-        press('ctrl+up');
+        press(mod + '+up');
         frame();
         const v1 = pane.el.viewport;
         assert(!v1.atBottom, 'Ctrl+Up scrolls back');
         const prompts = pane.commands().map((c) => c.prompt.row);
         assert(prompts.includes(v1.topRow), 'to a prompt: top ' + v1.topRow + ' of ' + JSON.stringify(prompts));
-        press('ctrl+up');
+        press(mod + '+up');
         frame();
         const v2 = pane.el.viewport;
         assert(v2.topRow < v1.topRow && prompts.includes(v2.topRow), 'and to the one before');
-        press('ctrl+down');
+        press(mod + '+down');
         frame();
         eq(pane.el.viewport.topRow, v1.topRow, 'Ctrl+Down goes forward again');
         const thumbUp = sb.querySelector('.sb-thumb').getBoundingClientRect();

@@ -70,7 +70,8 @@ export function writeKeybindings(list) {
 
 // ── keys, as SDL delivers them ──
 
-const MOD = { shift: 0x0001, ctrl: 0x0040, alt: 0x0100, meta: 0x0400 };
+export const mod = process.platform === 'darwin' ? 'cmd' : 'ctrl';
+const MOD = { shift: 0x0001, ctrl: 0x0040, alt: 0x0100, meta: 0x0400, cmd: 0x0400 };
 const SPECIAL = {
     enter: [13, 40], escape: [27, 41], backspace: [8, 42], tab: [9, 43], space: [32, 44],
     right: [0x4000004f, 79], left: [0x40000050, 80], down: [0x40000051, 81], up: [0x40000052, 82],

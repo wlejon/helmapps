@@ -2,7 +2,7 @@
 // "-command" removals, chords, when clauses), bound keys kept from the
 // program in the pane, and recording a binding in the settings UI.
 
-import { app, waitFor, eq, press, type, settle, clickEl, CHILD, childAvailable, requireApp,
+import { app, waitFor, eq, press, mod, type, settle, clickEl, CHILD, childAvailable, requireApp,
          writeKeybindings } from './lib/harness.js';
 import { normalizePress, parseKeySequence, compileWhen, Keymap } from '../ui/js/core/keys.js';
 
@@ -41,7 +41,7 @@ if (requireApp()) {
 
     writeKeybindings([
         { key: 'ctrl+shift+e', command: 'splitPane', args: { direction: 'right' } },
-        { key: 'ctrl+shift+t', command: '-newTab' },
+        { key: mod + '+shift+t', command: '-newTab' },
         { key: 'ctrl+k ctrl+n', command: 'newTab' },
         { key: 'ctrl+shift+y', command: 'renameTab', args: { title: 'renamed by key' }, when: 'terminalFocus' },
         { key: 'ctrl+shift+u', command: 'renameTab', args: { title: 'never' }, when: 'paletteOpen' },
@@ -51,13 +51,13 @@ if (requireApp()) {
     const tab = ws.active;
     press('ctrl+shift+e');
     eq(tab.shape(), 'row(P,P)', 'ctrl+shift+e (user binding) split the pane');
-    press('ctrl+shift+w');
+    press(mod + '+shift+w');
     waitFor(() => tab.shape() === 'P', 'closing it again');
 
-    // A removed default: ctrl+shift+t no longer opens a tab.
+    // A removed default: mod+shift+t no longer opens a tab.
     const n = ws.tabs.length;
-    press('ctrl+shift+t');
-    eq(ws.tabs.length, n, '-newTab removed ctrl+shift+t');
+    press(mod + '+shift+t');
+    eq(ws.tabs.length, n, '-newTab removed ' + mod + '+shift+t');
     // The default remains on the palette's other keys.
     eq(app.keymap.keyFor('newTab'), 'ctrl+k ctrl+n', 'newTab is now on the chord');
 

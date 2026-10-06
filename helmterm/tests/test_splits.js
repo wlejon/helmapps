@@ -2,7 +2,7 @@
 // grid following each pane's share, focus moving by direction, resizing by
 // key and by dragging a divider, zoom, and closing a pane folding its split.
 
-import { app, waitFor, eq, press, settle, clickEl, requireApp } from './lib/harness.js';
+import { app, waitFor, eq, press, mod, settle, clickEl, requireApp } from './lib/harness.js';
 
 function rect(el) { return el.getBoundingClientRect(); }
 
@@ -72,18 +72,18 @@ if (requireApp()) {
 
     // Zoom the focused pane over the whole tab, and back.
     ws.focusPane(right);
-    press('ctrl+shift+z');
+    press(mod + '+shift+z');
     assert(tab.zoomed === right, 'ctrl+shift+z zooms');
     const z = rect(right.root), t = rect(tab.el);
     assert(Math.abs(z.width - t.width) < 2 && Math.abs(z.height - t.height) < 2, 'the zoomed pane covers the tab');
     assert(getComputedStyle(first.root).visibility === 'hidden', 'the others are hidden');
-    press('ctrl+shift+z');
+    press(mod + '+shift+z');
     assert(!tab.zoomed, 'pressing it again unzooms');
     assert(getComputedStyle(first.root).visibility !== 'hidden', 'everything is visible again');
 
     // Closing a pane folds its split; its sibling takes the space.
     ws.focusPane(bottom);
-    press('ctrl+shift+w');
+    press(mod + '+shift+w');
     waitFor(() => tab.shape() === 'row(P,P)', 'closing the bottom pane');
     assert(!document.body.contains(bottom.el), 'its terminal left the document');
     assert(tab.focused === right, 'focus moved to its sibling');
