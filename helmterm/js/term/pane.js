@@ -78,6 +78,7 @@ export class Pane extends Emitter {
             output: () => this._output(),
             resize: () => this.chrome.update(),
             exit: (e) => this._exit(e),
+            detach: () => this._detached(),
             focus: () => this.emit('focus', this),
             keydown: (e) => this._keydown(e),
         });
@@ -89,8 +90,37 @@ export class Pane extends Emitter {
     /// can keep a session alive (bro T2b) and settings ask for it.
     _spawnOptions() {
         const s = { ...this.launch.spawn };
-        if (term.caps.persistent && this.app && this.app.settings.values.persistentSessions) s.persistent = true;
+        this.server = null;
+        if (this.persistent) {
+            s.persistent = true;
+            s.name = 'broterm: ' + this.profile.name;
+            const server = this.app.settings.values.persistentServer;
+            if (server) { s.server = String(server); this.server = s.server; }
+        }
         return s;
+    }
+
+    /// Whether new processes in this pane run in a bromux session that
+    /// outlives broterm (settings.persistentSessions, where bro has them).
+    get persistent() {
+        return term.caps.persistent && !!this.app && !!this.app.settings.values.persistentSessions;
+    }
+
+    /// The bromux session this pane shows, null for a local process.
+    get sessionId() { return term.sessionId(this.el); }
+
+    /// Attach to the session a saved pane had, when it still runs.
+    _attach(id, server) {
+        if (!term.caps.persistent || !term.sessionRunning(id, server)) return false;
+        try {
+            if (server) this.el.attach(id, server); else this.el.attach(id);
+            this.pid = null;
+            this.server = server || null;
+            return true;
+        } catch (e) {
+            console.error('broterm: cannot attach to session ' + id + ': ' + e.message);
+            return false;
+        }
     }
 
     /// Start the process. False (and a banner saying why) when it could not.
@@ -100,6 +130,13 @@ export class Pane extends Emitter {
         this.startError = null;
         this.root.classList.remove('exited');
         this.banner.textContent = '';
+        const saved = this.launch.session;   // { id, server } from a saved session
+        this.launch.session = null;
+        if (saved && this._attach(saved.id, saved.server)) {
+            this.attached = true;
+            return true;
+        }
+        this.attached = false;
         try {
             this.pid = this.el.spawn(this._spawnOptions());
             return true;
@@ -274,10 +311,24 @@ export class Pane extends Emitter {
     _exit(e) {
         this.exited = true;
         this.exitCode = e && e.detail ? e.detail.exitCode : this.el.exitCode;
+        // A finished session stays on the server until closed.
+        const sid = this.sessionId;
+        if (sid) term.closeSession(sid, this.server);
         this.root.classList.add('exited');
         this.guard.dismissAll();
         const code = this.exitCode === null || this.exitCode === undefined ? '' : ' with code ' + this.exitCode;
         this._showBanner('Process exited' + code + '. Enter restarts, Ctrl+Shift+W closes.');
+        this.emit('exit', this);
+    }
+
+    /// The element let go of its session without broterm asking (the
+    /// server went away): the program may still run, but not here.
+    _detached() {
+        if (this._releasing || this.exited) return;
+        this.exited = true;
+        this.root.classList.add('exited');
+        this.guard.dismissAll();
+        this._showBanner('Detached from the session. Enter starts a new shell, Ctrl+Shift+W closes.');
         this.emit('exit', this);
     }
 
@@ -320,16 +371,38 @@ export class Pane extends Emitter {
     }
 
     /// Stop the process (if any) and take the pane out of the document.
+    /// A persistent session is closed too: closing the pane is the user
+    /// ending it (quitting broterm uses release() instead).
     dispose() {
-        try { if (this.running) this.el.kill(); } catch (e) { /* already gone */ }
+        const sid = this.sessionId;
+        if (sid) { if (!this.released) term.closeSession(sid, this.server); }
+        else { try { if (this.running) this.el.kill(); } catch (e) { /* already gone */ } }
         this.guard.dismissAll();
         this.root.remove();
         this.emit('dispose', this);
     }
 
+    /// Let go of a persistent session and leave its program running (what
+    /// quitting does to it; bro also detaches when the page goes). False
+    /// for a local process.
+    release() {
+        const sid = this.sessionId;
+        if (!sid || this.exited || this.released) return false;
+        this._releasing = true;
+        try { this.el.detach(); } catch (e) { /* already detached */ }
+        this._releasing = false;
+        this.released = true;   // sessionId still names it; it is not ours to close
+        return true;
+    }
+
     /// What session restore needs to bring this pane back.
     snapshot() {
         const s = { profile: this.profile.name };
+        const sid = this.sessionId;
+        if (sid && !this.exited) {
+            s.session = sid;
+            if (this.server) s.server = this.server;
+        }
         const cwd = this.cwd;
         if (cwd) s.cwd = cwd;
         else if (this.launch.spawn.cwd) s.cwd = this.launch.spawn.cwd;

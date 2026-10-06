@@ -72,6 +72,11 @@ export class Session {
                     cwd, title: s.title || null,
                     commandline: Array.isArray(s.commandline) ? s.commandline : null,
                 });
+                // A pane whose shell ran in a bromux session goes back to it
+                // (Pane.start attaches when it still runs, else starts anew).
+                if (typeof s.session === 'number' && s.session > 0) {
+                    pane.launch.session = { id: s.session, server: typeof s.server === 'string' ? s.server : null };
+                }
                 panes.push(pane);
                 return { type: 'pane', pane };
             }

@@ -8,6 +8,7 @@ import { renderProfiles } from './settings_profiles.js';
 import { renderKeybindings } from './settings_keys.js';
 import { renderTerminal } from './settings_terminal.js';
 import { PALETTE_KEYS } from '../core/schemes.js';
+import * as term from '../term/adapter.js';
 
 const PAGES = [
     { id: 'general', label: 'General' },
@@ -116,6 +117,10 @@ export class SettingsUI {
             'A shell waiting at its prompt does not count as running.'));
         s.appendChild(row('Restore tabs at start', checkbox(v.restoreSession, (x) => this.set('restoreSession', x), 'set-restoreSession'),
             'Reopen the previous session\'s tabs, panes and directories.'));
+        if (term.caps.persistent) {
+            s.appendChild(row('Keep shells running after quitting', checkbox(v.persistentSessions, (x) => this.set('persistentSessions', x), 'set-persistentSessions'),
+                'New shells run in a bromux session that outlives broterm; with tabs restored, they come back as you left them. Closing a tab still ends its shell.'));
+        }
         s.appendChild(row('Mark tabs with new output', checkbox(v.tabActivity, (x) => this.set('tabActivity', x), 'set-tabActivity')));
         return s;
     }

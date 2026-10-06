@@ -45,6 +45,8 @@ export const DEFAULT_SETTINGS = {
     closeOnExit: 'graceful',   // always | graceful (exit code 0) | never
     confirmClose: 'running',   // always | running | never
     restoreSession: true,
+    persistentSessions: false, // shells run in bromux sessions that outlive broterm (where bro has them)
+    persistentServer: null,    // the bromux server's name; null = the per-user default
     tabActivity: true,         // mark background tabs that printed
     desktopNotifications: 'unfocused',  // unfocused | always | never
     notifyOnLongCommand: 10,   // seconds; a longer command finishing unseen notifies (0 = off)

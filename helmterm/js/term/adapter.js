@@ -7,9 +7,10 @@
 // The element today (bro's T2a) has events for titles, directories, the bell,
 // notifications, progress, OSC 52, OSC 133 marks, links, scrolling and
 // search; `options` and `theme`; a scrollback view, selection and search.
-// Inline images followed (T2b), with a per-terminal memory quota.
-// What is still feature-detected because it is on its way: persistent
-// (bromux) sessions, the foreground process, and an output/activity event.
+// T2b followed: inline images with a per-terminal memory quota, persistent
+// (bromux) sessions, and the foreground process; each is detected, so an
+// older bro without them still works. Still to come: an output/activity
+// event.
 
 import { normalizeColor } from '../core/schemes.js';
 
@@ -45,7 +46,8 @@ export const caps = {
     images: has('images'),
     // T2b, not on bro's main yet: detected by the shapes it is expected to
     // take, and used only once present.
-    persistent: fn('attach') || fn('detach'),
+    persistent: fn('attach') && fn('detach') && typeof bro !== 'undefined' && !!bro.terminal &&
+        bro.terminal.persistentAvailable === true,
     foreground: has('foregroundProcess') || has('foreground'),
     // No output event yet: activity in background tabs is the one thing
     // still polled (see Workspace.pollActivity).
@@ -135,6 +137,32 @@ export function foreground(el) {
     let name = raw.name || path.split(/[\\/]/).pop() || '';
     name = name.replace(/\.exe$/i, '');
     return { pid: raw.pid || 0, name, path, args: args.map(String) };
+}
+
+// ── persistent (bromux) sessions ──
+
+/// The session an element shows, null for a local process.
+export function sessionId(el) {
+    if (!caps.persistent) return null;
+    const id = safe(() => el.sessionId, null);
+    return typeof id === 'number' && id > 0 ? id : null;
+}
+
+/// The bromux server's sessions ([] when none is running). `server` names
+/// a server; null or empty is the per-user default.
+export function sessions(server) {
+    if (!caps.persistent) return [];
+    return safe(() => (server ? bro.terminal.sessions(server) : bro.terminal.sessions()), []) || [];
+}
+
+export function sessionRunning(id, server) {
+    return !!id && sessions(server).some((s) => s.id === id && s.running);
+}
+
+/// Kill a session's program and drop it from the server.
+export function closeSession(id, server) {
+    if (!caps.persistent || !id) return false;
+    return !!safe(() => (server ? bro.terminal.closeSession(id, server) : bro.terminal.closeSession(id)), false);
 }
 
 // ── appearance ──

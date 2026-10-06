@@ -226,7 +226,11 @@ export class App {
     }
 
     async requestQuit() {
-        if (this.workspace.needsConfirm(this.workspace.allPanes())) {
+        // Shells in persistent sessions keep running and come back at the
+        // next start, so quitting does not end them.
+        const keep = this.settings.values.restoreSession;
+        const ending = this.workspace.allPanes().filter((p) => !(keep && p.sessionId));
+        if (this.workspace.needsConfirm(ending)) {
             const ok = await this.overlays.confirm({ title: 'Quit broterm?', message: 'Processes are still running in some panes.', confirm: 'Quit' });
             if (!ok) return false;
         }
@@ -244,6 +248,13 @@ export class App {
 
     quit() {
         this.quitRequested = true;
+        // Persistent sessions: kept for the restored session, else closed
+        // (nothing would ever reattach to them).
+        for (const p of this.workspace.allPanes()) {
+            if (!p.sessionId) continue;
+            if (this.settings.values.restoreSession) p.release();
+            else p.dispose();
+        }
         // Headless, the driving script decides when the process ends.
         if (host.quit()) this.settings.close();
         else this.toast('Every tab is closed.');
