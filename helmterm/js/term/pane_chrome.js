@@ -208,12 +208,31 @@ export class PaneChrome {
 
     // ── links ──
 
+    /// At most one link lookup per 40 ms, but always one for where the
+    /// pointer came to rest: a move inside the window is looked up when the
+    /// window ends.
     _hover(e) {
         if (!term.caps.links || !this.el) return;
+        this._hoverAt = [e.clientX, e.clientY];
         const now = Date.now();
-        if (this._lastHover && now - this._lastHover < 40 && !this._hintShown) return;
-        this._lastHover = now;
-        const cell = term.cellAt(this.el, e.clientX, e.clientY);
+        const wait = this._lastHover ? 40 - (now - this._lastHover) : 0;
+        if (wait > 0 && !this._hintShown) {
+            if (!this._hoverTimer) {
+                this._hoverTimer = setTimeout(() => {
+                    this._hoverTimer = null;
+                    this._lookup();
+                }, wait);
+            }
+            return;
+        }
+        this._lookup();
+    }
+
+    _lookup() {
+        if (!this._hoverAt || !this.el) return;
+        this._lastHover = Date.now();
+        const [x, y] = this._hoverAt;
+        const cell = term.cellAt(this.el, x, y);
         let link = null;
         if (cell) { try { link = this.el.linkAt(cell.row, cell.col); } catch (err) { link = null; } }
         this._showHint(link);

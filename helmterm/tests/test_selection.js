@@ -73,7 +73,10 @@ if (requireApp() && !childAvailable()) {
     el.write('\r');
     waitFor(() => el.screenText().includes('TESTCHILD GOT pick-me-word'), 'the middle click pasted the selection: ' + el.screenText());
 
-    // Without copy-on-select a selection stays out of the clipboard.
+    // Without copy-on-select a selection stays out of the clipboard. On
+    // Linux a middle click pastes the primary selection, which every
+    // selection sets, so there it pastes the new selection instead.
+    const LINUX = process.platform === 'linux';
     app.settings.set('copyOnSelect', false);
     waitFor(() => el.options.copyOnSelect === false, 'copyOnSelect off');
     el.feed('\x1b[H\x1b[2Jsecond-word here\r\n');
@@ -89,10 +92,13 @@ if (requireApp() && !childAvailable()) {
     click(...cellPoint(el, 5, 3), 1);
     advanceTime(16);
     el.write('\r');
-    waitFor(() => (el.screenText().match(/TESTCHILD GOT pick-me-word/g) || []).length >= 1 &&
-        !el.screenText().includes('TESTCHILD GOT second-word'), 'the clipboard still holds the first word');
-    settle(200);
-    assert(!el.screenText().includes('TESTCHILD GOT second-word'), 'nothing new was copied');
+    if (LINUX) {
+        waitFor(() => el.screenText().includes('TESTCHILD GOT second-word'), 'the middle click pasted the primary selection');
+    } else {
+        waitFor(() => (el.screenText().match(/TESTCHILD GOT pick-me-word/g) || []).length >= 1,
+            'the clipboard still holds the first word: ' + el.screenText());
+        assert(!el.screenText().includes('TESTCHILD GOT second-word'), 'nothing new was copied');
+    }
 
     // Select all, and broterm's copy command.
     app.commands.run('selectAll');

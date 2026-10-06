@@ -113,7 +113,9 @@ if (requireApp() && !childAvailable()) {
     ask.behaviour.clipboardRead = 'ask';
     ask.el.feed(QUERY);
     waitFor(() => ask.guard.pending.length === 1, 'a request left waiting');
-    ask.el.write('q\r');
+    // Where replies reach the child they sit on its input line unterminated;
+    // end that line first so "q" is a line of its own.
+    ask.el.write('\rq\r');
     waitFor(() => ask.exited, 'the child exits');
     eq(ask.guard.pending.length, 0, 'the waiting request was refused');
     console.log('test_clipboard: finished');
