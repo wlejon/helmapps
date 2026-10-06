@@ -14,7 +14,7 @@ const APPEARANCE_KEYS = ['colorScheme', 'font', 'cursorStyle', 'cursorBlink', 'p
 /// Behaviour every profile can override (defaults.js has what each means).
 export const BEHAVIOUR_KEYS = ['copyOnSelect', 'middleClickPaste', 'scrollOnInput', 'boldIsBright', 'minimumContrast',
     'ligatures', 'wheelLines', 'clipboardWrite', 'clipboardRead', 'shellIntegration', 'suppressApplicationTitle',
-    'bell', 'warnOnMultiLinePaste', 'trimPasteTrailingNewline'];
+    'bell', 'warnOnMultiLinePaste', 'trimPasteTrailingNewline', 'imageMemory'];
 
 function profile(name, command, args, extra) {
     return { name, command, args: args || [], cwd: null, env: {}, source: 'detected', isShell: true, ...extra };

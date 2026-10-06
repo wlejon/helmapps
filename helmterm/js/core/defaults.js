@@ -39,6 +39,7 @@ export const DEFAULT_SETTINGS = {
     bell: 'visual',            // visual | audible | both | none
     warnOnMultiLinePaste: 'prompt',   // prompt | always | never (README, "Paste")
     trimPasteTrailingNewline: true,   // a paste ending in a newline does not run itself
+    imageMemory: null,         // MiB of decoded inline images per terminal; 0 = no images, null = bro's default (320)
 
     // Behaviour of the application.
     closeOnExit: 'graceful',   // always | graceful (exit code 0) | never

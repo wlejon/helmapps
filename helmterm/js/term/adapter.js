@@ -7,6 +7,7 @@
 // The element today (bro's T2a) has events for titles, directories, the bell,
 // notifications, progress, OSC 52, OSC 133 marks, links, scrolling and
 // search; `options` and `theme`; a scrollback view, selection and search.
+// Inline images followed (T2b), with a per-terminal memory quota.
 // What is still feature-detected because it is on its way: persistent
 // (bromux) sessions, the foreground process, and an output/activity event.
 
@@ -39,6 +40,9 @@ export const caps = {
     clipboardAnswer: fn('answerClipboard'),
     paste: fn('paste'),
     metrics: has('metrics'),
+    // Inline images (kitty graphics, sixel, iTerm2), with a memory quota
+    // in options.imageMemoryLimit and what is held in `images`.
+    images: has('images'),
     // T2b, not on bro's main yet: detected by the shapes it is expected to
     // take, and used only once present.
     persistent: fn('attach') || fn('detach'),
@@ -175,7 +179,10 @@ export function applyTheme(el, scheme) {
 }
 
 const OPTION_KEYS = ['copyOnSelect', 'middleClickPaste', 'scrollOnInput', 'boldIsBright', 'minimumContrast',
-    'ligatures', 'wheelLines', 'clipboard'];
+    'ligatures', 'wheelLines', 'clipboard', 'imageMemoryLimit'];
+
+const MIB = 1024 * 1024;
+const DEFAULT_IMAGE_MIB = 320;   // the element's own default (docs/terminal-api.js)
 
 /// The element's behaviour switches from resolved settings (see
 /// ProfileSet.resolve: appearance + behaviour). Values out of range are
@@ -195,6 +202,9 @@ export function optionsFrom(b) {
     // then allows or asks); writes unless clipboardWrite is off.
     const read = b.clipboardRead === 'deny' ? false : true;
     o.clipboard = read ? 'read-write' : (b.clipboardWrite === false ? 'deny' : 'write');
+    // imageMemory is in MiB (0 turns images off); null is bro's default.
+    const im = b.imageMemory === null || b.imageMemory === undefined || b.imageMemory === '' ? DEFAULT_IMAGE_MIB : Number(b.imageMemory);
+    if (caps.images) o.imageMemoryLimit = Math.max(0, Math.min(4096, Math.round(Number.isFinite(im) ? im : DEFAULT_IMAGE_MIB))) * MIB;
     return o;
 }
 

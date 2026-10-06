@@ -45,6 +45,9 @@ export function renderTerminal(ui) {
         'The contrast ratio every character keeps against its background: 1 is off, 4.5 is WCAG AA.'));
     text.appendChild(row('Ligatures', checkbox(v.ligatures, set('ligatures'), 'set-ligatures'),
         'Programming ligatures across cells, for fonts that have them.'));
+    text.appendChild(row('Image memory (MiB)', number(v.imageMemory === null || v.imageMemory === undefined ? 320 : v.imageMemory,
+        set('imageMemory'), { min: 0, max: 4096, step: 16, id: 'set-imageMemory' }),
+        'Inline images (kitty graphics, sixel, iTerm2) each terminal may hold decoded. 0 turns images off.'));
     wrap.appendChild(text);
 
     const shell = section('Shell integration',
