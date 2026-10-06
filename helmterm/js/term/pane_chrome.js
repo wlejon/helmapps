@@ -144,9 +144,18 @@ export class PaneChrome {
     _renderSticky(v, cmds) {
         let show = null;
         if (this.settings.stickyCommand && !v.atBottom && !v.altScreen) {
+            // The last command whose prompt is above the view, while its
+            // output still reaches the top line (a command ends on the row
+            // the next prompt starts, so that row is the next one's).
             let best = null;
-            for (const c of cmds) { if (c.prompt.row < v.topRow) best = c; else break; }
-            if (best && best.output && (!best.end || best.end.row >= v.topRow)) show = best;
+            let next = null;
+            for (const c of cmds) {
+                if (c.prompt.row < v.topRow) best = c;
+                else { next = c; break; }
+            }
+            const covers = best && best.output && (!best.end || best.end.row > v.topRow ||
+                (best.end.row === v.topRow && best.end.col > 0 && !(next && next.prompt.row === v.topRow)));
+            if (covers) show = best;
         }
         this.stickyCommand = show;
         this.sticky.classList.toggle('shown', !!show);
