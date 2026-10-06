@@ -80,7 +80,11 @@ export const host = {
         try { return native.wslDistributions() || []; } catch (e) { return []; }
     },
     setWindowTitle(title) {
-        if (native && typeof native.setWindowTitle === 'function') native.setWindowTitle(String(title));
+        if (typeof bro !== 'undefined' && bro.window && typeof bro.window.setTitle === 'function') {
+            bro.window.setTitle(String(title));
+        } else if (typeof document !== 'undefined') {
+            document.title = String(title);
+        }
     },
     terminalAvailable() {
         return typeof bro !== 'undefined' && bro.terminal && bro.terminal.available === true;
@@ -129,31 +133,39 @@ export const host = {
 
     // ── the desktop ──
     // Notifications, taskbar attention and progress, the bell sound, window
-    // focus. broterm's executable provides them (src/desktop.h) where the
-    // platform has them; notify-send / osascript cover notifications on
-    // Linux and macOS. Headless does nothing on the desktop and records
+    // focus. bro.window provides them natively in the engine. Headless records
     // what was asked in `desktopLog`, which is what the tests read.
     desktopLog: [],
     desktop(kind, ...args) {
         if (headless) { this.desktopLog.push({ kind, args }); return false; }
+        if (typeof bro !== 'undefined' && bro.window) {
+            try {
+                if (kind === 'notify' && typeof bro.window.notify === 'function') {
+                    return bro.window.notify(String(args[0] || ''), String(args[1] || ''));
+                }
+                if (kind === 'attention' && typeof bro.window.requestAttention === 'function') {
+                    return bro.window.requestAttention(!!args[0]);
+                }
+                if (kind === 'progress' && typeof bro.window.setProgress === 'function') {
+                    return bro.window.setProgress(args[0] | 0, args[1] | 0);
+                }
+                if (kind === 'beep' && typeof bro.window.beep === 'function') {
+                    return bro.window.beep();
+                }
+            } catch (e) {
+                console.error('broterm: bro.window ' + kind + ': ' + e.message);
+            }
+        }
         if (kind === 'notify') {
-            if (native && typeof native.notify === 'function' && native.notify(String(args[0] || ''), String(args[1] || ''))) return true;
             return notifyByCommand(String(args[0] || ''), String(args[1] || ''));
         }
-        if (!native) return false;
-        try {
-            if (kind === 'attention' && typeof native.attention === 'function') return native.attention(!!args[0]);
-            if (kind === 'progress' && typeof native.setProgress === 'function') return native.setProgress(args[0] | 0, args[1] | 0);
-            if (kind === 'beep' && typeof native.beep === 'function') return native.beep();
-        } catch (e) { console.error('broterm: desktop ' + kind + ': ' + e.message); }
         return false;
     },
-    /// Whether the window has the keyboard: the native answer, else the
+    /// Whether the window has the keyboard: bro.window.focused, else the
     /// page's visibility (bro hides the page when the window loses focus).
     windowFocused() {
-        if (native && typeof native.windowFocused === 'function') {
-            const f = native.windowFocused();
-            if (f === true || f === false) return f;
+        if (typeof bro !== 'undefined' && bro.window && typeof bro.window.focused === 'boolean') {
+            return bro.window.focused;
         }
         if (typeof document !== 'undefined' && document.visibilityState) return document.visibilityState !== 'hidden';
         return true;
