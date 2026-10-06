@@ -149,7 +149,8 @@ function check(profile, kind) {
         waitFor(() => (mark = pane.root.querySelector('.cmd-mark[data-row="' + last.prompt.row + '"]')), 'a mark beside the last command');
         assert(mark.classList.contains('ok'), 'marked as succeeded');
         clickEl(mark);
-        const items2 = [...document.querySelectorAll('.menu .menu-item')];
+        let items2 = [];
+        waitFor(() => (items2 = [...document.querySelectorAll('.menu .menu-item')]).length >= 4, 'the mark opens a menu');
         assert(items2.length >= 4, 'the mark opens a menu: ' + items2.map((i) => i.textContent).join(' | '));
         app.lastCopied = null;
         clickEl(items2.find((i) => i.textContent === 'Copy output'));
