@@ -8,7 +8,7 @@
 // the command the first tab runs (instead of its profile's).
 
 export function parseArgs(argv) {
-    const out = { profile: null, cwd: null, title: null, commandline: null, noRestore: false, errors: [] };
+    const out = { profile: null, cwd: null, title: null, commandline: null, noRestore: false, newWindow: false, newTab: false, errors: [] };
     const list = Array.isArray(argv) ? argv.map(String) : [];
     const value = (i, name) => {
         if (i + 1 >= list.length) { out.errors.push(name + ' needs a value'); return null; }
@@ -30,6 +30,8 @@ export function parseArgs(argv) {
         else if (flag === '-d' || flag === '--directory' || flag === '--cwd') out.cwd = take(flag);
         else if (flag === '-t' || flag === '--title') out.title = take(flag);
         else if (flag === '--no-restore') out.noRestore = true;
+        else if (flag === '--new-window') out.newWindow = true;
+        else if (flag === '--new-tab') out.newTab = true;
         else if (a.startsWith('-') && a.length > 1) out.errors.push('unknown option ' + a);
         else { out.commandline = list.slice(i); break; }
     }
@@ -39,5 +41,5 @@ export function parseArgs(argv) {
 
 /// Whether the command line asked for a particular first tab.
 export function asksForTab(opts) {
-    return !!(opts && (opts.profile || opts.cwd || opts.title || opts.commandline));
+    return !!(opts && (opts.profile || opts.cwd || opts.title || opts.commandline || opts.newTab));
 }

@@ -61,6 +61,34 @@ export class App {
         if (!host.terminalAvailable()) {
             this.toast('This build of bro has no <terminal> element (BRO_WITH_TERMINAL is off).', 'error');
         }
+
+        if (!opts.newWindow && typeof bro !== 'undefined' && bro.window && typeof bro.window.requestSingleInstance === 'function') {
+            const isPrimary = bro.window.requestSingleInstance({
+                name: 'broterm',
+                args: argv || [],
+                onInstance: (forwardedArgs) => {
+                    const fOpts = parseArgs(forwardedArgs || []);
+                    if (asksForTab(fOpts)) {
+                        let profile = fOpts.profile;
+                        if (profile && !this.profiles.get(profile)) {
+                            profile = null;
+                        }
+                        const cwd = fOpts.cwd ? host.resolve(host.cwd(), fOpts.cwd) : null;
+                        this.workspace.openTab({ profile, cwd, commandline: fOpts.commandline, title: fOpts.title });
+                    } else {
+                        this.workspace.openTab({});
+                    }
+                    if (bro.window && typeof bro.window.requestAttention === 'function') {
+                        bro.window.requestAttention(true);
+                    }
+                }
+            });
+            if (!isPrimary) {
+                if (typeof bro.quit === 'function') bro.quit();
+                return opts;
+            }
+        }
+
         let restored = 0;
         if (this.settings.values.restoreSession && !opts.noRestore) {
             restored = this.session.restore(this.session.read());
