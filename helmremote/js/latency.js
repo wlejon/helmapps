@@ -1,6 +1,6 @@
 // --latency-test N: input-to-photon against `broremote serve-test --latency`
 // (broremote's docs/design.md, "Latency, measured"), the same probes
-// broremote-view's --latency-test sends. Each probe is a press and release of
+// `broremote probe --latency-test` sends. Each probe is a press and release of
 // KEY_F13; the server answers by drawing a counter into the picture's marker
 // row, the session reads it from the decoded pictures, and a probe closes
 // when the answering picture is presented. One probe at a time, a quarter
