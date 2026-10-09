@@ -1,0 +1,18 @@
+{
+    "id": "helm.remote",
+    "name": "Remote",
+    "version": "0.1.0",
+    "description": "View and drive another machine's helm (or any broremote host) over ssh or a local socket",
+    "icon": "assets/icon.svg",
+    "categories": ["Network", "RemoteAccess"],
+    "keywords": ["remote", "desktop", "viewer", "broremote", "ssh", "helmremote"],
+    "permissions": ["remote"],
+    "app": ".",
+    "width": 1280,
+    "height": 800,
+    "minWidth": 480,
+    "minHeight": 320,
+    "resizable": true,
+    "splash": false,
+    "watch": false
+}

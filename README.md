@@ -9,6 +9,7 @@ library exposed as `bro.<x>`), never into the app.
 | App | id | What |
 |-----|----|------|
 | [helmterm](helmterm/) | `helm.term` | Terminal: tabs, splits, profiles and shell integration over bro's `<terminal>` element |
+| [helmremote](helmremote/) | `helm.remote` | Remote desktop viewer: a helm session over broremote, shown in bro's `<remoteview>` (hardware decode, zero-copy on Windows), with keyboard and pointer capture and audio both ways |
 
 ## Running
 

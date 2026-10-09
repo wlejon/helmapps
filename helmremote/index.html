@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+    <section id="connect" class="screen">
+        <form id="connect-form" class="card">
+            <h1>Remote</h1>
+            <label>Host <span class="hint">ssh destination, empty for this machine</span>
+                <input id="host" type="text" placeholder="user@host" autocomplete="off">
+            </label>
+            <label>Socket <span class="hint">the server's socket name</span>
+                <input id="socket" type="text" placeholder="helm">
+            </label>
+            <div class="row">
+                <label class="check"><input id="audio" type="checkbox" checked> Audio</label>
+                <label class="check"><input id="mic" type="checkbox" checked> Microphone</label>
+                <label class="check"><input id="fullscreen" type="checkbox"> Fullscreen</label>
+            </div>
+            <div class="row">
+                <button id="connect-button" type="submit">Connect</button>
+                <span id="connect-status" class="status"></span>
+            </div>
+            <div id="recent-block">
+                <h2>Recent</h2>
+                <ul id="recent"></ul>
+            </div>
+        </form>
+    </section>
+
+    <section id="viewer" class="screen" hidden>
+        <remoteview id="view"></remoteview>
+        <div id="bar">
+            <span id="bar-title"></span>
+            <span id="bar-state" class="status"></span>
+            <span class="fill"></span>
+            <button id="toggle-stats" title="Statistics">Stats</button>
+            <button id="toggle-playback" title="Host audio">Sound</button>
+            <button id="toggle-mic" title="Microphone">Mic</button>
+            <button id="toggle-fullscreen" title="Fullscreen">Fullscreen</button>
+            <button id="disconnect" title="Disconnect">Disconnect</button>
+        </div>
+        <div id="hint"></div>
+        <pre id="stats" hidden></pre>
+        <div id="closed" hidden>
+            <p id="closed-why"></p>
+            <button id="reconnect">Reconnect</button>
+            <button id="back">Back</button>
+        </div>
+    </section>
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
