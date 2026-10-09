@@ -11,7 +11,6 @@
         { "id": "new-window", "name": "New Window", "args": ["--new-window"] }
     ],
     "app": ".",
-    "title": "helmterm",
     "width": 1100,
     "height": 700,
     "minWidth": 420,

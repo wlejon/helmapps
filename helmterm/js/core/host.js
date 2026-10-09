@@ -86,6 +86,8 @@ export const host = {
     platform,
     headless,
     id: app ? app.id : 'helm.term',
+    // The window's title when no tab names one (bro.json's name).
+    name: app && app.name ? app.name : 'Terminal',
     version: app && app.version ? app.version : '0.0.0-dev',
     argv: app && Array.isArray(app.argv) ? app.argv.slice() : [],
     configDir: configDir(),
