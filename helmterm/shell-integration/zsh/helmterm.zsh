@@ -1,42 +1,42 @@
-# broterm shell integration for zsh: prompt marks (OSC 133 A and B), the
+# helmterm shell integration for zsh: prompt marks (OSC 133 A and B), the
 # command's start (C) with its command line (OSC 633;E) and end with its exit
 # code (D), and the directory (OSC 7). Sourced by this directory's .zshrc.
 
-__broterm_handback() {
-    if [[ -n ${__broterm_had_zdotdir-} || $__broterm_user_zdotdir != $HOME ]]; then
-        export ZDOTDIR=$__broterm_user_zdotdir
+__helmterm_handback() {
+    if [[ -n ${__helmterm_had_zdotdir-} || $__helmterm_user_zdotdir != $HOME ]]; then
+        export ZDOTDIR=$__helmterm_user_zdotdir
     else
         unset ZDOTDIR
     fi
-    unset __broterm_zdotdir __broterm_user_zdotdir __broterm_had_zdotdir
-    unfunction __broterm_handback
+    unset __helmterm_zdotdir __helmterm_user_zdotdir __helmterm_had_zdotdir
+    unfunction __helmterm_handback
 }
 
-[[ -n ${__broterm_loaded-} ]] && return
-__broterm_loaded=1
-unset BROTERM_SHELL_INTEGRATION
+[[ -n ${__helmterm_loaded-} ]] && return
+__helmterm_loaded=1
+unset HELMTERM_SHELL_INTEGRATION
 
 # First precmd hook: the exit status, before another hook changes it.
-__broterm_precmd() {
+__helmterm_precmd() {
     local s=$?
-    if [[ -n ${__broterm_ran-} ]]; then
+    if [[ -n ${__helmterm_ran-} ]]; then
         printf '\e]133;D;%s\a' "$s"
     fi
-    unset __broterm_ran
+    unset __helmterm_ran
     printf '\e]7;file://%s%s\e\\' "$HOST" "${PWD//\%/%25}"
     return $s
 }
 
 # Last precmd hook: wrap PS1 in the prompt marks, again if a prompt
 # framework rebuilt it.
-__broterm_ps1() {
+__helmterm_ps1() {
     if [[ $PS1 != *'133;A'* ]]; then
         PS1=$'%{\e]133;A\a%}'"$PS1"$'%{\e]133;B\a%}'
     fi
 }
 
-__broterm_preexec() {
-    __broterm_ran=1
+__helmterm_preexec() {
+    __helmterm_ran=1
     local c=$1
     c=${c//\\/\\\\}
     c=${c//;/\\x3b}
@@ -47,5 +47,5 @@ __broterm_preexec() {
     printf '\e]633;E;%s\a\e]133;C\a' "$c"
 }
 
-precmd_functions=(__broterm_precmd ${precmd_functions[@]} __broterm_ps1)
-preexec_functions+=(__broterm_preexec)
+precmd_functions=(__helmterm_precmd ${precmd_functions[@]} __helmterm_ps1)
+preexec_functions+=(__helmterm_preexec)

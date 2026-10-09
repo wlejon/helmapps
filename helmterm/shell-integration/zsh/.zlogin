@@ -1,7 +1,7 @@
-# broterm: the user's .zlogin from their real ZDOTDIR (see .zshenv), then
+# helmterm: the user's .zlogin from their real ZDOTDIR (see .zshenv), then
 # ZDOTDIR handed back.
-ZDOTDIR=$__broterm_user_zdotdir
+ZDOTDIR=$__helmterm_user_zdotdir
 [[ -r $ZDOTDIR/.zlogin ]] && source $ZDOTDIR/.zlogin
-__broterm_user_zdotdir=$ZDOTDIR
-ZDOTDIR=$__broterm_zdotdir
-__broterm_handback
+__helmterm_user_zdotdir=$ZDOTDIR
+ZDOTDIR=$__helmterm_zdotdir
+__helmterm_handback

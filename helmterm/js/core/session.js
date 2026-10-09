@@ -26,7 +26,7 @@ export class Session {
             host.writeText(this.path, JSON.stringify(data, null, 2) + '\n');
             return true;
         } catch (e) {
-            console.error('broterm: cannot write the session: ' + e.message);
+            console.error('helmterm: cannot write the session: ' + e.message);
             return false;
         }
     }
@@ -38,7 +38,7 @@ export class Session {
             const data = JSON.parse(text);
             return data && Array.isArray(data.tabs) ? data : null;
         } catch (e) {
-            console.error('broterm: session.json does not parse; starting fresh');
+            console.error('helmterm: session.json does not parse; starting fresh');
             return null;
         }
     }

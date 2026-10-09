@@ -19,7 +19,7 @@ function cellPoint(el, col, line) {
 }
 
 if (requireApp() && !childAvailable()) {
-    skipTest('broterm-testchild is not built beside the headless binary');
+    skipTest('helmterm-testchild is not built beside the headless binary');
 } else if (app) {
     const ws = app.workspace;
     writeSettings({
@@ -45,7 +45,7 @@ if (requireApp() && !childAvailable()) {
     const o = el.options;
     eq([o.copyOnSelect, o.middleClickPaste, o.boldIsBright, o.minimumContrast, o.ligatures, o.wheelLines, o.scrollOnInput],
         [true, true, true, 4.5, true, 7, false], 'the element\'s options follow settings.json');
-    eq(o.clipboard, 'read-write', 'clipboard reads reach broterm (which asks)');
+    eq(o.clipboard, 'read-write', 'clipboard reads reach helmterm (which asks)');
     const t2 = ws.openTab({ profile: 'Wheel Child' });
     eq([t2.focused.el.options.wheelLines, t2.focused.el.options.copyOnSelect], [11, false], 'a profile overrides them');
     app.settings.set('wheelLines', 4);
@@ -100,7 +100,7 @@ if (requireApp() && !childAvailable()) {
         assert(!el.screenText().includes('TESTCHILD GOT second-word'), 'nothing new was copied');
     }
 
-    // Select all, and broterm's copy command.
+    // Select all, and helmterm's copy command.
     app.commands.run('selectAll');
     assert(el.selection !== null, 'select all selects');
     app.commands.run('copy');

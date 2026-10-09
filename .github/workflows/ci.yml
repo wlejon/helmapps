@@ -1,0 +1,54 @@
+name: CI
+
+# The helm apps are folders run by the stock bro binary, so testing them means
+# building bro (the minimal profile: no vcpkg; <terminal> is on in every
+# profile) and running each app's headless tests against its bro-headless on
+# Lavapipe, the software Vulkan device.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: helmapps
+
+      - uses: actions/checkout@v7
+        with:
+          repository: wlejon/bro
+          path: bro
+
+      - name: Build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ninja-build nasm libvulkan-dev mesa-vulkan-drivers \
+            libgl1-mesa-dev libegl1-mesa-dev \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev \
+            libxi-dev libxfixes-dev libxss-dev libxtst-dev libwayland-dev libxkbcommon-dev \
+            libasound2-dev libpulse-dev libudev-dev \
+            libfreetype-dev libfontconfig1-dev libpng-dev libjpeg-dev libwebp-dev \
+            bash zsh fish
+
+      - name: sccache
+        uses: mozilla-actions/sccache-action@v0.0.11
+
+      - name: Build bro
+        working-directory: bro
+        run: |
+          cmake -B build -G Ninja \
+            -DBRO_PROFILE=minimal \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER_LAUNCHER=sccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+          cmake --build build --parallel 4 --target bro-headless bro_pty_child
+
+      - name: Tests
+        env:
+          BRO_HEADLESS: ${{ github.workspace }}/bro/build/bro-headless
+        run: helmapps/scripts/run_tests.sh

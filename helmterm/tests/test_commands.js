@@ -20,7 +20,7 @@ if (requireApp()) {
     const found = shellProfiles();
     const kinds = ['bash', 'powershell', 'zsh', 'fish'].filter((k) => found[k].length);
     if (!kinds.length) {
-        skipTest('no shell that broterm integrates is installed');
+        skipTest('no shell that helmterm integrates is installed');
     } else {
         writeSettings({ confirmClose: 'never', notifyOnLongCommand: 1, desktopNotifications: 'unfocused' });
         for (const kind of kinds) check(found[kind][0], kind);

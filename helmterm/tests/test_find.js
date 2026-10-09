@@ -7,7 +7,7 @@
 import { app, waitFor, eq, press, mod, type, clickEl, CHILD, childAvailable, requireApp, writeSettings } from './lib/harness.js';
 
 if (requireApp() && !childAvailable()) {
-    skipTest('broterm-testchild is not built beside the headless binary');
+    skipTest('helmterm-testchild is not built beside the headless binary');
 } else if (app) {
     writeSettings({ confirmClose: 'never' });
     const ws = app.workspace;

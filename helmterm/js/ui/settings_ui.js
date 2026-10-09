@@ -119,7 +119,7 @@ export class SettingsUI {
             'Reopen the previous session\'s tabs, panes and directories.'));
         if (term.caps.persistent) {
             s.appendChild(row('Keep shells running after quitting', checkbox(v.persistentSessions, (x) => this.set('persistentSessions', x), 'set-persistentSessions'),
-                'New shells run in a bromux session that outlives broterm; with tabs restored, they come back as you left them. Closing a tab still ends its shell.'));
+                'New shells run in a bromux session that outlives helmterm; with tabs restored, they come back as you left them. Closing a tab still ends its shell.'));
         }
         s.appendChild(row('Mark tabs with new output', checkbox(v.tabActivity, (x) => this.set('tabActivity', x), 'set-tabActivity')));
         return s;
@@ -175,7 +175,7 @@ export class SettingsUI {
 
     files() {
         const st = this.app.settings;
-        const s = section('Files', 'broterm reads these files and watches them: saving one applies it.');
+        const s = section('Files', 'helmterm reads these files and watches them: saving one applies it.');
         const path = (p) => { const c = el('code', 'path', p); return c; };
         s.appendChild(row('Settings', path(st.settingsPath)));
         s.appendChild(row('Keybindings', path(st.keybindingsPath)));

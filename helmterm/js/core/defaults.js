@@ -34,7 +34,7 @@ export const DEFAULT_SETTINGS = {
     wheelLines: 3,
     clipboardWrite: true,      // programs may set the clipboard (OSC 52)
     clipboardRead: 'ask',      // programs reading the clipboard: ask | allow | deny
-    shellIntegration: true,    // load broterm's prompt marks into pwsh/bash/zsh/fish
+    shellIntegration: true,    // load helmterm's prompt marks into pwsh/bash/zsh/fish
     suppressApplicationTitle: false,  // keep the profile's title, ignore the program's
     bell: 'visual',            // visual | audible | both | none
     warnOnMultiLinePaste: 'prompt',   // prompt | always | never (README, "Paste")
@@ -45,7 +45,7 @@ export const DEFAULT_SETTINGS = {
     closeOnExit: 'graceful',   // always | graceful (exit code 0) | never
     confirmClose: 'running',   // always | running | never
     restoreSession: true,
-    persistentSessions: false, // shells run in bromux sessions that outlive broterm (where bro has them)
+    persistentSessions: false, // shells run in bromux sessions that outlive helmterm (where bro has them)
     persistentServer: null,    // the bromux server's name; null = the per-user default
     tabActivity: true,         // mark background tabs that printed
     desktopNotifications: 'unfocused',  // unfocused | always | never

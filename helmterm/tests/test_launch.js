@@ -1,10 +1,10 @@
-// The command line (broterm [-p profile] [-d dir] [-t title] [-- command
+// The command line (helmterm [-p profile] [-d dir] [-t title] [-- command
 // args...]) and closing with something still running (the in-app
 // confirmation, never a native dialog).
 
 import { app, waitFor, eq, press, mod, settle, clickEl, CHILD, childAvailable, requireApp, reportPath,
          readReport, writeSettings, childProfile, configDir } from './lib/harness.js';
-import { parseArgs } from '../ui/js/core/cli.js';
+import { parseArgs } from '../js/core/cli.js';
 
 const fs = require('fs');
 const path = require('path');
@@ -21,10 +21,10 @@ eq(parseArgs(['--no-restore']).noRestore, true, '--no-restore');
 eq(parseArgs([]).commandline, null, 'nothing asked');
 
 if (requireApp() && !childAvailable()) {
-    skipTest('broterm-testchild is not built beside the headless binary');
+    skipTest('helmterm-testchild is not built beside the headless binary');
 } else if (app) {
     const ws = app.workspace;
-    if (app.host.native) eq(app.host.argv, bro.broterm.argv, 'the UI sees the native command line');
+    eq(app.host.argv, bro.app.argv, 'the UI sees the command line after the app folder');
 
     // A start with a profile, a directory, a title and a command.
     const dir = path.join(configDir, 'cli dir');

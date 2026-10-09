@@ -1,14 +1,14 @@
-# broterm shell integration for PowerShell 7 and Windows PowerShell 5.1.
+# helmterm shell integration for PowerShell 7 and Windows PowerShell 5.1.
 #
-# broterm runs this with -NoExit -Command after the user's profile has
+# helmterm runs this with -NoExit -Command after the user's profile has
 # loaded. It marks the prompt (OSC 133 A and B), the command's start (C) and
 # end with its exit code (D), reports the command line (OSC 633;E) and the
 # directory (OSC 7). The user's prompt function and PSReadLine stay in
 # charge; they are wrapped, not replaced. Nothing here is written to disk.
 
-if ($Global:__BrotermIntegration) { return }
+if ($Global:__HelmtermIntegration) { return }
 
-$Global:__BrotermIntegration = @{
+$Global:__HelmtermIntegration = @{
     OriginalPrompt   = $function:prompt
     OriginalReadLine = $null
     LastHistoryId    = -1
@@ -17,7 +17,7 @@ $Global:__BrotermIntegration = @{
     Bel              = [string][char]7
 }
 
-function Global:__Broterm-Escape([string]$text) {
+function Global:__Helmterm-Escape([string]$text) {
     # OSC 633's escaping: a backslash doubled, ';' and control characters as \xHH.
     $sb = New-Object System.Text.StringBuilder
     foreach ($ch in $text.ToCharArray()) {
@@ -29,19 +29,19 @@ function Global:__Broterm-Escape([string]$text) {
     $sb.ToString()
 }
 
-function Global:__Broterm-WrapReadLine {
-    $st = $Global:__BrotermIntegration
+function Global:__Helmterm-WrapReadLine {
+    $st = $Global:__HelmtermIntegration
     if ($st.OriginalReadLine) { return }
     $existing = Get-Command -Name PSConsoleHostReadLine -CommandType Function -ErrorAction SilentlyContinue
     if (-not $existing) { return }
     $st.OriginalReadLine = $existing.ScriptBlock
     function Global:PSConsoleHostReadLine {
-        $st = $Global:__BrotermIntegration
+        $st = $Global:__HelmtermIntegration
         $line = & $st.OriginalReadLine
         if ("$line".Trim()) {
             $st.CommandRan = $true
             # The command line, then "output starts here", before it runs.
-            [Console]::Write($st.Esc + ']633;E;' + (__Broterm-Escape $line) + $st.Bel + $st.Esc + ']133;C' + $st.Bel)
+            [Console]::Write($st.Esc + ']633;E;' + (__Helmterm-Escape $line) + $st.Bel + $st.Esc + ']133;C' + $st.Bel)
         }
         $line
     }
@@ -51,7 +51,7 @@ function Global:prompt {
     # $? and $LASTEXITCODE first: anything below would change them.
     $ok = $global:?
     $native = $global:LASTEXITCODE
-    $st = $Global:__BrotermIntegration
+    $st = $Global:__HelmtermIntegration
     $out = ''
     $h = Get-History -Count 1
     $hid = if ($h) { $h.Id } else { -1 }
@@ -62,7 +62,7 @@ function Global:prompt {
     }
     $st.CommandRan = $false
     $st.LastHistoryId = $hid
-    __Broterm-WrapReadLine
+    __Helmterm-WrapReadLine
     $loc = $executionContext.SessionState.Path.CurrentLocation
     if ($loc.Provider.Name -eq 'FileSystem') {
         $path = $loc.ProviderPath -replace '\\', '/' -replace '%', '%25'
@@ -76,4 +76,4 @@ function Global:prompt {
     $out + (-join $inner) + $st.Esc + ']133;B' + $st.Bel
 }
 
-__Broterm-WrapReadLine
+__Helmterm-WrapReadLine

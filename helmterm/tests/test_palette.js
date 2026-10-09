@@ -2,7 +2,7 @@
 // profiles, tabs and schemes, keyboard navigation, and running the choice.
 
 import { app, waitFor, eq, press, mod, type, settle, clickEl, requireApp } from './lib/harness.js';
-import { fuzzyMatch, fuzzyFilter } from '../ui/js/core/fuzzy.js';
+import { fuzzyMatch, fuzzyFilter } from '../js/core/fuzzy.js';
 
 // ── the matcher (pure) ──
 assert(fuzzyMatch('spr', 'Pane: Split right'), 'subsequence across words');
@@ -84,7 +84,7 @@ if (requireApp()) {
     assert(app.overlays.isOpen('menu'), 'the dropdown opens');
     const items = [...document.querySelectorAll('.menu-item .menu-label')].map((e) => e.textContent);
     for (const p of app.profiles.visible()) assert(items.includes(p.name), 'the menu lists ' + p.name);
-    assert(items.includes('Settings') && items.includes('About broterm'), 'and the app entries');
+    assert(items.includes('Settings') && items.includes('About helmterm'), 'and the app entries');
     const n = ws.tabs.length;
     clickEl(document.querySelectorAll('.menu-item')[0]);
     eq(ws.tabs.length, n + 1, 'choosing a profile opens a tab');

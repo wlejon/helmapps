@@ -1,16 +1,16 @@
 // Persistent sessions, where bro has them (bromux): with persistentSessions
-// a pane's program runs in a session that outlives broterm. Quitting
+// a pane's program runs in a session that outlives helmterm. Quitting
 // releases it and the restored session attaches to the same program, with
 // its screen; closing a tab ends it; a program that exits takes its finished
 // session off the server. Without the setting, panes run local processes.
 
 import { app, waitFor, eq, childAvailable, requireApp, writeSettings, reportPath, childProfile } from './lib/harness.js';
-import * as term from '../ui/js/term/adapter.js';
+import * as term from '../js/term/adapter.js';
 
-const SERVER = 'broterm-test-' + process.pid;
+const SERVER = 'helmterm-test-' + process.pid;
 
 if (requireApp() && !childAvailable()) {
-    skipTest('broterm-testchild is not built beside the headless binary');
+    skipTest('helmterm-testchild is not built beside the headless binary');
 } else if (app && !term.caps.persistent) {
     skipTest('this build has no persistent terminal sessions');
 } else if (app) {
@@ -33,7 +33,7 @@ if (requireApp() && !childAvailable()) {
     const listed = list().find((s) => s.id === id);
     eq(pane.server, SERVER, 'on the configured server');
     assert(listed && listed.running, 'the server lists it running');
-    eq(listed.name, 'broterm: Kept Child', 'named after the profile');
+    eq(listed.name, 'helmterm: Kept Child', 'named after the profile');
     pane.el.write('before-quit\r');
     waitFor(() => pane.el.screenText().includes('TESTCHILD GOT before-quit'), 'it answers input');
 

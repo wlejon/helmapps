@@ -1,4 +1,4 @@
-// What broterm draws over and beside a pane's terminal, from the element's
+// What helmterm draws over and beside a pane's terminal, from the element's
 // view and its shell's commands:
 //
 //   the scrollbar      thumb from `viewport` (it spans `rows` of

@@ -1,7 +1,7 @@
-// The command line (bro.broterm.argv: everything after the program name that
-// the native side did not answer itself):
+// The command line (bro.app.argv: everything after the app's folder on bro's
+// command line):
 //
-//   broterm [-p|--profile NAME] [-d|--directory DIR] [-t|--title TITLE]
+//   helmterm [-p|--profile NAME] [-d|--directory DIR] [-t|--title TITLE]
 //           [--no-restore] [--] [command [args...]]
 //
 // Everything after `--`, or from the first argument that is not an option, is

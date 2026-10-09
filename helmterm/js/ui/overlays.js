@@ -108,7 +108,7 @@ export class Overlays {
         const logo = el('img', 'about-logo');
         logo.src = 'assets/icon.svg';
         box.appendChild(logo);
-        box.appendChild(el('div', 'dialog-title', 'broterm'));
+        box.appendChild(el('div', 'dialog-title', 'helmterm'));
         box.appendChild(el('div', 'dialog-message', 'A terminal on the bro engine.'));
         const facts = el('div', 'about-facts');
         const row = (k, v) => {

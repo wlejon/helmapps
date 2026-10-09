@@ -2,7 +2,7 @@
 // the last good settings and says why, and the settings UI edits the file.
 
 import { app, waitFor, eq, press, mod, settle, clickEl, requireApp, writeSettings, configDir } from './lib/harness.js';
-import * as term from '../ui/js/term/adapter.js';
+import * as term from '../js/term/adapter.js';
 
 const fs = require('fs');
 

@@ -1,9 +1,9 @@
-// Colour schemes: the curated set broterm ships, in Windows Terminal's scheme
+// Colour schemes: the curated set helmterm ships, in Windows Terminal's scheme
 // format (so a scheme copied out of a Windows Terminal settings.json drops
-// straight into broterm's "schemes" list), and how one is applied.
+// straight into helmterm's "schemes" list), and how one is applied.
 //
 // Importing iTerm2 / Alacritty / kitty / Ghostty files is brothemes' job
-// (a C++ library with those parsers); broterm takes it once brothemes has a
+// (a C++ library with those parsers); helmterm takes it once brothemes has a
 // JS binding rather than carrying a second set of parsers here.
 
 const ANSI = ['black', 'red', 'green', 'yellow', 'blue', 'purple', 'cyan', 'white'];

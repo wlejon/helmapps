@@ -1,4 +1,4 @@
-// Every command broterm has, registered by id. Keybindings name these ids
+// Every command helmterm has, registered by id. Keybindings name these ids
 // (with optional args), as do the palette, the menus and the tests.
 
 import { host } from './core/host.js';
@@ -88,7 +88,7 @@ export function registerActions(app) {
         run: () => app.openInEditor(app.settings.keybindingsPath) });
     c.register('reloadSettings', { title: 'Reload settings', category: 'Preferences',
         run: () => { app.settings.reload('command'); return true; } });
-    c.register('about', { title: 'About broterm', category: 'Help', run: () => app.overlays.about() });
+    c.register('about', { title: 'About helmterm', category: 'Help', run: () => app.overlays.about() });
     c.register('newWindow', { title: 'New window', category: 'Window', enabled: () => !host.headless,
         run: () => host.spawnSelf(['--no-restore']) });
     c.register('toggleMaximize', { title: 'Maximize / restore window', category: 'Window',

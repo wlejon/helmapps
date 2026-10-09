@@ -100,7 +100,7 @@ export class Workspace extends Emitter {
     }
 
     _refreshTitle() {
-        const t = this.active ? this.active.title : 'broterm';
+        const t = this.active ? this.active.title : 'helmterm';
         document.title = t;
         host.setWindowTitle(t);
     }

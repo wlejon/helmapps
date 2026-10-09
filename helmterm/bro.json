@@ -1,6 +1,17 @@
 {
+    "id": "helm.term",
+    "name": "Terminal",
+    "version": "0.1.0",
+    "description": "Tabs, splits and profiles over bro's native <terminal> element",
+    "icon": "assets/icon.svg",
+    "categories": ["System", "TerminalEmulator"],
+    "keywords": ["terminal", "shell", "console", "command line", "prompt", "helmterm"],
+    "singleInstance": true,
+    "actions": [
+        { "id": "new-window", "name": "New Window", "args": ["--new-window"] }
+    ],
     "app": ".",
-    "title": "broterm",
+    "title": "helmterm",
     "width": 1100,
     "height": 700,
     "minWidth": 420,

@@ -18,7 +18,7 @@ export class Emitter {
         const set = this._listeners.get(type);
         if (!set) return;
         for (const fn of [...set]) {
-            try { fn(...args); } catch (e) { console.error('broterm: ' + type + ' listener: ' + (e && e.stack || e)); }
+            try { fn(...args); } catch (e) { console.error('helmterm: ' + type + ' listener: ' + (e && e.stack || e)); }
         }
     }
 }

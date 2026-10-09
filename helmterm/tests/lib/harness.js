@@ -1,12 +1,11 @@
-// Shared helpers for broterm's headless UI tests. Each test runs the real UI
-// (ui/) under broterm-headless with a fresh configuration directory
-// (BROTERM_CONFIG_DIR, set by ctest), real processes and the real file
-// watcher.
+// Shared helpers for helmterm's headless UI tests. Each test runs the real app
+// under the stock bro-headless with fresh per-app directories (BRO_APP_HOME,
+// set by scripts/run_tests.sh), real processes and the real file watcher.
 
 const fs = require('fs');
 const path = require('path');
 
-export const app = window.broterm;
+export const app = window.helmterm;
 
 /// Pump frames and give real threads (PTYs, the watcher) wall time until
 /// `pred()` holds. Fails the test when it never does.
@@ -36,9 +35,9 @@ export function eq(actual, expected, what) {
     assert(a === e, what + ': got ' + a + ', want ' + e);
 }
 
-/// The test child beside the headless binary (BROTERM_TESTCHILD overrides).
-export const CHILD = process.env.BROTERM_TESTCHILD || path.join(path.dirname(process.execPath),
-    process.platform === 'win32' ? 'broterm-testchild.exe' : 'broterm-testchild');
+/// The test child beside the headless binary (HELMTERM_TESTCHILD overrides).
+export const CHILD = process.env.HELMTERM_TESTCHILD || path.join(path.dirname(process.execPath),
+    process.platform === 'win32' ? 'helmterm-testchild.exe' : 'helmterm-testchild');
 
 export function childAvailable() { return fs.existsSync(CHILD); }
 
@@ -128,7 +127,7 @@ export function clickEl(el) {
 
 /// A profile entry that runs the test child, reporting to `report`.
 export function childProfile(name, report, extra) {
-    const p = { name, command: CHILD, args: [], env: { BROTERM_TESTCHILD_REPORT: report } };
+    const p = { name, command: CHILD, args: [], env: { TESTCHILD_REPORT: report } };
     if (extra) {
         for (const [k, v] of Object.entries(extra)) {
             if (k === 'env') Object.assign(p.env, v); else p[k] = v;
@@ -138,7 +137,7 @@ export function childProfile(name, report, extra) {
 }
 
 export function requireApp() {
-    if (!app) { assert(false, 'window.broterm is missing: the UI did not start'); return false; }
+    if (!app) { assert(false, 'window.helmterm is missing: the UI did not start'); return false; }
     if (!bro.terminal || !bro.terminal.available) {
         skipTest('<terminal> is compiled out of this build');
         return false;

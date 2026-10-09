@@ -4,7 +4,7 @@
 
 import { app, waitFor, eq, press, mod, type, settle, clickEl, CHILD, childAvailable, requireApp,
          writeKeybindings } from './lib/harness.js';
-import { normalizePress, parseKeySequence, compileWhen, Keymap } from '../ui/js/core/keys.js';
+import { normalizePress, parseKeySequence, compileWhen, Keymap } from '../js/core/keys.js';
 
 // ── the grammar (pure) ──
 eq(normalizePress('Shift+Ctrl+T'), 'ctrl+shift+t', 'modifier order and case');

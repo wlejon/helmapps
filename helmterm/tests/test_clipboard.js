@@ -1,5 +1,5 @@
 // A program asking for the clipboard (OSC 52 "?") under each per-profile
-// policy: deny never reaches broterm; ask shows a bar in the pane that does
+// policy: deny never reaches helmterm; ask shows a bar in the pane that does
 // not take the keyboard, and Allow / Deny / Always allow answer it (Always
 // allow saves the profile's policy); allow lets bro answer. Clipboard writes
 // are refused under clipboardWrite: false.
@@ -15,7 +15,7 @@ const WIN = process.platform === 'win32';
 const QUERY = '\x1b]52;c;?\x07';
 
 if (requireApp() && !childAvailable()) {
-    skipTest('broterm-testchild is not built beside the headless binary');
+    skipTest('helmterm-testchild is not built beside the headless binary');
 } else if (app) {
     const ws = app.workspace;
     writeSettings({
@@ -50,7 +50,7 @@ if (requireApp() && !childAvailable()) {
 
     // ── ask ──
     const ask = open('Clip Ask');
-    eq(ask.el.options.clipboard, 'read-write', 'ask: reads come to broterm');
+    eq(ask.el.options.clipboard, 'read-write', 'ask: reads come to helmterm');
     ask.el.feed(QUERY);
     waitFor(() => ask.root.querySelector('.pane-prompt'), 'the request shows a prompt in the pane');
     const prompt = ask.root.querySelector('.pane-prompt');

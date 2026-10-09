@@ -5,20 +5,20 @@
 
 import { app, waitFor, settle, eq, CHILD, childAvailable, requireApp, reportPath, writeSettings,
          childProfile } from './lib/harness.js';
-import * as term from '../ui/js/term/adapter.js';
+import * as term from '../js/term/adapter.js';
 
 const tabEl = (t) => document.querySelector('#tabs .tab[data-tab-id="' + t.id + '"]');
 const lower = (c) => String(c || '').toLowerCase();
 
 if (requireApp() && !childAvailable()) {
-    skipTest('broterm-testchild is not built beside the headless binary');
+    skipTest('helmterm-testchild is not built beside the headless binary');
 } else if (app) {
     const ws = app.workspace;
     writeSettings({
         confirmClose: 'never',
         closeOnExit: 'never',
         profiles: { list: [
-            childProfile('Child T', reportPath('t'), { env: { BROTERM_TESTCHILD_TITLE: 'set by the child' } }),
+            childProfile('Child T', reportPath('t'), { env: { TESTCHILD_TITLE: 'set by the child' } }),
             childProfile('Child Plain', reportPath('p')),
             childProfile('Child Fixed', reportPath('f'), { tabTitle: 'Fixed title', suppressApplicationTitle: true }),
             childProfile('Child Named', reportPath('n'), { tabTitle: 'Starts named' }),
@@ -159,9 +159,9 @@ if (requireApp() && !childAvailable()) {
     waitFor(() => !tabEl(t2).classList.contains('has-progress'), 'progress cleared');
 
     // ── cwd reporting as clean filesystem path ──
-    const targetUri = process.platform === 'win32' ? 'file:///C:/temp/broterm%20cwd%20test' : 'file://localhost/tmp/broterm%20cwd%20test';
+    const targetUri = process.platform === 'win32' ? 'file:///C:/temp/helmterm%20cwd%20test' : 'file://localhost/tmp/helmterm%20cwd%20test';
     bg.el.feed('\x1b]7;' + targetUri + '\x07');
-    waitFor(() => t2.focused.cwd && t2.focused.cwd.includes('broterm cwd test'), 'cwd updated via OSC 7');
+    waitFor(() => t2.focused.cwd && t2.focused.cwd.includes('helmterm cwd test'), 'cwd updated via OSC 7');
     const cwdVal = t2.focused.cwd;
     assert(!cwdVal.startsWith('file://'), 'cwd is not a URI: ' + cwdVal);
     assert(!cwdVal.includes('%20'), 'cwd is percent-decoded: ' + cwdVal);

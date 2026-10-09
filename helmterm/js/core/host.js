@@ -1,15 +1,14 @@
-// The host: what broterm's native side and bro's runtime give the UI.
-//
-// bro.broterm is installed by broterm's own executable (src/host_bindings.cpp).
-// Running the UI under a stock bro / bro-headless (no bro.broterm) still
-// works: the configuration directory falls back to the same platform rule,
-// and the platform probes answer "nothing found".
+// The host: what bro's runtime gives the UI. helmterm is a folder app run by
+// the stock bro binary, so everything here is a standard bro API: bro.app
+// (identity, argv, per-app directories, the single-instance hand-off,
+// spawning another instance), bro.window (the desktop), bro.terminal, and
+// brokit's Node modules.
 
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const native = (typeof bro !== 'undefined' && bro.broterm) ? bro.broterm : null;
+const app = (typeof bro !== 'undefined' && bro.app) ? bro.app : null;
 
 const platform = process.platform;  // 'win32' | 'linux' | 'darwin'
 
@@ -18,17 +17,42 @@ function env(name) {
     return typeof v === 'string' ? v : '';
 }
 
-function fallbackConfigDir() {
-    if (env('BROTERM_CONFIG_DIR')) return env('BROTERM_CONFIG_DIR');
-    if (platform === 'win32') return path.join(env('APPDATA') || os.homedir(), 'broterm');
-    if (platform === 'darwin') return path.join(os.homedir(), 'Library', 'Application Support', 'broterm');
-    const xdg = env('XDG_CONFIG_HOME');
-    return path.join(xdg && path.isAbsolute(xdg) ? xdg : path.join(os.homedir(), '.config'), 'broterm');
-}
-
 function ensureDir(dir) {
     try { if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true }); } catch (e) { /* reported on first write */ }
     return dir;
+}
+
+// The configuration directory: bro.app.configDir (keyed by bro.json's id).
+// The first run brings over settings left by broterm, the native app this
+// one replaced, so nobody's profiles and keybindings vanish.
+function configDir() {
+    const dir = ensureDir(app ? app.configDir : path.join(os.homedir(), '.helmterm'));
+    try {
+        if (env('BRO_APP_HOME') || fs.existsSync(path.join(dir, 'settings.json'))) return dir;
+        let old;
+        if (platform === 'win32') old = path.join(env('APPDATA') || os.homedir(), 'broterm');
+        else if (platform === 'darwin') old = path.join(os.homedir(), 'Library', 'Application Support', 'broterm');
+        else {
+            const xdg = env('XDG_CONFIG_HOME');
+            old = path.join(xdg && path.isAbsolute(xdg) ? xdg : path.join(os.homedir(), '.config'), 'broterm');
+        }
+        for (const name of ['settings.json', 'keybindings.json']) {
+            const from = path.join(old, name);
+            if (fs.existsSync(from)) fs.writeFileSync(path.join(dir, name), fs.readFileSync(from, 'utf-8'), 'utf-8');
+        }
+    } catch (e) {
+        console.error('helmterm: cannot bring over broterm settings: ' + e.message);
+    }
+    return dir;
+}
+
+function loginShell() {
+    try {
+        const info = os.userInfo();
+        return info && typeof info.shell === 'string' ? info.shell : '';
+    } catch (e) {
+        return '';
+    }
 }
 
 // A headless run (tests, scripted use) has the driver's globals. The app
@@ -49,8 +73,8 @@ function notifyByCommand(title, body) {
         }
         if (!notifier) return false;
         const args = platform === 'darwin'
-            ? ['-e', 'display notification ' + JSON.stringify(body) + ' with title ' + JSON.stringify(title || 'broterm')]
-            : ['--app-name=broterm', title || 'broterm', body];
+            ? ['-e', 'display notification ' + JSON.stringify(body) + ' with title ' + JSON.stringify(title || 'helmterm')]
+            : ['--app-name=helmterm', title || 'helmterm', body];
         cp.spawn(notifier, args, { detached: true, stdio: 'ignore' });
         return true;
     } catch (e) {
@@ -61,23 +85,28 @@ function notifyByCommand(title, body) {
 export const host = {
     platform,
     headless,
-    native: !!native,
-    version: native ? native.version : '0.0.0-dev',
-    argv: native && Array.isArray(native.argv) ? native.argv.slice() : [],
-    configDir: ensureDir(native ? native.configDir : fallbackConfigDir()),
-    exePath: native ? native.exePath : (process.execPath || ''),
-    homeDir: native && native.homeDir ? native.homeDir : os.homedir(),
-    // The bundled UI's directory (shell-integration scripts live under it).
-    uiDir: typeof bro !== 'undefined' && bro.appDir ? bro.appDir : '',
+    id: app ? app.id : 'helm.term',
+    version: app && app.version ? app.version : '0.0.0-dev',
+    argv: app && Array.isArray(app.argv) ? app.argv.slice() : [],
+    configDir: configDir(),
+    exePath: app ? app.exePath : (process.execPath || ''),
+    homeDir: os.homedir(),
+    // The app's folder (shell-integration scripts live under it).
+    uiDir: app ? app.dir : (typeof bro !== 'undefined' && bro.appDir ? bro.appDir : ''),
     pathSep: path.sep,
     env,
 
-    loginShell() {
-        return native && typeof native.loginShell === 'function' ? native.loginShell() : '';
-    },
+    loginShell,
     wslDistributions() {
-        if (!native || typeof native.wslDistributions !== 'function') return [];
-        try { return native.wslDistributions() || []; } catch (e) { return []; }
+        if (typeof bro === 'undefined' || !bro.terminal || typeof bro.terminal.wslDistributions !== 'function') return [];
+        try { return bro.terminal.wslDistributions() || []; } catch (e) { return []; }
+    },
+    /// Another launch's command line and working directory, handed over
+    /// because bro.json declares singleInstance. bro raises the window.
+    onInstance(fn) {
+        if (app && typeof app.addEventListener === 'function') {
+            app.addEventListener('instance', (e) => fn(e.argv, e.cwd));
+        }
     },
     setWindowTitle(title) {
         if (typeof bro !== 'undefined' && bro.window && typeof bro.window.setTitle === 'function') {
@@ -97,21 +126,21 @@ export const host = {
         if (typeof bro !== 'undefined' && typeof bro.quit === 'function') { bro.quit(); return true; }
         return false;
     },
-    // A second broterm process: what "new window" is until bro can open a
-    // second top-level window that hosts the same application.
+    // A second helmterm process (bypassing the single-instance hand-off):
+    // what "new window" is until bro can open a second top-level window that
+    // hosts the same application.
     spawnSelf(args) {
-        if (!this.exePath || headless) return false;
+        if (!app || typeof app.spawn !== 'function' || headless) return false;
         try {
-            require('child_process').spawn(this.exePath, args || [], { detached: true, stdio: 'ignore' });
-            return true;
+            return app.spawn(args || [], { newInstance: true });
         } catch (e) {
-            console.error('broterm: new window failed: ' + e.message);
+            console.error('helmterm: new window failed: ' + e.message);
             return false;
         }
     },
 
     // ── the clipboard ──
-    // What broterm itself copies (a command's output, a command line) and
+    // What helmterm itself copies (a command's output, a command line) and
     // reads (answering a program's OSC 52 request). Headless keeps it in the
     // process, as bro's <terminal> does, so a test never touches the user's
     // clipboard.
@@ -121,7 +150,7 @@ export const host = {
             const t = String(text == null ? '' : text);
             if (headless || typeof navigator === 'undefined' || !navigator.clipboard) { this.local = t; return Promise.resolve(true); }
             return navigator.clipboard.writeText(t).then(() => true, (e) => {
-                console.error('broterm: clipboard write: ' + (e && e.message));
+                console.error('helmterm: clipboard write: ' + (e && e.message));
                 return false;
             });
         },
@@ -153,7 +182,7 @@ export const host = {
                     return bro.window.beep();
                 }
             } catch (e) {
-                console.error('broterm: bro.window ' + kind + ': ' + e.message);
+                console.error('helmterm: bro.window ' + kind + ': ' + e.message);
             }
         }
         if (kind === 'notify') {
@@ -191,10 +220,10 @@ export const host = {
     watchDir(dir, onChange) {
         try {
             const w = fs.watch(dir, {}, (event, filename) => onChange(event, filename || ''));
-            if (w && typeof w.on === 'function') w.on('error', (err) => console.error('broterm: watch: ' + err.message));
+            if (w && typeof w.on === 'function') w.on('error', (err) => console.error('helmterm: watch: ' + err.message));
             return w;
         } catch (e) {
-            console.error('broterm: cannot watch ' + dir + ': ' + e.message);
+            console.error('helmterm: cannot watch ' + dir + ': ' + e.message);
             return null;
         }
     },

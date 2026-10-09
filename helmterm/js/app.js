@@ -1,4 +1,4 @@
-// broterm: the application. Wires the models (settings, profiles, schemes,
+// helmterm: the application. Wires the models (settings, profiles, schemes,
 // keybindings, the command registry) to the views (tab strip, workspace,
 // overlays) and owns the keyboard.
 
@@ -36,7 +36,7 @@ export class App {
         this.dialog = this.overlays;
         this.attention = new Attention(this);
         this.lastLink = null;      // the last link a Ctrl+click activated
-        this.lastCopied = null;    // the last text broterm itself copied
+        this.lastCopied = null;    // the last text helmterm itself copied
         this.workspace = new Workspace(this, document.getElementById('workspace'));
         this.tabbar = new TabBar(this, document.getElementById('tabbar'));
         this.palette = new Palette(this);
@@ -51,42 +51,19 @@ export class App {
         window.addEventListener('keydown', (e) => this.onKeyDown(e), true);
         this.applyChrome();
         this.settings.watch();
+        // bro.json declares singleInstance: a second launch hands its
+        // arguments and working directory to this process (bro.app's
+        // 'instance' event) and exits before it opens a window.
+        host.onInstance((argv, fromCwd) => this.onInstance(argv, fromCwd));
     }
 
     /// Open the first window's tabs: the previous session (when enabled),
     /// and the tab the command line asks for.
     start(argv) {
         const opts = parseArgs(argv || []);
-        for (const e of opts.errors) this.toast('broterm: ' + e, 'error');
+        for (const e of opts.errors) this.toast('helmterm: ' + e, 'error');
         if (!host.terminalAvailable()) {
             this.toast('This build of bro has no <terminal> element (BRO_WITH_TERMINAL is off).', 'error');
-        }
-
-        if (!opts.newWindow && typeof bro !== 'undefined' && bro.window && typeof bro.window.requestSingleInstance === 'function') {
-            const isPrimary = bro.window.requestSingleInstance({
-                name: 'broterm',
-                args: argv || [],
-                onInstance: (forwardedArgs) => {
-                    const fOpts = parseArgs(forwardedArgs || []);
-                    if (asksForTab(fOpts)) {
-                        let profile = fOpts.profile;
-                        if (profile && !this.profiles.get(profile)) {
-                            profile = null;
-                        }
-                        const cwd = fOpts.cwd ? host.resolve(host.cwd(), fOpts.cwd) : null;
-                        this.workspace.openTab({ profile, cwd, commandline: fOpts.commandline, title: fOpts.title });
-                    } else {
-                        this.workspace.openTab({});
-                    }
-                    if (bro.window && typeof bro.window.requestAttention === 'function') {
-                        bro.window.requestAttention(true);
-                    }
-                }
-            });
-            if (!isPrimary) {
-                if (typeof bro.quit === 'function') bro.quit();
-                return opts;
-            }
         }
 
         let restored = 0;
@@ -105,6 +82,23 @@ export class App {
         this.launch = opts;
         this.ready = true;
         return opts;
+    }
+
+    /// Another launch of helmterm handed its command line over (bro.json's
+    /// singleInstance). `--new-window` gets a window of its own, as a separate
+    /// process; anything else opens a tab here, a relative --directory taken
+    /// from the directory that launch ran in.
+    onInstance(argv, fromCwd) {
+        const opts = parseArgs(argv || []);
+        if (opts.newWindow) {
+            const rest = (argv || []).filter((a) => a !== '--new-window');
+            host.spawnSelf(['--no-restore', ...rest]);
+            return;
+        }
+        let profile = opts.profile;
+        if (profile && !this.profiles.get(profile)) profile = null;
+        const cwd = opts.cwd ? host.resolve(fromCwd || host.cwd(), opts.cwd) : null;
+        this.workspace.openTab({ profile, cwd, commandline: opts.commandline, title: opts.title });
     }
 
     // ── settings ──
@@ -202,7 +196,7 @@ export class App {
     overlayOpen() { return this.overlays.isOpen(); }
 
     toast(text, kind) {
-        if (kind === 'error') console.error('broterm: ' + text);
+        if (kind === 'error') console.error('helmterm: ' + text);
         return this.overlays.toast(text, kind);
     }
 
@@ -219,7 +213,7 @@ export class App {
         items.push({ separator: true });
         items.push({ label: 'Settings', hint: this.keymap.keyFor('openSettings'), run: () => this.commands.run('openSettings') });
         items.push({ label: 'Command palette', hint: this.keymap.keyFor('commandPalette'), run: () => this.commands.run('commandPalette') });
-        items.push({ label: 'About broterm', run: () => this.commands.run('about') });
+        items.push({ label: 'About helmterm', run: () => this.commands.run('about') });
         return this.overlays.menu(items, anchor || document.getElementById('new-tab-menu'));
     }
 
@@ -256,7 +250,7 @@ export class App {
         const keep = this.settings.values.restoreSession;
         const ending = this.workspace.allPanes().filter((p) => !(keep && p.sessionId));
         if (this.workspace.needsConfirm(ending)) {
-            const ok = await this.overlays.confirm({ title: 'Quit broterm?', message: 'Processes are still running in some panes.', confirm: 'Quit' });
+            const ok = await this.overlays.confirm({ title: 'Quit helmterm?', message: 'Processes are still running in some panes.', confirm: 'Quit' });
             if (!ok) return false;
         }
         this.session.save.flush();

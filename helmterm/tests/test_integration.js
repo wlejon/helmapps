@@ -1,6 +1,6 @@
 // Shell integration, per shell found on this machine (PowerShell 7, Windows
 // PowerShell and Git Bash on Windows; bash, zsh and fish elsewhere): the
-// shell starts with broterm's script loaded and the user's own startup files
+// shell starts with helmterm's script loaded and the user's own startup files
 // still run; prompts are marked; each command's line, exit code and
 // duration are known; the directory is reported; marks show beside prompts.
 // A profile with shellIntegration: false gets none of it.
@@ -27,18 +27,18 @@ function check(profile, kind, tag) {
 
     // The user's own startup files still ran.
     if (kind !== 'powershell') {
-        const login = pane.launch.spawn.env.BROTERM_BASH_LOGIN === '1';
-        run(pane, s.show('BROTERM_T_RC'), what + ' rc check');
-        waitFor(() => pane.el.screenText().includes('BROTERM_T_RC=' + kind + 'rc'),
+        const login = pane.launch.spawn.env.HELMTERM_BASH_LOGIN === '1';
+        run(pane, s.show('HELMTERM_T_RC'), what + ' rc check');
+        waitFor(() => pane.el.screenText().includes('HELMTERM_T_RC=' + kind + 'rc'),
             what + ': the user\'s rc file ran: ' + pane.el.screenText().slice(-300));
         if (login) {
-            run(pane, s.show('BROTERM_T_LOGIN'));
-            waitFor(() => pane.el.screenText().includes('BROTERM_T_LOGIN=bash_profile'), what + ': a login shell ran ~/.bash_profile');
+            run(pane, s.show('HELMTERM_T_LOGIN'));
+            waitFor(() => pane.el.screenText().includes('HELMTERM_T_LOGIN=bash_profile'), what + ': a login shell ran ~/.bash_profile');
         }
-        // Nothing of broterm's leaks into what the shell's programs inherit.
-        run(pane, s.show('BROTERM_SHELL_INTEGRATION'));
-        waitFor(() => pane.el.screenText().includes('BROTERM_SHELL_INTEGRATION=\n') ||
-            /BROTERM_SHELL_INTEGRATION=\s*$/m.test(pane.el.screenText()), what + ': the marker variable is unset');
+        // Nothing of helmterm's leaks into what the shell's programs inherit.
+        run(pane, s.show('HELMTERM_SHELL_INTEGRATION'));
+        waitFor(() => pane.el.screenText().includes('HELMTERM_SHELL_INTEGRATION=\n') ||
+            /HELMTERM_SHELL_INTEGRATION=\s*$/m.test(pane.el.screenText()), what + ': the marker variable is unset');
         if (kind === 'zsh') {
             run(pane, 'echo "Z=${ZDOTDIR-unset}"');
             waitFor(() => pane.el.screenText().includes('Z=unset'), what + ': ZDOTDIR handed back');
@@ -46,14 +46,14 @@ function check(profile, kind, tag) {
         if (kind === 'fish') {
             run(pane, 'echo "X=$XDG_DATA_DIRS"');
             waitFor(() => /X=/.test(pane.el.screenText()) && !pane.el.screenText().includes('shell-integration'),
-                what + ': XDG_DATA_DIRS without broterm\'s directory');
+                what + ': XDG_DATA_DIRS without helmterm\'s directory');
         }
     }
 
     // A command that succeeds and one that fails.
     const ok = run(pane, s.ok, what + ' ok');
     eq(ok.exitCode, 0, what + ': exit code 0');
-    assert(ok.commandLine.includes('echo broterm-one'), what + ': the command line: ' + JSON.stringify(ok.commandLine));
+    assert(ok.commandLine.includes('echo helmterm-one'), what + ': the command line: ' + JSON.stringify(ok.commandLine));
     assert(typeof pane.commandLog.duration(ok) === 'number', what + ': a duration was measured');
     const bad = run(pane, s.fail, what + ' failing');
     eq(bad.exitCode, s.failCode, what + ': the failing command\'s exit code');
@@ -91,6 +91,6 @@ if (requireApp()) {
         eq(t.focused.launch.integration, null, 'shellIntegration: false loads nothing');
         eq(t.focused.launch.spawn.args, app.profiles.get(any.name).args, 'and the arguments are the profile\'s own');
     }
-    if (!ran.length) skipTest('no shell that broterm integrates is installed');
+    if (!ran.length) skipTest('no shell that helmterm integrates is installed');
     else if (!WIN && !found.zsh.length) console.log('test_integration: zsh is not installed here');
 }
