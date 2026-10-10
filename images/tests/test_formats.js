@@ -4,7 +4,8 @@
 // fields show in the details. Mod+C copies the picture as a PNG.
 
 import { app, waitFor, eq, fixtureDir } from '/lib/test.js';
-import { png, jpeg, gif, animatedGif, bmp, ico, webp, svg, tiff, orientedJpeg, cameraJpeg, shown } from '/app/tests/images.js';
+import { png, jpeg, gif, animatedGif, bmp, ico, webp, svg, tiff, orientedJpeg, cameraJpeg, avif, heic, shown } from '/app/tests/images.js';
+import { dialogFilter } from '/app/js/formats.js';
 
 const path = require('path');
 
@@ -79,6 +80,36 @@ app.commands.run('copy-path');
 let text = null;
 waitFor(() => { navigator.clipboard.readText().then((t) => { text = t; }); return text && text.endsWith('camera.jpg'); },
   'Copy Path puts the path on the clipboard');
+
+// AVIF decodes on the decoder thread (bro's dav1d); HEIC through the system's
+// decoder only. Where there is none, a HEIC is still listed, its tile is a
+// placeholder, and opening it says why.
+const heifDir = fixtureDir({ 'p.avif': avif(), 'q.heic': heic() });
+app.openPath(heifDir);
+waitFor(() => app.folder.items.length === 2, 'AVIF and HEIC listed');
+const avifOk = bro.image.canDecode('image/avif') === 'probably';
+if (avifOk) {
+  app.openImage(path.join(heifDir, 'p.avif'));
+  shown(app, waitFor, 'p.avif');
+  eq([app.viewer.model().width, app.viewer.model().height], [64, 48], 'the AVIF size');
+  eq(app.viewer.model().kind, 'bitmap', 'the AVIF is decoded on the decoder thread');
+} else {
+  console.log('test_formats: this bro has no AVIF decoder (BRO_WITH_AVIF off): skipping the AVIF open');
+}
+const heicSupport = bro.image.decodeSupport('image/heic');
+app.openImage(path.join(heifDir, 'q.heic'));
+if (heicSupport.supported) {
+  shown(app, waitFor, 'q.heic');
+  eq([app.viewer.model().width, app.viewer.model().height], [64, 48], 'the HEIC size');
+  assert(!app.state.error, 'the HEIC shows without an error');
+} else {
+  waitFor(() => app.state.error, 'the HEIC error state');
+  assert(app.state.error.includes(heicSupport.reason), `opening a HEIC says why: ${app.state.error}`);
+  assert(document.querySelector('.iv-error').textContent.includes(heicSupport.reason), 'and the view shows it');
+  assert(!dialogFilter().includes('heic'), 'the Open dialog does not offer HEIC');
+  console.log(`test_formats: no HEIC decoder here (${heicSupport.reason})`);
+}
+assert(dialogFilter().includes('avif'), 'the Open dialog offers AVIF');
 
 // A file that is not really an image: an error state, not an exception.
 const bad = fixtureDir({ 'broken.png': 'this is not a PNG' });

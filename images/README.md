@@ -8,9 +8,11 @@ folder (or pressing Escape on an image) shows the folder as a grid of
 previews. Rename and Move to Trash (with Undo) are the only things it does
 to a file.
 
-PNG, JPEG, GIF, BMP, ICO, WebP, TIFF and SVG open; an animated GIF or WebP
-plays. AVIF and HEIC do not decode in bro, so they are not offered (see
-`GAPS.md`). The details panel shows the camera's EXIF (camera, lens,
+PNG, JPEG, GIF, BMP, ICO, WebP, TIFF, SVG and AVIF open; an animated GIF or
+WebP plays (an animated AVIF shows its first frame). HEIC opens where the
+system can decode it (Windows with the HEVC Video Extensions, macOS); where
+it cannot (`bro.image.decodeSupport`), a HEIC is still listed with a
+placeholder tile, and opening it says why. The details panel shows the camera's EXIF (camera, lens,
 exposure, date taken, location), and Mod+C copies the picture itself.
 
 ```bash

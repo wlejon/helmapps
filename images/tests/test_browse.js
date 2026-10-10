@@ -14,7 +14,7 @@ const dir = fixtureDir({
   'Apple.png': png(20, 30),
   'banana.PNG': png(20, 20),
   'notes.txt': 'not an image',
-  'scan.avif': 'no AVIF decoder',     // bro cannot decode AVIF: not listed
+  'scan.xcf': 'a GIMP file',          // not a format Image Viewer opens: not listed
   'sub/inner.png': png(10, 10),       // a folder, not an image
 });
 const order = ['Apple.png', 'banana.PNG', 'img2.jpg', 'img10.png'];

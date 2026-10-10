@@ -9,7 +9,9 @@
  * thumbnail cache (shared with Files). Without bro.thumb, or for a file it
  * cannot do, the decoder thread shrinks the image itself (js/decode-worker.js).
  * An SVG is its own preview: bro draws it sharp at any size. A file nothing
- * can decode answers 'failed', and its cell shows a file icon.
+ * can decode answers 'failed', and its cell shows a file icon; so does a
+ * format this machine cannot decode at all (HEIC without a system decoder),
+ * without trying.
  */
 
 import { api } from '/lib/dom.js';
@@ -48,6 +50,10 @@ export class Thumbs {
     if (f && f.decode === 'vector') {
       this.ready.set(path, path);
       return path;
+    }
+    if (f && f.decode === 'unsupported') {       // a HEIC this machine cannot decode: a placeholder tile
+      this.ready.set(path, FAILED);
+      return FAILED;
     }
     if (!this.wanted.includes(path)) this.wanted.push(path);
     this.pump();

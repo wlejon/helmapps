@@ -181,7 +181,8 @@ export class Decoder {
   start(path, urgent) {
     const f = formatOf(path);
     let promise;
-    if (f && f.decode !== 'worker') promise = loadOnPage(path, f.decode);
+    if (f && f.decode === 'unsupported') promise = Promise.reject(new Error(f.reason));
+    else if (f && f.decode !== 'worker') promise = loadOnPage(path, f.decode);
     else {
       const t0 = now();
       promise = this.pictures.send({ op: 'picture', path, maxSide: this.maxSide }, urgent).then((m) => m.animated
@@ -189,7 +190,8 @@ export class Decoder {
         : {
         path, kind: 'bitmap', source: m.bitmap, partial: m.bitmap.width < m.width, full: null,
         width: m.width, height: m.height, orientation: m.orientation || 1, exif: m.exif || null, ms: now() - t0,
-      }, () => loadOnPage(path, 'img'));          // bro.image refused it: try the page's decoder
+      }, (err) => loadOnPage(path, 'img').catch(() => { throw err; }));  // bro.image refused it: try the page's
+                                                                          // decoder, else say why bro.image could not
     }
     promise = promise.then((pic) => {
       this.inflight.delete(path);

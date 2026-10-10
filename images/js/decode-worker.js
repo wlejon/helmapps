@@ -43,7 +43,7 @@ function decode(path) {
 function decodeFile(path) {
   const bytes = fs.readFileSync(path);
   const img = bro.image.decodeOriented(bytes);
-  if (!img || !img.width || !img.height) throw new Error('bro.image cannot decode this file');
+  if (!img || !img.width || !img.height) throw new Error((img && img.error) || 'bro.image cannot decode this file');
   const orientation = bro.image.readExifOrientation(bytes) || 1;
   let exif = null;
   try { exif = bro.image.readExif(bytes); } catch (_) { exif = null; }
