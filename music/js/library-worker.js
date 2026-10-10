@@ -2,7 +2,7 @@
  * The library's scan thread. It owns the saved index (JSON in
  * bro.app.cacheDir) and everything that touches the music files: walking
  * the library folders, comparing each file's size and mtime with the index,
- * reading the tags of the files that changed (js/tags/), and making a small
+ * reading the tags of the files that changed (bro.media.tags), and making a small
  * JPEG of each cover. The page only receives finished records.
  *
  * Messages in:
@@ -18,7 +18,6 @@
  *   { op: 'stopped', id, files, parsed }             a stopped (or replaced) scan, its records sent
  */
 
-import { readTags, fileReader } from './tags/index.js';
 import { makeRecord, hashString, hashBytes, PLAYABLE, UNPLAYABLE } from './records.js';
 
 const fs = require('fs');
@@ -117,18 +116,14 @@ function folderCover(src) {
 /** Read one file's tags (and embedded picture) into a record. */
 function parse(file, rel, dirCover) {
   let tags = null;
-  let fd = -1;
   try {
-    fd = fs.openSync(file.path, 'r');
-    tags = readTags(fileReader(fs, fd, file.size), file.ext);
+    tags = bro.media.tags(file.path);          // null when the file is not one it reads
   } catch (_) {
     tags = null;
-  } finally {
-    if (fd >= 0) try { fs.closeSync(fd); } catch (_) { /* closed */ }
   }
   const rec = makeRecord(file, rel, tags);
-  if (tags && tags.picture && tags.picture.data.length > 16) {
-    const cover = makeCover(`p-${hashBytes(tags.picture.data)}`, tags.picture.data);
+  if (tags && tags.picture && tags.picture.bytes.length > 16) {
+    const cover = makeCover(`p-${hashBytes(tags.picture.bytes)}`, tags.picture.bytes);
     if (cover) { rec.cover = cover; rec.embedded = true; }
   }
   if (!rec.embedded && dirCover) {

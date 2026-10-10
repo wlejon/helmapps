@@ -5,12 +5,12 @@
     "description": "Play the music in your Music folder: artists, albums, a queue",
     "icon": "assets/icon.svg",
     "categories": ["AudioVideo", "Audio", "Player"],
-    "keywords": ["music", "player", "audio", "songs", "albums", "artists", "playlist", "queue", "mp3", "flac"],
+    "keywords": ["music", "player", "audio", "songs", "albums", "artists", "playlist", "queue", "mp3", "flac", "m4a"],
     "singleInstance": true,
     "fileTypes": [
         { "name": "Audio",
-          "mimeTypes": ["audio/mpeg", "audio/flac", "audio/x-flac", "audio/ogg", "audio/x-vorbis+ogg", "audio/opus", "audio/x-opus+ogg", "audio/wav", "audio/x-wav"],
-          "extensions": ["mp3", "flac", "ogg", "oga", "opus", "wav"] }
+          "mimeTypes": ["audio/mpeg", "audio/flac", "audio/x-flac", "audio/ogg", "audio/x-vorbis+ogg", "audio/opus", "audio/x-opus+ogg", "audio/wav", "audio/x-wav", "audio/mp4", "audio/x-m4a"],
+          "extensions": ["mp3", "flac", "ogg", "oga", "opus", "wav", "m4a", "m4b"] }
     ],
     "permissions": [],
     "app": ".",

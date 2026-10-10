@@ -8,9 +8,11 @@ The bar along the bottom has the song, the transport (shuffle, previous,
 play/pause, next, repeat off/all/one), the seek bar, volume and mute. Music
 comes back on the song and position you left, paused.
 
-MP3, FLAC, Ogg Vorbis, Opus and WAV play. M4A does not play in bro, so the
-scan counts it and leaves it out (see `GAPS.md`). Tags are read from
-ID3v2.2–2.4/ID3v1, FLAC, Ogg Vorbis and Opus comments and WAV INFO; an untagged
+MP3, FLAC, Ogg Vorbis, Opus and WAV play, and M4A (AAC) on Windows and macOS,
+through the platform's AAC decoder; on Linux bro has none, so the scan counts
+M4A files and leaves them out. Tags come from `bro.media.tags` on the scan
+worker (ID3v2.2–2.4/ID3v1, FLAC, Ogg Vorbis and Opus comments, WAV INFO, M4A
+ilst atoms); an untagged
 file takes its artist, album, disc, track and title from an
 `Artist/Album/NN Title` layout. Covers are the embedded picture, else a
 `cover.jpg` / `folder.jpg` beside the songs.
@@ -72,8 +74,7 @@ The queue itself is `queue.json` in the app's data folder.
 | `js/main.js` | The window, commands, sidebar, navigation, what is saved and resumed |
 | `js/library.js` | The library on the page: records from the worker, albums/artists/folders views, watching |
 | `js/library-worker.js` | The scan thread: walk, compare, read tags, make covers, save the index |
-| `js/tags/` | Tag readers: `id3.js`, `mp3.js`, `flac.js`, `ogg.js`, `vorbis.js`, `wav.js`, `index.js` (sniffing, layout fallback) |
-| `js/records.js` | A song record from a file's tags, sort keys, formats |
+| `js/records.js` | A song record from a file's tags (`bro.media.tags`) and the folder layout, sort keys, formats |
 | `js/queue.js` | The queue: order, shuffle, repeat, Play Next / Add, move, remove |
 | `js/player.js` | Playback over broaudio disk streams: transport, seek, volume, the end of a song |
 | `js/views.js` | The lists: songs, album grid, artists, folders, album and artist pages, the head |

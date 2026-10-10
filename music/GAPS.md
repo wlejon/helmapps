@@ -7,28 +7,6 @@ the MPRIS player side) are in `../GAPS.md`.
 
 ## Engine (bro, broaudio)
 
-### No tag reader: every app that shows music must parse ID3/Vorbis itself
-- **Where:** bro (`bro.media`)
-- **Expected:** `bro.media.tags(path)` → `{ title, artist, album,
-  albumArtist, track, disc, year, genre, duration, picture }` for the
-  formats broaudio plays, from native code, callable from a worker.
-- **Actual:** nothing. `bro.media` has peaks and filmstrips only.
-- **Impact:** `js/tags/` is about 800 lines of ID3v2.2–2.4, ID3v1, FLAC,
-  Ogg Vorbis/Opus, WAV INFO and MP3 frame parsing in JS (unit tests:
-  `test_tags_id3.js`, `test_tags_flac.js`), run on the scan worker.
-- **Belongs in:** bro (`bro.media.tags`), probably over broaudio's decoders.
-
-### M4A/AAC does not play
-- **Where:** broaudio (`createStreamFromFile`, `decodeAudioData`)
-- **Expected:** `.m4a` streams like MP3/FLAC/Opus.
-- **Actual:** `createStreamFromFile` throws "unrecognized"; `decodeAudioData`
-  returns null.
-- **Impact:** the scan counts M4A files and leaves them out ("N files Music
-  cannot play (M4A) left out" in the sidebar).
-- **Belongs in:** broaudio: an MP4 demuxer (minimp4, CC0) plus the platform's
-  AAC decoder (Media Foundation, AudioToolbox); Linux needs FDK-AAC or an
-  ffmpeg backend from a host app.
-
 ### `<img>` decodes synchronously
 - **Where:** bro (`HTMLImageElement`), as in `../images/GAPS.md`
 - **Impact:** covers are 320 px JPEGs made by the scan worker, and decoded

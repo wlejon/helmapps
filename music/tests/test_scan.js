@@ -24,7 +24,7 @@ const dir = fixtureDir({
   'Loose/tagged.mp3': mp3(id3v24([id3TextFrame('TIT2', 'Wide Ünicode', 'utf16'), id3TextFrame('TPE1', 'Mp3 Artist'),
     id3TextFrame('TALB', 'Mp3 Album'), id3TextFrame('TRCK', '9'), id3PictureFrame(png)])),
   'Voices/Talk/voice.opus': opus(0.3, { TITLE: 'Voice', ARTIST: 'Voices', ALBUM: 'Talk', TRACKNUMBER: '1' }),
-  'skip/song.m4a': new Uint8Array(64),
+  'skip/song.wma': new Uint8Array(64),
   'notes.txt': 'not music',
   '.hidden/secret.wav': wav(0.1),
 });
@@ -35,7 +35,7 @@ eq(app.library.roots, [dir], 'the library is the fixture folder, nothing else');
 const scan = app.library.lastScan;
 eq(scan.files, 6, 'six playable files found (Opus among them)');
 eq(scan.parsed, 6, 'each read once');
-eq([scan.skipped.opus, scan.skipped.m4a], [undefined, 1], 'M4A is counted and left out');
+eq([scan.skipped.opus, scan.skipped.m4a, scan.skipped.wma], [undefined, undefined, 1], 'WMA is counted and left out');
 
 const songs = app.library.songs();
 const by = (title) => songs.find((s) => s.title === title);
@@ -69,7 +69,7 @@ app.go('albums');
 settle(100);
 waitFor(() => document.querySelectorAll('.mu-albums .vgrid-cell').length === 5, 'five album cells');
 assert(document.querySelector('.mu-scan-text').textContent.includes('6 songs'), 'the sidebar counts the songs');
-assert(document.querySelector('.mu-scan-text').textContent.includes('1 file Music cannot play (M4A)'), 'and says what was left out');
+assert(document.querySelector('.mu-scan-text').textContent.includes('1 file Music cannot play (WMA)'), 'and says what was left out');
 clickEl(Array.from(document.querySelectorAll('.sidebar-item')).find((b) => b.textContent.includes('Songs')));
 waitFor(() => app.state.view === 'songs' && document.querySelectorAll('.vlist-row').length === 6, 'six song rows');
 

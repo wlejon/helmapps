@@ -47,12 +47,6 @@ Each app keeps its own `GAPS.md` in the same format (see AGENTS.md).
 - **Impact:** System Monitor cannot end a process.
 - **Belongs in:** brokit
 
-## No media tag reader
-- **Where:** bro (`bro.media`)
-- **Expected:** title/artist/album/track/cover from audio and video files.
-- **Impact:** Music parses ID3 and Vorbis comments in JS.
-- **Belongs in:** bro
-
 ## The clipboard has no doc page
 - **Where:** docs
 - **Expected:** a page for `navigator.clipboard` (text, and whether images

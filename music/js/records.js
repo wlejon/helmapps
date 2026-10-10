@@ -8,12 +8,18 @@
  *     albumKey, tKey, aKey, lKey, search }
  */
 
-import { fromLayout } from './tags/index.js';
+/**
+ * M4A (AAC) plays through the platform's AAC decoder: Media Foundation on
+ * Windows, AudioToolbox on macOS. bro has none on Linux (docs/audio-engine-api.js,
+ * createStreamFromFile), so there M4A is counted and left out like WMA.
+ */
+const AAC = typeof require === 'function' && require('os').platform() !== 'linux';
+const M4A = ['m4a', 'm4b'];
 
-/** The formats bro plays (createStreamFromFile). M4A/AAC does not decode (GAPS.md). */
-export const PLAYABLE = new Set(['mp3', 'flac', 'ogg', 'oga', 'opus', 'wav']);
+/** The formats bro plays (createStreamFromFile). */
+export const PLAYABLE = new Set(['mp3', 'flac', 'ogg', 'oga', 'opus', 'wav', ...(AAC ? M4A : [])]);
 /** Music files bro cannot play: counted, so the window can say they were left out. */
-export const UNPLAYABLE = new Set(['m4a', 'aac', 'wma', 'alac', 'aiff', 'aif', 'ape', 'wv', 'mpc']);
+export const UNPLAYABLE = new Set(['aac', 'wma', 'alac', 'aiff', 'aif', 'ape', 'wv', 'mpc', ...(AAC ? [] : M4A)]);
 
 export const UNKNOWN_ARTIST = 'Unknown Artist';
 export const UNKNOWN_ALBUM = 'Unknown Album';
@@ -24,8 +30,32 @@ export function sortKey(s) {
 }
 
 /**
- * The record for a file: `tags` from readTags (or null when unreadable),
- * `rel` its path inside the library folder.
+ * Artist, album, track and title as the folders lay them out:
+ * "Artist/Album/03 - Title.ext" (relative to the library folder). A file
+ * directly in an album folder has no artist; a loose file only a title.
+ */
+export function fromLayout(rel) {
+  const parts = rel.split(/[\\/]+/).filter(Boolean);
+  const file = parts.pop() || '';
+  const base = file.replace(/\.[^.]+$/, '');
+  const m = /^(?:(\d{1,2})[-.](\d{1,3})|(\d{1,3}))(?:\s*[-._]\s*|\s+)(.+)$/.exec(base);
+  let track = 0, disc = 0, title = base;
+  if (m) {
+    if (m[1]) { disc = Number(m[1]); track = Number(m[2]); } else track = Number(m[3]);
+    title = m[4].trim();
+  }
+  return {
+    artist: parts.length >= 2 ? parts[parts.length - 2] : '',
+    album: parts.length >= 1 ? parts[parts.length - 1] : '',
+    title: title.replace(/_/g, ' ').trim() || base,
+    track,
+    disc,
+  };
+}
+
+/**
+ * The record for a file: `tags` from bro.media.tags (or null when
+ * unreadable), `rel` its path inside the library folder.
  */
 export function makeRecord(file, rel, tags) {
   const lay = fromLayout(rel);
@@ -37,7 +67,7 @@ export function makeRecord(file, rel, tags) {
     path: file.path,
     size: file.size,
     mtime: file.mtime,
-    format: t.format || '',
+    format: t.codec || '',
     title: t.title || lay.title,
     artist,
     album,
