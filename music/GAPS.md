@@ -6,19 +6,23 @@ window. Gaps every app shares (the MPRIS player side) are in `../GAPS.md`.
 
 ## Engine (bro, broaudio)
 
-### Style and layout cost ~22 µs per element put back in the document
-- **Where:** bro (`Document::resolveStylesRecursive`, `htmlayout::css::Cascade`)
-- **Expected:** a view of ~300 elements (25 song rows, or an album grid
-  page) is styled and laid out in a ms or two.
-- **Actual:** re-inserting 25 list rows of 5 columns (277 elements) costs a
-  median 5.9 ms of style and layout, 1102 elements 24.9 ms (kit-tests page,
-  `bro-headless`): ~22 µs an element. Profiling a run of view switches:
-  ~40% of the samples are in style resolution, ~10% flex layout, ~15% GC.
-- **Impact:** a change of view (Mod+1..4) costs 15–25 ms on the page
-  thread, most of it this, and test_perf's view-switch "frame" (the key's
-  work plus a frame) is ~23 ms mean, ~35 ms worst on a quiet box. With
-  other work on the machine it has reached 52–63 ms. Music already keeps
-  only the list on screen in the document and fills only the rows shown.
+### A view switch still restyles ~50–90 elements in full
+- **Where:** bro (`htmlayout::css::Cascade::resolve`, a full resolve)
+- **Expected:** switching back to a view whose list is unchanged costs about
+  what putting its element back costs: ~1 ms.
+- **Actual:** putting a built list back is now cheap. Its elements keep their
+  styles and layout subtrees: swapping the songs and albums lists on the
+  stage costs ~1 ms of style and layout for ~220 elements (bro's
+  tests/style/test_restyle_cost.js measures ~2 µs an element, down from ~17).
+  A real switch (Mod+1..5, steady state) still spends ~3.5–5 ms in style and
+  ~0.7 ms in layout. The style goes on 40–90 elements resolved in full (the
+  head, sidebar, toolbar, and the list's own changed rows) at ~25 µs each,
+  over two style passes, because the list's paint() reads clientWidth in the
+  middle of the update. The key's JS is another ~4 ms. A list's first visit
+  after a scan builds its rows fresh (~8 µs an element to style).
+- **Impact:** test_perf's view-switch "frame" (the key's work plus a frame) is
+  ~16–19 ms mean and ~28–37 ms worst, down from ~23 / ~35. Music keeps only
+  the list on screen in the document and fills only the rows shown.
 - **Belongs in:** bro
 
 ## Not built
