@@ -417,6 +417,8 @@ export class Views {
 
   /** The playing song changed: redraw the rows on screen that mark it. */
   playingChanged() {
-    for (const l of [this.songs, this.tracks, this.folders]) if (l.el.parentNode === this.stage) l.refresh();
+    // Only rowClass reads it: re-class the rows, do not rebuild them (a
+    // rebuild of the rows on screen was ~9 ms a song skipped, up to 70).
+    for (const l of [this.songs, this.tracks, this.folders]) if (l.el.parentNode === this.stage) l.refreshClasses();
   }
 }
