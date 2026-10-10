@@ -80,7 +80,7 @@ The queue itself is `queue.json` in the app's data folder.
 | `js/views.js` | The lists: songs, album grid, artists, folders, album and artist pages, the head |
 | `js/queueview.js` | The Queue page, with drag to reorder |
 | `js/nowplaying.js` | The bar along the bottom |
-| `js/covers.js` | Decoded covers, kept and moved between cells |
+| `js/covers.js` | Covers: one plain `<img>` per cell, re-pointed as cells recycle |
 | `js/prefs.js` | Library folders: the setting and its dialog |
 | `css/app.css` | Covers, the head, the bar; all else is the kit |
 | `tests/fixtures.js` | Test music made in memory (WAV, FLAC, ID3 tags) |

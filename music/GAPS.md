@@ -7,12 +7,6 @@ are in `../GAPS.md`.
 
 ## Engine (bro, broaudio)
 
-### `<img>` decodes synchronously
-- **Where:** bro (`HTMLImageElement`), as in `../images/GAPS.md`
-- **Impact:** covers are 320 px JPEGs made by the scan worker, and decoded
-  `<img>` elements are kept on a shelf (`js/covers.js`) and moved between
-  grid cells instead of re-pointed.
-
 ### Style and layout cost ~22 µs per element put back in the document
 - **Where:** bro (`Document::resolveStylesRecursive`, `htmlayout::css::Cascade`)
 - **Expected:** a view of ~300 elements (25 song rows, or an album grid

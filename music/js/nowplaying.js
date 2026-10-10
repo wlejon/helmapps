@@ -74,7 +74,7 @@ export class NowPlaying {
       this.artist.textContent = s ? s.artist || 'Unknown Artist' : '';
       this.title.disabled = !s;
       this.artist.disabled = !s;
-      setArt(this.art, s ? s.cover : '', { own: true });
+      setArt(this.art, s ? s.cover : '');
       this.seek.max = Math.max(1, p.duration);
     }
     if (p.state !== this.shown.state) {

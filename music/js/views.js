@@ -171,10 +171,6 @@ export class Views {
   mount(el) {
     if (el ? this.stage.firstChild === el && this.stage.childNodes.length === 1 : !this.stage.firstChild) return;
     this.stage.replaceChildren(...(el ? [el] : []));
-    // A list with covers is filled again: a cover shown elsewhere meanwhile
-    // (an artist's row, another page) took the shared <img> (js/covers.js).
-    if (el === this.albums.el) this.albums.refresh();
-    else if (el === this.artists.el) this.artists.refresh();
   }
 
   playingPath() {
@@ -210,7 +206,7 @@ export class Views {
     this.headLink = link;
     hd.meta.textContent = meta;
     hd.art.classList.toggle('hidden', cover === null);
-    if (cover !== null) setArt(hd.art, cover, { own: true });
+    if (cover !== null) setArt(hd.art, cover);
     hd.crumbsBox.classList.toggle('hidden', !crumbs);
     if (crumbs) {
       if (!hd.crumbsBox.firstChild) hd.crumbsBox.appendChild(this.crumbs.el);
