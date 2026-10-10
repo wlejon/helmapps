@@ -101,21 +101,6 @@ the MPRIS player side) are in `../GAPS.md`.
   `position` are settings.
 - **Belongs in:** bro
 
-### A `width: 100%` child adds nothing to a content-sized parent's width, so menus cut labels short
-- **Where:** bro / htmlayout (intrinsic sizing)
-- **Expected:** as in browsers, a percentage width counts as `auto` when the
-  parent's width comes from its content: a `position: fixed` box holding a
-  `width: 100%` flex row is as wide as the row's content.
-- **Actual:** the row adds 0, and the box falls to its `min-width`. Repro: a
-  fixed `div` (`min-width: 50px`) around a flex row of two 100 px spans and the
-  text "Play Next" is 258 px wide, but only 50 px once the row has
-  `width: 100%`.
-- **Impact:** kit menus (`.menu-item { width: 100% }`) never grow past their
-  200 px minimum, so "Play Next  Ctrl+Shift+N" shows as "Play N…  Ctrl+Shift+N"
-  in Music's song menu. Every app's menus with shortcuts are affected; the
-  labels are the brief's, so Music leaves them as they are.
-- **Belongs in:** htmlayout (or the kit could drop `width: 100%` on menu items)
-
 ### `<img>` decodes synchronously
 - **Where:** bro (`HTMLImageElement`), as in `../images/GAPS.md`
 - **Impact:** covers are 320 px JPEGs made by the scan worker, and decoded
