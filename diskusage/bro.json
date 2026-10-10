@@ -1,0 +1,25 @@
+{
+    "id": "helm.diskusage",
+    "name": "Disk Usage",
+    "version": "0.1.0",
+    "description": "See what takes up space, folder by folder",
+    "icon": "assets/icon.svg",
+    "categories": ["System", "Utility"],
+    "keywords": ["disk", "space", "usage", "storage", "size", "folders", "analyzer"],
+    "singleInstance": true,
+    "fileTypes": [
+        { "name": "Folder", "mimeTypes": ["inode/directory"] }
+    ],
+    "actions": [
+        { "id": "new-window", "name": "New Window", "args": ["--new-window"] }
+    ],
+    "permissions": [],
+    "app": ".",
+    "width": 1000,
+    "height": 680,
+    "minWidth": 560,
+    "minHeight": 360,
+    "resizable": true,
+    "splash": false,
+    "watch": false
+}

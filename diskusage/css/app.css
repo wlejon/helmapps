@@ -1,0 +1,35 @@
+/* Disk Usage: only what the kit does not already draw. */
+
+.du-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  flex: none;
+  padding: var(--s4) var(--s5) var(--s3);
+}
+
+.du-summary .du-total { font-size: var(--fs-display); font-weight: 700; color: var(--t1); }
+.du-summary .du-meta { display: flex; flex-direction: column; gap: 2px; }
+
+/* The share of the folder a row takes, as a bar under the size. */
+.du-bar {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  border-radius: var(--r-chip);
+  background: var(--sink);
+  overflow: hidden;
+}
+
+.du-bar-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: var(--r-chip);
+  background: var(--grad);
+}
+
+.vlist-row.du-file .du-bar-fill { background: var(--well-4); }
+
+.du-progress { width: 160px; }

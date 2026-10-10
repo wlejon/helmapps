@@ -10,6 +10,19 @@ library exposed as `bro.<x>`), never into the app.
 |-----|----|------|
 | [helmterm](helmterm/) | `helm.term` | Terminal: tabs, splits, profiles and shell integration over bro's `<terminal>` element |
 | [helmremote](helmremote/) | `helm.remote` | Remote desktop viewer: a helm session over broremote, shown in bro's `<remoteview>` (hardware decode, zero-copy on Windows), with keyboard and pointer capture and audio both ways |
+| [diskusage](diskusage/) | `helm.diskusage` | Disk usage analyzer, and the kit's reference app |
+
+## Building an app
+
+[AGENTS.md](AGENTS.md) is the guide for anyone (person or agent) building a
+helm app: what bro is, the rules, the anatomy of an app, testing, and how
+engine gaps are reported. Apps share the **helm app kit** in
+[lib/](lib/README.md): helm's look as design tokens and controls, plus
+the window layout, virtual lists, menus, dialogs, settings, commands and
+test helpers. bro mounts it at `/lib` because the root `bro.json` makes
+this folder a project, and `bro --install` bundles it into the installed
+copy. The apps still to build are in [briefs/](briefs/README.md), and the
+gaps found so far are in [GAPS.md](GAPS.md).
 
 ## Running
 

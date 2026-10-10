@@ -1,0 +1,11 @@
+{
+    "id": "helm.kittests",
+    "name": "Kit Tests",
+    "description": "The helm app kit's own tests (lib/); not a user-facing app",
+    "display": false,
+    "app": ".",
+    "width": 900,
+    "height": 600,
+    "splash": false,
+    "watch": false
+}
