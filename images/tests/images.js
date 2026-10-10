@@ -108,6 +108,16 @@ export function gif() {
     0x21, 0xf9, 4, 0, 0, 0, 0, 0, 0x2c, 0, 0, 0, 0, 1, 0, 1, 0, 0, 2, 2, 0x44, 1, 0, 0x3b]);
 }
 
+/** A 1x1 animated GIF: two frames (red, then blue from a local palette), 100 ms each, looping. */
+export function animatedGif() {
+  const frame = (local) => [0x21, 0xf9, 4, 0, 10, 0, 0, 0,
+    0x2c, 0, 0, 0, 0, 1, 0, 1, 0, local ? 0x80 : 0, ...(local ? [0, 0, 0xff, 0, 0xff, 0] : []),
+    2, 2, 0x44, 1, 0];
+  return new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 1, 0, 1, 0, 0x80, 0, 0, 0xff, 0, 0, 0, 0, 0xff,
+    0x21, 0xff, 11, ...[...'NETSCAPE2.0'].map((c) => c.charCodeAt(0)), 3, 1, 0, 0, 0,
+    ...frame(false), ...frame(true), 0x3b]);
+}
+
 /** A 1x1 lossless WebP. */
 export function webp() {
   return Uint8Array.from(atob('UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA=='), (c) => c.charCodeAt(0));

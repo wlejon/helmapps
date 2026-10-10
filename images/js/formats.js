@@ -3,8 +3,8 @@
  * testing bro (see GAPS.md): AVIF and HEIC do not decode at all, so they are
  * not listed, and a folder's AVIFs are skipped like any other file.
  *
- *   'worker'  bro.image in the decoder thread (EXIF orientation applied)
- *   'img'     an <img> on the page: bro.image does not read it
+ *   'worker'  bro.image in the decoder thread (EXIF orientation applied); an
+ *             animated GIF or WebP then plays as an <img> on the page
  *   'vector'  an <img> drawn at the size it is shown, so it stays sharp
  */
 
@@ -20,7 +20,7 @@ const FORMATS = {
   ico: { type: 'Windows icon', mime: 'image/x-icon', decode: 'worker' },
   tif: { type: 'TIFF image', mime: 'image/tiff', decode: 'worker' },
   tiff: { type: 'TIFF image', mime: 'image/tiff', decode: 'worker' },
-  webp: { type: 'WebP image', mime: 'image/webp', decode: 'img' },
+  webp: { type: 'WebP image', mime: 'image/webp', decode: 'worker' },
   svg: { type: 'SVG drawing', mime: 'image/svg+xml', decode: 'vector' },
 };
 

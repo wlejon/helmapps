@@ -92,8 +92,6 @@ export class Thumbs {
         if (r && r.path) return r.path;
       } catch (_) { /* fall through to our own decoder */ }
     }
-    const f = formatOf(path);
-    if (f && f.decode === 'img') return path;    // WebP: the cell's <img> decodes the file itself
     return this.fromWorker(path);
   }
 

@@ -6,7 +6,7 @@
  *   const pic = await decoder.get(path);            // the one to show: jumps the queue
  *   decoder.prefetch([next, prev]);                 // the neighbours, when idle
  *   decoder.wantFull(pic);                          // full resolution, for a deep zoom
- *   pic = { path, kind: 'bitmap' | 'img' | 'vector', source, partial, full, width, height, orientation, exif, ms }
+ *   pic = { path, kind: 'bitmap' | 'animated' | 'img' | 'vector', source, partial, full, width, height, orientation, exif, ms }
  *
  * 'bitmap' pictures come from the decoder thread (js/decode-worker.js) as an
  * ImageBitmap, upright (EXIF applied), at most screen-sized: `partial` says
@@ -16,9 +16,9 @@
  * sends from the decode it keeps: a transferred ImageBitmap moves to the page
  * as a handle and bro uploads it to the GPU before it is drawn.
  *
- * WebP and SVG are not read by bro.image; they load as an <img> on the page
- * ('img', decoded off the page thread by bro; 'vector' is drawn at the size
- * it is shown). GAPS.md.
+ * An animated GIF or WebP ('animated') and an SVG ('vector', drawn at the
+ * size it is shown) are an <img> on the page, which bro decodes off the page
+ * thread and plays; 'img' is the fallback for a file bro.image refuses.
  */
 
 import { formatOf } from './formats.js';
@@ -112,7 +112,7 @@ export class Decoder {
    * a picture decoded on the page is drawn to a canvas at its own size.
    */
   async png(pic) {
-    if (pic.kind === 'bitmap') {
+    if (pic.kind === 'bitmap' || pic.kind === 'animated') {   // an animation copies its first frame
       const m = await this.detail.send({ op: 'png', path: pic.path });
       return new Blob([m.png], { type: 'image/png' });
     }
@@ -184,10 +184,12 @@ export class Decoder {
     if (f && f.decode !== 'worker') promise = loadOnPage(path, f.decode);
     else {
       const t0 = now();
-      promise = this.pictures.send({ op: 'picture', path, maxSide: this.maxSide }, urgent).then((m) => ({
+      promise = this.pictures.send({ op: 'picture', path, maxSide: this.maxSide }, urgent).then((m) => m.animated
+        ? loadOnPage(path, 'animated').then((pic) => ({ ...pic, exif: m.exif || null, ms: now() - t0 }))
+        : {
         path, kind: 'bitmap', source: m.bitmap, partial: m.bitmap.width < m.width, full: null,
         width: m.width, height: m.height, orientation: m.orientation || 1, exif: m.exif || null, ms: now() - t0,
-      }), () => loadOnPage(path, 'img'));          // bro.image refused it: try the page's decoder
+      }, () => loadOnPage(path, 'img'));          // bro.image refused it: try the page's decoder
     }
     promise = promise.then((pic) => {
       this.inflight.delete(path);
@@ -236,7 +238,7 @@ function loadOnPage(path, kind) {
       return;
     }
     resolve({
-      path, kind: kind === 'vector' ? 'vector' : 'img', source: img, partial: false, full: null,
+      path, kind: kind === 'vector' || kind === 'animated' ? kind : 'img', source: img, partial: false, full: null,
       width: img.naturalWidth, height: img.naturalHeight, orientation: 1, ms: now() - t0,
     });
   });

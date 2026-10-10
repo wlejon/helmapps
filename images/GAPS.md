@@ -2,8 +2,8 @@
 
 Engine, platform and kit gaps found building the Image Viewer. Each was
 measured with `bro-headless`; the app does not work around any of them
-beyond saying so in the window. Kit-level gaps shared by every app (opening
-another app by id off Linux) are in `../GAPS.md`.
+beyond saying so in the window. Kit-level gaps shared by every app are in
+`../GAPS.md`.
 
 ## No AVIF or HEIC decoder
 - **Where:** broimage
@@ -12,29 +12,6 @@ another app by id off Linux) are in `../GAPS.md`.
   try `<img>`, but nothing in bro would decode them).
 - **Impact:** not offered.
 - **Belongs in:** broimage
-
-## bro.image does not read WebP or SVG
-- **Where:** broimage (`decodeOriented`, `probeDimensions`)
-- **Expected:** the same formats `<img>` loads.
-- **Actual:** WebP and SVG come back 0x0 or 1x1 from `decodeOriented`, and
-  `probeDimensions` fails on them, though `<img>` shows both.
-- **Impact:** WebP decodes on the page with an `<img>` instead of on the
-  decoder worker; the grid shows the WebP itself as its preview when
-  `bro.thumb` has none.
-- **Belongs in:** broimage
-
-## GIF and WebP do not animate
-- **Where:** bro (`<img>`), broimage
-- **Expected:** an animated GIF/WebP plays (or frames are decodable).
-- **Actual:** the first frame only, with no frame API.
-- **Impact:** the first frame is shown.
-- **Belongs in:** bro / broimage
-
-## brokit `path.join` is slow (~15 µs a call)
-- **Where:** brokit `path`
-- **Actual:** joining 400 names to a folder takes about 6 ms.
-- **Impact:** the folder list builds paths by concatenation.
-- **Belongs in:** brokit
 
 ## Kit: VirtualList has no horizontal orientation
 - **Where:** `lib/list.js`

@@ -13,10 +13,18 @@
  * (js/decoder.js); the canvas samples with mipmaps or a cubic filter, so a
  * downscaled photo stays smooth, and above 200% it turns smoothing off for
  * crisp pixels. An SVG is an <img> laid out at the size it is shown, which
- * bro rasterizes sharp at any zoom.
+ * bro rasterizes sharp at any zoom; an animated GIF or WebP is an <img> too,
+ * which bro plays.
  */
 
 import { h, clamp, perFrame } from '/lib/dom.js';
+
+/**
+ * Pictures shown as a live <img> rather than drawn into the canvas: an SVG
+ * (rasterized sharp at the size shown) and an animation (which bro plays,
+ * and pauses while it is not on screen).
+ */
+const isLive = (pic) => pic.kind === 'vector' || pic.kind === 'animated';
 
 /** The zoom levels Zoom In and Zoom Out step through. */
 export const ZOOM_STEPS = [0.02, 0.05, 0.1, 0.125, 0.167, 0.25, 0.333, 0.5, 0.667, 0.75, 1,
@@ -59,9 +67,10 @@ export class Viewer {
   show(pic, { keepView = false } = {}) {
     this.pic = pic;
     if (!keepView) this.v = { fit: true, scale: 1, rotation: 0, flipH: false, flipV: false, panX: 0, panY: 0 };
-    this.vector.classList.toggle('hidden', !pic || pic.kind !== 'vector');
-    this.canvas.classList.toggle('hidden', !!pic && pic.kind === 'vector');
-    if (pic && pic.kind === 'vector' && this.vector.getAttribute('src') !== pic.path) this.vector.src = pic.path;
+    const live = !!pic && isLive(pic);
+    this.vector.classList.toggle('hidden', !live);
+    this.canvas.classList.toggle('hidden', live);
+    if (live && this.vector.getAttribute('src') !== pic.path) this.vector.src = pic.path;
     this.drawNow();
   }
 
@@ -225,11 +234,12 @@ export class Viewer {
 
     const fx = this.v.flipH ? -1 : 1;
     const fy = this.v.flipV ? -1 : 1;
-    if (pic.kind === 'vector') {
+    if (isLive(pic)) {
       const iw = pic.width * s, ih = pic.height * s;
       Object.assign(this.vector.style, {
         width: `${iw}px`, height: `${ih}px`, left: `${cx - iw / 2}px`, top: `${cy - ih / 2}px`,
         transform: `scale(${fx}, ${fy}) rotate(${this.v.rotation}deg)`,
+        imageRendering: pic.kind === 'animated' && s > PIXELATED_ABOVE ? 'pixelated' : 'auto',
       });
       return;
     }
