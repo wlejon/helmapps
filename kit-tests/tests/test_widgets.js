@@ -68,6 +68,17 @@ eq(activated, [41], 'double-click activates');
 rightClickEl(rowFor(43));
 eq(ctx, [43], 'right-click on an unselected row selects it and asks for a menu');
 
+// setItems with fresh objects: a row whose item kept its fields is kept, a
+// changed one is rebuilt (a list refreshed several times a second stays cheap).
+press('home');
+const cellOf = (id) => rowFor(id) && rowFor(id).querySelector('.col');
+const keptCell = cellOf(1);
+const changedCell = cellOf(2);
+list.setItems(items.map((it) => (it.id === 2 ? { id: 2, name: 'renamed' } : { ...it })));
+advanceTime(16);
+assert(cellOf(1) === keptCell, 'an unchanged row is not rebuilt');
+assert(cellOf(2) !== changedCell && cellOf(2).textContent === 'renamed', 'a changed row is');
+
 // Sortable header
 let sortedBy = null;
 const sl = new VirtualList({ key: (x) => x, columns: [{ id: 'a', label: 'A', sortable: true }], onSort: (id, dir) => { sortedBy = [id, dir]; } });

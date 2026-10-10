@@ -23,15 +23,22 @@ uses all of it.
 | `css/layout.css` | `.app-frame`, `.toolbar`, `.sidebar`, `.content`, `.statusbar`, `.split`, `.crumbs`, `.tabstrip`, `.list-header`, `.vlist`, `.card`, `.page`, `.group`, `.form-row` |
 | `css/overlays.css` | `.menu`, `.dialog`, `.toast`, `.tooltip`, `.popover` |
 
-The look is helm's "deep glass": dark surfaces tinted toward one accent
-hue, a two-stop accent gradient (`--grad`) for the lit states, soft depth,
-and spring motion. `--accent-h` follows the user's accent setting in helm
-automatically (`startApp` does it).
+The look is helm's "graphite": quiet near-neutral dark surfaces, one solid
+accent colour used sparingly (`--accent` for the one primary action or a
+control that is on, `--accent-soft` for selection, `--accent-text` for an
+accent icon or word; never a gradient), small consistent radii (`--r-ctl`
+6px, `--r-card` 10px, `--r-panel` 12px), and Inter everywhere, shipped in
+`lib/fonts` so every machine draws the same letters. Figures in columns or
+that tick get `.num` (tabular figures), not a monospace face. `--accent-h`
+follows the user's accent setting in helm automatically (`startApp` does
+it).
 
-Surfaces from back to front are `--surface-0` (window, content),
-`--surface-1` (toolbar, sidebar, status bar), `--surface-2` (cards) and
-`--surface-3` (dialogs). Text runs `--t1` (primary) to `--t4` (hints). The
-spacing scale is `--s1`…`--s10` on a 4px rhythm.
+Surfaces from back to front are `--surface-1` (toolbar, sidebar, status
+bar: the darker chrome), `--surface-0` (content), `--surface-2` (cards) and
+`--surface-3` (menus, dialogs, tooltips). Text runs `--t1` (primary) to
+`--t4` (hints). The spacing scale is `--s1`…`--s10` on a 4px rhythm.
+`meter(fraction)` (layout.js) is the thin "how full" bar; a sidebar item can
+carry one under a second line (`{ sub, meter }`).
 
 ## JavaScript
 
@@ -42,7 +49,7 @@ spacing scale is `--s1`…`--s10` on a 4px rhythm.
 | `icons.js` | `icon`, `iconHtml`, `hydrateIcons`, `hasIcon`, `defineIcon`, `iconNames` | Stroke icons (`icon('folder')`). About 150 names; `iconNames()` lists them. |
 | `commands.js` | `Commands`, `normalizeChord`, `eventChord`, `displayChord` | Every action, its label, icon, shortcuts, enabled/checked state. `commands.item(id)` makes a menu item. |
 | `settings.js` | `Settings`, `shellPref`, `watchShellPrefs` | Persistent per-app settings in bro.conf (`app.settings` when you pass a schema to `startApp`). |
-| `layout.js` | `appFrame`, `Toolbar`, `Sidebar`, `SplitPane`, `Breadcrumbs`, `Tabs`, `emptyState` | The window's structure. |
+| `layout.js` | `appFrame`, `Toolbar`, `Sidebar`, `SplitPane`, `Breadcrumbs`, `Tabs`, `emptyState`, `meter` | The window's structure. |
 | `list.js` | `VirtualList` | Any collection: list with columns and sortable headers, or an icon grid; selection, rubber band, keyboard, type-ahead, context menu. Handles 100k items. |
 | `menu.js` | `menu` (the `Menu` instance) | Context menus and drop-downs, with submenus and keyboard navigation. |
 | `dialog.js` | `Dialog`, `confirmDialog`, `alertDialog`, `promptDialog` | Modal questions. Promise-based; never `alert()`/`confirm()`/`prompt()`. |

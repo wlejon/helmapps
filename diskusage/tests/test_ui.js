@@ -15,10 +15,11 @@ const dir = fixtureDir({
 });
 
 // Before a folder is chosen: the start state offers a choice.
-assert(document.querySelector('.empty .btn'), 'the start state offers Choose Folder');
+assert(document.querySelector('.du-home .du-choose'), 'the start state offers Choose Folder');
 
 app.openPath(dir);
-waitFor(() => app.state.current && app.state.current.path === dir, 'the scan of the fixture');
+waitFor(() => app.state.currentPath === dir && app.state.current && app.state.current.complete, 'the scan of the fixture');
+waitFor(() => app.list.items.length === 3, 'the list to show the whole folder');
 const names = () => app.list.items.map((n) => n.name);
 eq(names(), ['big', 'medium', 'small.txt'], 'largest first');
 eq(document.querySelector('.du-total').textContent, '97.8 KB', 'the folder total');
@@ -27,12 +28,12 @@ waitFor(() => document.querySelectorAll('.vlist-row').length === 3, 'three rows 
 // Walk into "big" by double-click, then back with the keyboard.
 const rows = () => Array.from(document.querySelectorAll('.vlist-row'));
 dblClickEl(rows().find((r) => r.textContent.includes('big')));
-waitFor(() => app.state.current.name === 'big', 'walking into big');
+waitFor(() => path.basename(app.state.currentPath) === 'big', 'walking into big');
 eq(names(), ['one.bin', 'two.bin'], 'big\'s files, largest first');
 eq(Array.from(document.querySelectorAll('.crumb')).map((c) => c.textContent),
   [path.basename(dir), 'big'], 'breadcrumbs show the way down');
 press('alt+left');
-waitFor(() => app.state.current.path === dir, 'Back');
+waitFor(() => app.state.currentPath === dir, 'Back');
 
 // Sort by name from the column header.
 clickEl(Array.from(document.querySelectorAll('.list-header .col')).find((c) => c.textContent.startsWith('Name')));

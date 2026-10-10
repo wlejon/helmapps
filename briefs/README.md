@@ -54,7 +54,9 @@ You are building one app of the helm desktop, in the helmapps repository.
 
 1. Read helmapps/AGENTS.md completely. It explains what bro is (a native
    app runtime: these apps are NOT websites), the rules, and how to test.
-2. Read helmapps/lib/README.md and the whole reference app helmapps/diskusage/.
+2. Read helmapps/lib/README.md, helmapps/docs/performance.md and the whole
+   reference app helmapps/diskusage/. Never launch the app windowed: run,
+   look at (screenshot) and time everything with bro-headless.
 3. Your brief is helmapps/briefs/<BRIEF>.md. Build exactly that, in
    helmapps/<FOLDER>/ and nowhere else.
 4. Read every bro doc your brief lists before using the APIs it describes.
@@ -66,8 +68,10 @@ You are building one app of the helm desktop, in the helmapps repository.
 
 ## After an agent finishes
 
-1. Run `scripts/run_tests.sh <folder>` yourself, then look at the app
-   windowed (and on halo under helm).
+1. Run `VERBOSE=1 scripts/run_tests.sh <folder>` yourself: it prints the
+   perf test's startup and worst-frame numbers. Look at the app through the
+   test's headless screenshots, not windowed. (A person, not an agent, can
+   then try it on halo under helm.)
 2. Read its `GAPS.md`. Engine gaps go to the bro/brokit/sibling backlog,
    and kit gaps (`Belongs in: kit`) are lifted into `lib/` by one owner,
    after which the app is moved onto the kit version.

@@ -1,89 +1,91 @@
 /* =============================================================================
    helm app kit: tokens
-   The helm shell's "deep glass" language (helm/ui/css/tokens.css) for
-   application windows. One accent hue drives a two-stop gradient; the kit
-   writes --accent-h / --accent-h2 from the shell's accentHue setting
-   (lib/theme.js), so every app follows the shell when the user changes it.
+   Graphite: quiet near-neutral surfaces, one accent colour used sparingly
+   (the selection, the focused control, the one primary action, a value that
+   matters), and small consistent radii. The same tokens as the helm shell
+   (helm/ui/css/tokens.css), so a window and the desktop read as one thing.
 
-   An app window is an opaque surface, not glass over the wallpaper: the
-   window background is --surface-0, chrome (sidebar, toolbar) sits one step
-   up, cards and popovers above that. Use these names; never hard-code a
-   colour in an app.
+   --accent-h is written from the shell's accentHue setting (lib/app.js), so
+   every app follows the shell when the user changes it.
+
+   An app window is opaque. The content is --surface-0; the chrome around it
+   (toolbar, sidebar, status bar) is one step darker, --surface-1; cards sit
+   one step lighter, --surface-2; menus, popovers and dialogs at --surface-3.
+   Use these names; never hard-code a colour in an app.
    ============================================================================= */
+
+@font-face { font-family: "Inter"; src: url("/lib/fonts/Inter-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Inter"; src: url("/lib/fonts/Inter-Medium.ttf"); font-weight: 500; }
+@font-face { font-family: "Inter"; src: url("/lib/fonts/Inter-SemiBold.ttf"); font-weight: 600; }
+@font-face { font-family: "Inter"; src: url("/lib/fonts/Inter-Bold.ttf"); font-weight: 700; }
 
 :root {
   --accent-h: 255;
-  --accent-h2: 303;
 
-  /* -- Accent ------------------------------------------------------------- */
-  --a1: oklch(0.70 0.18 var(--accent-h));
-  --a2: oklch(0.68 0.20 var(--accent-h2));
-  --a1-soft: oklch(0.70 0.18 var(--accent-h) / 0.22);
-  --a2-soft: oklch(0.68 0.20 var(--accent-h2) / 0.22);
-  --a-text: oklch(0.86 0.10 var(--accent-h));
-  --on-accent: oklch(0.99 0.01 var(--accent-h));
-  --grad: linear-gradient(120deg, var(--a1), var(--a2));
-  --grad-soft: linear-gradient(120deg, var(--a1-soft), var(--a2-soft));
+  /* -- Accent: one colour, never a gradient ------------------------------ */
+  --accent: oklch(0.70 0.15 var(--accent-h));          /* fills: primary button, switch, progress */
+  --accent-hover: oklch(0.75 0.15 var(--accent-h));
+  --accent-soft: oklch(0.70 0.15 var(--accent-h) / 0.18);   /* selected rows and items */
+  --accent-faint: oklch(0.70 0.15 var(--accent-h) / 0.10);  /* hover on something already lit */
+  --accent-line: oklch(0.70 0.15 var(--accent-h) / 0.55);   /* a focused field's border, the list cursor */
+  --accent-text: oklch(0.84 0.10 var(--accent-h));     /* accent as text or an icon on a dark surface */
+  --on-accent: oklch(0.16 0.02 var(--accent-h));       /* text on an --accent fill */
 
-  /* -- Surfaces: opaque, tinted toward the accent ------------------------- */
-  --surface-0: oklch(0.155 0.022 var(--accent-h));   /* window background, content */
-  --surface-1: oklch(0.185 0.026 var(--accent-h));   /* sidebar, toolbar, status bar */
-  --surface-2: oklch(0.215 0.028 var(--accent-h));   /* cards, raised panes */
-  --surface-3: oklch(0.245 0.030 var(--accent-h));   /* popovers, menus, dialogs */
-  --scrim: rgb(0 0 0 / 0.45);                         /* behind a modal dialog */
+  /* -- Surfaces: near-neutral, a breath of the accent hue ---------------- */
+  --surface-0: oklch(0.205 0.006 var(--accent-h));   /* content */
+  --surface-1: oklch(0.180 0.006 var(--accent-h));   /* chrome: toolbar, sidebar, status bar */
+  --surface-2: oklch(0.235 0.007 var(--accent-h));   /* cards, raised panes */
+  --surface-3: oklch(0.255 0.008 var(--accent-h));   /* menus, popovers, dialogs, tooltips */
+  --scrim: rgb(0 0 0 / 0.50);                         /* behind a modal dialog */
 
-  /* Glass, for overlays that float over content (menus, dialogs, toasts) */
-  --glass-panel: oklch(0.20 0.03 var(--accent-h) / 0.86);
-  --glass-solid: oklch(0.22 0.03 var(--accent-h) / 0.96);
-  --blur-panel: blur(36px) saturate(1.8);
+  /* Wells: a tint over whatever surface they sit on (hover, pressed, a track) */
+  --well: rgb(255 255 255 / 0.04);
+  --well-2: rgb(255 255 255 / 0.065);
+  --well-3: rgb(255 255 255 / 0.10);
+  --well-4: rgb(255 255 255 / 0.14);
+  --sink: rgb(0 0 0 / 0.20);                          /* inputs, tracks: below the surface */
 
-  /* Wells: recessed and raised areas inside a surface */
-  --well: rgb(255 255 255 / 0.045);
-  --well-2: rgb(255 255 255 / 0.075);
-  --well-3: rgb(255 255 255 / 0.11);
-  --well-4: rgb(255 255 255 / 0.16);
-  --sink: rgb(0 0 0 / 0.22);
+  /* Edges */
+  --hairline: rgb(255 255 255 / 0.075);               /* dividers between regions and rows */
+  --rim: rgb(255 255 255 / 0.09);                     /* a control's or card's border */
+  --rim-strong: rgb(255 255 255 / 0.15);
+  --rim-top: inset 0 1px 0 rgb(255 255 255 / 0.06);   /* the top edge of a raised surface */
 
-  /* Rim light and hairlines */
-  --rim: rgb(255 255 255 / 0.085);
-  --rim-strong: rgb(255 255 255 / 0.14);
-  --rim-top: inset 0 1px 0 rgb(255 255 255 / 0.10);
-  --hairline: rgb(255 255 255 / 0.07);
-
-  /* -- Depth --------------------------------------------------------------- */
-  --depth-1: 0 6px 22px rgb(0 0 0 / 0.32), 0 1px 3px rgb(0 0 0 / 0.30);
-  --depth-2: 0 24px 60px rgb(0 0 0 / 0.46), 0 4px 14px rgb(0 0 0 / 0.30);
-  --depth-3: 0 40px 110px rgb(0 0 0 / 0.60), 0 8px 24px rgb(0 0 0 / 0.36);
-  --glow: 0 6px 26px oklch(0.70 0.18 var(--accent-h) / 0.42);
-  --glow-strong: 0 8px 34px oklch(0.70 0.18 var(--accent-h) / 0.55), 0 0 0 1px oklch(0.80 0.14 var(--accent-h) / 0.35);
-  --focus-ring: 0 0 0 2px oklch(0.10 0.02 var(--accent-h)), 0 0 0 4px var(--a1);
+  /* -- Depth: only things that float cast a shadow ----------------------- */
+  --depth-1: 0 2px 8px rgb(0 0 0 / 0.28), 0 0 0 1px rgb(0 0 0 / 0.20);
+  --depth-2: 0 12px 32px rgb(0 0 0 / 0.40), 0 0 0 1px rgb(0 0 0 / 0.25);
+  --depth-3: 0 24px 64px rgb(0 0 0 / 0.50), 0 0 0 1px rgb(0 0 0 / 0.30);
+  --focus-ring: 0 0 0 2px var(--surface-0), 0 0 0 4px var(--accent-line);
 
   /* -- Text ---------------------------------------------------------------- */
-  --t1: oklch(0.975 0.006 var(--accent-h));   /* primary */
-  --t2: oklch(0.84 0.012 var(--accent-h));    /* secondary */
-  --t3: oklch(0.68 0.016 var(--accent-h));    /* tertiary, labels */
-  --t4: oklch(0.54 0.018 var(--accent-h));    /* hints, disabled */
-  --selection: oklch(0.70 0.18 var(--accent-h) / 0.32);
+  --t1: oklch(0.96 0.004 var(--accent-h));   /* primary: names, values, headings */
+  --t2: oklch(0.82 0.006 var(--accent-h));   /* secondary: body, unselected items */
+  --t3: oklch(0.66 0.008 var(--accent-h));   /* tertiary: labels, meta */
+  --t4: oklch(0.52 0.010 var(--accent-h));   /* hints, empty values, disabled */
+  --selection: oklch(0.70 0.15 var(--accent-h) / 0.35);
 
   /* -- Semantic ------------------------------------------------------------ */
-  --ok: oklch(0.78 0.15 155);
-  --warn: oklch(0.83 0.14 80);
-  --danger: oklch(0.67 0.20 22);
-  --danger-soft: oklch(0.67 0.20 22 / 0.20);
-  --danger-text: oklch(0.80 0.12 22);
+  --ok: oklch(0.76 0.14 155);
+  --warn: oklch(0.82 0.13 80);
+  --danger: oklch(0.65 0.19 25);
+  --danger-hover: oklch(0.70 0.19 25);
+  --danger-soft: oklch(0.65 0.19 25 / 0.18);
+  --danger-text: oklch(0.80 0.11 25);
 
   /* -- Type ----------------------------------------------------------------
-     Adwaita Sans throughout; JetBrains Mono for figures that tick, code, and
-     the small-caps section labels (.micro). */
-  --font-ui: "Adwaita Sans", "Inter", "Cantarell", "Segoe UI", "Noto Sans", sans-serif;
+     Inter everywhere, shipped with the kit (lib/fonts) so every machine
+     draws the same letters. Figures that line up in columns or tick use
+     tabular figures (.num), not a monospace face; --font-mono is for code
+     and paths only. */
+  --font-ui: "Inter", "Adwaita Sans", "Segoe UI", "Noto Sans", sans-serif;
   --font-mono: "JetBrains Mono", "Adwaita Mono", "Cascadia Mono", "DejaVu Sans Mono", monospace;
-  --fs-micro: 10.5px;
-  --fs-cap: 12px;
-  --fs-body: 13.5px;
-  --fs-title: 15px;
-  --fs-head: 20px;
-  --fs-display: 30px;
-  --track-micro: 0.11em;
+  --fs-micro: 11px;     /* column headers, section labels */
+  --fs-cap: 12px;       /* meta, hints, status bar */
+  --fs-body: 13px;
+  --fs-title: 14px;     /* a row's or card's title */
+  --fs-head: 18px;      /* a page heading */
+  --fs-display: 26px;   /* the one big figure of a view */
+  --track-micro: 0.04em;
 
   /* -- Space: a 4px rhythm ------------------------------------------------- */
   --s1: 4px;
@@ -95,30 +97,31 @@
   --s8: 32px;
   --s10: 40px;
 
-  /* -- Shape --------------------------------------------------------------- */
+  /* -- Shape: small and consistent ----------------------------------------
+     Controls and rows 6px, cards 10px, floating panels 12px. Fully round
+     only for things that are round by nature: switches, badges, avatars. */
+  --r-sm: 4px;
+  --r-ctl: 6px;
+  --r-card: 10px;
+  --r-panel: 12px;
   --r-chip: 999px;
-  --r-ctl: 10px;
-  --r-card: 14px;
-  --r-panel: 20px;
 
   /* -- Motion --------------------------------------------------------------
-     --spring overshoots ~2% so things settle rather than stop; --spring-pop
-     ~8%, for small things. Exits are quicker than entrances and never
-     bounce. */
-  --spring: linear(0, 0.0365, 0.1251, 0.2406, 0.3655, 0.4877, 0.6001, 0.6985, 0.7814, 0.8488, 0.9019, 0.9422, 0.9717, 0.9923, 1.0059, 1.0142, 1.0184, 1.0199, 1.0195, 1.0179, 1.0156, 1.0132, 1.0107, 1.0084, 1);
+     Quick and plain: state changes ease, things that appear rise slightly,
+     exits are quicker than entrances. --spring-pop is for a switch knob. */
   --spring-pop: linear(0, 0.0303, 0.1079, 0.2154, 0.3384, 0.4655, 0.5883, 0.7009, 0.7996, 0.8827, 0.9496, 1.001, 1.0381, 1.0628, 1.0771, 1.0831, 1.0826, 1.0775, 1.0693, 1.0595, 1.0489, 1.0384, 1.0286, 1.0199, 1.0124, 1.0063, 1.0015, 0.9979, 0.9955, 0.9939, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-exit: cubic-bezier(0.5, 0, 0.75, 0);
   --ease-std: cubic-bezier(0.4, 0, 0.2, 1);
-  --d-quick: 110ms;
-  --d-state: 180ms;
-  --d-enter: 320ms;
+  --d-quick: 100ms;
+  --d-state: 160ms;
+  --d-enter: 220ms;
 
   /* -- Geometry ------------------------------------------------------------ */
-  --toolbar-h: 46px;
+  --toolbar-h: 44px;
   --statusbar-h: 26px;
-  --sidebar-w: 220px;
-  --row-h: 32px;          /* VirtualList's default row height */
+  --sidebar-w: 216px;
+  --row-h: 30px;          /* VirtualList's default row height */
 
   /* -- Stacking (inside the app window) ------------------------------------ */
   --z-popover: 100;

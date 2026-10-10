@@ -2,8 +2,9 @@
 
 Read this whole file before you write anything. Then read your brief in
 [`briefs/`](briefs/), the kit's reference [`lib/README.md`](lib/README.md),
-and the reference app [`diskusage/`](diskusage/), all of it, since it is
-short.
+[`docs/performance.md`](docs/performance.md) (how an app starts fast and
+never freezes, and how you check that), and the reference app
+[`diskusage/`](diskusage/), all of it, since it is short.
 
 ## What you are building, and what you are not
 
@@ -43,6 +44,7 @@ helmapps/
   bro.json           marks helmapps as a project: /lib is mounted for every app
   lib/               the helm app kit, shared by every app. Read-only for you.
   briefs/            one brief per app: what to build, how it is tested
+  docs/performance.md  starting fast and staying responsive, and measuring both
   diskusage/         the reference app: copy its shape
   helmterm/          the terminal (older, predates the kit; do not copy its CSS)
   helmremote/        the remote viewer (same)
@@ -57,7 +59,8 @@ Docs you will need, all in `../bro/docs/`:
 | `apps.md` | Folder apps: `bro.json` keys, the per-app directories, permissions, install |
 | `app-api.js` | `bro.app`: id, argv, cwd, directories, single instance, spawn |
 | `brokit-api.js` | Node modules (`fs`, `path`, `os`, `child_process`) and web globals |
-| `headless.md` | The test runner: headless globals, input simulation, screenshots |
+| `headless.md` | The test runner: headless globals, input simulation, screenshots, timing |
+| `profiler-api.js` | `bro.profiler`: which functions a slow frame spent its time in |
 | `<namespace>-api.js` | Every `bro.*` namespace. Your brief lists the ones you need. |
 | `file-api.js`, `dialogs-api.js`, `menu-api.js`, `window-api.js` | Files, native pickers, the window |
 
@@ -79,8 +82,12 @@ GAPS.md and code to what actually runs.
    store.
 3. **Use the kit's design tokens for every colour, size and duration**
    (`lib/css/tokens.css`): `var(--t2)`, `var(--surface-1)`, `var(--s3)`,
-   `var(--r-ctl)`. Never write a hex colour or `rgb()` in an app's CSS. Your
-   CSS should be short; the kit draws the controls.
+   `var(--r-ctl)`. Never write a hex colour, `rgb()` or `oklch()` in an
+   app's CSS. Your CSS should be short; the kit draws the controls. The
+   look is restrained: one solid accent (`--accent`) for at most the one
+   primary action or a control that is on, `--accent-soft` for selection,
+   no gradients, no glows, radii from the tokens only, and numbers that
+   line up or tick in `.num` (tabular figures), never a monospace font.
 4. **Every action is a command** (`app.commands.add`). Toolbar buttons,
    menus and keyboard shortcuts run commands by id, never by duplicating the
    code.
@@ -110,6 +117,17 @@ GAPS.md and code to what actually runs.
     Each becomes a headless test in `<app>/tests/`, and all of them pass
     before you are done. Tests never touch the user's real files: make
     everything with `fixtureDir()` from `lib/test.js`.
+11. **Start fast, never freeze.** Your page's JavaScript, style, layout and
+    paint share one thread: anything long on it is a window that ignores the
+    user. Build the window before touching the disk, never use `*Sync` file
+    calls once a window exists, leave heavy work to native APIs or a Worker,
+    show results while work runs, and hold only what is on screen.
+    [`docs/performance.md`](docs/performance.md) has the rules and the
+    measurements; your app has a perf test that proves it.
+12. **Never launch the windowed app.** Everything you need to see, time and
+    check runs in `bro-headless`: the same engine with no window. A windowed
+    run measures nothing you can read back, and a single-instance app may
+    hand its arguments to a copy the user already has open.
 
 ## Anatomy of an app
 
@@ -177,24 +195,34 @@ toolbar, rendering, actions, then `app.onLaunch` and `app.expose(...)`.
 
 ## Running and testing
 
-bro binaries: Windows `../bro/build/Release/bro.exe` and `bro-headless.exe`;
-Linux `../bro/build-release/bro` and `bro-headless` (or `bro` on the PATH).
+The headless runner: Windows `../bro/build/Release/bro-headless.exe`, Linux
+`../bro/build-release/bro-headless` (or `bro-headless` on the PATH). Only
+ever this one (rule 12).
 
 ```bash
-bro myapp                              # windowed, from helmapps/
-bro myapp some/file.png                # with arguments: app.argv
-scripts/run_tests.sh myapp             # every test of one app, headless
-scripts/run_tests.sh myapp ui          # tests whose name contains "ui"
+bro-headless myapp -e "0"                          # boots cleanly (from helmapps/)
+bro-headless myapp -e "console.log(JSON.stringify(bro.app.startup))"   # how fast
+bro-headless --width 1280 --height 800 myapp look.js   # your own script: drive it, screenshot() it
+scripts/run_tests.sh myapp                         # every test of one app
+scripts/run_tests.sh myapp ui                      # tests whose name contains "ui"
+VERBOSE=1 scripts/run_tests.sh myapp perf          # and print what a passing test logged
 ```
 
-Headless tests run the real app with no window. A test is an ES module that
-imports helpers from `/lib/test.js`, drives the app with simulated input,
-and asserts on the DOM and on `window.app`. See `diskusage/tests/` and
-`../bro/docs/headless.md`. Assert on state and structure ("three rows",
-"the dialog asked", "the file was renamed"), never on pixels. A
-`screenshot('tests/out/x.png')` is fine for looking at your work yourself.
-Exit code 77 (`skipTest(reason)`) means "cannot test here" (for example a
-Linux-only feature on Windows), and is never a pass.
+Headless runs the real app, with its real GPU pipeline, and no window. A
+test is an ES module that imports helpers from `/lib/test.js`, drives the
+app with simulated input, and asserts on the DOM and on `window.app`. See
+`diskusage/tests/` and `../bro/docs/headless.md`. Assert on state and
+structure ("three rows", "the dialog asked", "the file was renamed"), never
+on pixels. To look at your work, write `screenshot('out/look.png')` in a
+script and open the PNG. Exit code 77 (`skipTest(reason)`) means "cannot
+test here" (for example a Linux-only feature on Windows), and is never a
+pass.
+
+Every app has a perf test (`tests/test_perf.js`): the heaviest scenario in
+its brief, wrapped in `measureFrames()`, asserting the worst frame and
+logging the numbers. `diskusage/tests/test_perf.js` is the model, and
+[`docs/performance.md`](docs/performance.md) says how to find the cause of a
+slow frame (the frame trace, the profiler).
 
 ## Engine gaps
 
@@ -230,8 +258,10 @@ wrong).
 - [ ] Every acceptance scenario in your brief is a passing headless test.
 - [ ] `scripts/run_tests.sh <app>` passes, and the app boots with no errors
       in its log (`bro-headless <app> -e "0"` exits 0).
-- [ ] The app runs windowed and looks like the reference app: kit frame,
-      kit controls, tokens only.
+- [ ] A headless screenshot looks like the reference app: kit frame, kit
+      controls, tokens only.
+- [ ] The checklist at the end of [`docs/performance.md`](docs/performance.md)
+      holds, and `tests/test_perf.js` proves the worst case stays responsive.
 - [ ] Every action is a command, with shortcuts where the brief says.
 - [ ] Missing optional APIs leave a clear empty or disabled state, not an
       exception.

@@ -14,6 +14,8 @@
 #                      (beside bro-headless) copied under the name
 #                      helmterm-testchild, which selects its reporting mode
 #   TEST_TIMEOUT       seconds per test (default 180)
+#   VERBOSE            set: print a passing test's console.log lines too
+#                      (the timings a perf test reports)
 set -u
 
 here=$(cd "$(dirname "$0")/.." && pwd)
@@ -74,6 +76,8 @@ for appdir in "$here"/*/; do
         secs=$(( $(date +%s) - start ))
         if [ $rc -eq 0 ]; then
             pass=$((pass + 1)); printf '  PASS  %s/%s (%ss)\n' "$app" "$name" "$secs"
+            # The test's own console.log lines (timings, counts) on request.
+            [ -n "${VERBOSE:-}" ] && grep -a '^\[INFO\]  ' "$log" | sed 's/^\[INFO\]  /        /'
         elif [ $rc -eq 77 ]; then
             skip=$((skip + 1)); printf '  SKIP  %s/%s: %s\n' "$app" "$name" "$(grep -i skip "$log" | tail -1)"
         else

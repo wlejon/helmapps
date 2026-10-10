@@ -59,7 +59,37 @@ Each app keeps its own `GAPS.md` in the same format (see AGENTS.md).
   and file lists are supported) like the other `*-api.js` files.
 - **Belongs in:** docs
 
+## Creating the app catalog blocks for ~400 ms
+- **Where:** bro (`bro.apps`, broapps)
+- **Expected:** the first `bro.apps` call (to open a file with its default
+  app, or list what can open it) answers without stalling a frame.
+- **Actual:** the catalog is built synchronously on first use, reading every
+  desktop entry / registered application: ~400 ms on Windows.
+- **Impact:** the first "Open with" in any app hitches once. Apps must not
+  touch `bro.apps` at startup.
+- **Belongs in:** bro / broapps (build it on a worker, return a promise).
+
+## Startup is mostly the engine's
+- **Where:** bro
+- **Actual:** in headless, ~300 ms from process start to first frame for
+  Disk Usage, of which the app's own work is ~15 ms. Creating the window and
+  Vulkan device (~150 ms) and compiling the page (~90 ms) run one after the
+  other.
+- **Impact:** none for an app to fix; recorded so startup budgets in
+  `docs/performance.md` are read as "the app's share".
+- **Belongs in:** bro (overlap device creation with the compile).
+
 ## Fixed while building the kit
+- Startup: system panels (inspector, preferences) are built the first time
+  they are shown instead of at startup (~250 ms), and controllers are found
+  the first time a page asks (~180 ms of HID enumeration on Windows).
+- `BRO_APP_HOME` now isolates `bro.conf` too, so a test never reads the
+  developer's own saved settings.
+- `bro.app.startup` (`loadedMs`, `firstFrameMs`), and the agent-control
+  trace, profiler and top-level `await` all work in headless, so startup and
+  frame times are measured without a window (`docs/performance.md`).
+- `bro.vfs.volumes()` and `bro.vfs.usage()` (brovfs): drives, and a native
+  threaded disk-usage scan.
 - `path.relative` was missing from brokit's `path` (added, with tests).
 - A `bro --install` copy of an app inside a project lost the project's
   `/lib`; the copy now bundles it, a `--link` install finds its project
