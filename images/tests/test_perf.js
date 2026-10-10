@@ -68,22 +68,23 @@ assert(stepFrames.maxMs < FRAME_BUDGET_MS, `no frame over ${FRAME_BUDGET_MS} ms 
 
 assert(app.state.pic.partial, 'a 24 MP photo arrives as a screen-sized preview first');
 
-// 100%, then 400% and a pan: the full-resolution tiles on screen arrive and
-// are drawn, one per frame.
+// 100%, then 400% and a pan: the whole 24 MP picture arrives at full
+// resolution (a transferred ImageBitmap, uploaded ahead of its draw) and is drawn.
 const tileFrames = measureFrames((() => {
   let stage = 0, settled = 0;
   return () => {
     const m = app.viewer.model();
     if (stage === 0) { app.viewer.zoomTo(1); stage = 1; return false; }
-    if (m.missingTiles > 0 || app.state.pic.tiles.size === 0) { settled = 0; return false; }
+    if (m.waitingFull || !app.state.pic.full) { settled = 0; return false; }
     if (++settled < 3) return false;           // drawn, a frame after the last arrived
     settled = 0;
     if (stage === 1) { app.viewer.zoomTo(4); stage = 2; return false; }
     if (stage === 2) { app.viewer.v.panX -= 3000; app.viewer.v.panY -= 2000; app.viewer.drawNow(); stage = 3; return false; }
     return true;
   };
-})(), 'full-resolution tiles at 100% and 400%');
-console.log(`100% and 400% of a 24 MP photo (${app.state.pic.tiles.size} tiles fetched): ${tileFrames.frames} frames, ` +
+})(), 'full resolution at 100% and 400%');
+eq([app.state.pic.full.width, app.state.pic.full.height], [app.state.pic.width, app.state.pic.height], 'the full-resolution bitmap');
+console.log(`100% and 400% of a 24 MP photo (full resolution in one bitmap): ${tileFrames.frames} frames, ` +
   `worst ${tileFrames.maxMs.toFixed(1)} ms, ${tileFrames.slow} over 16.7 ms`);
 assert(tileFrames.maxMs < FRAME_BUDGET_MS, `fetching full resolution stays under ${FRAME_BUDGET_MS} ms (worst ${tileFrames.maxMs.toFixed(1)})`);
 

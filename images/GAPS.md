@@ -30,16 +30,6 @@ another app by id off Linux) are in `../GAPS.md`.
 - **Impact:** the first frame is shown.
 - **Belongs in:** bro / broimage
 
-## Taking delivery of a big ImageBitmap costs the page a frame
-- **Where:** bro (Worker transfer, canvas upload)
-- **Expected:** a transferred bitmap is a handle; the page pays nothing
-  until it draws, and the upload does not stall the frame.
-- **Actual:** receiving costs about 0.3 ms per MB (a 24 MP photo is 96 MB:
-  22-30 ms), and the first draw of it another ~50 ms of upload.
-- **Impact:** the worker sends a screen-sized preview, and full resolution
-  comes as 1024 px tiles only for the part on screen, one per frame.
-- **Belongs in:** bro
-
 ## brokit `path.join` is slow (~15 µs a call)
 - **Where:** brokit `path`
 - **Actual:** joining 400 names to a folder takes about 6 ms.

@@ -2,18 +2,19 @@
  * Decoded pictures, made off the page's thread and kept for the images next
  * to the one on screen, so Next and Previous show at once.
  *
- *   const decoder = new Decoder({ inUse: (pic) => pic === viewer.pic, onTile: (pic) => redraw() });
+ *   const decoder = new Decoder({ inUse: (pic) => pic === viewer.pic, onFull: (pic) => redraw() });
  *   const pic = await decoder.get(path);            // the one to show: jumps the queue
  *   decoder.prefetch([next, prev]);                 // the neighbours, when idle
- *   decoder.wantTiles(pic, ['0,0', '1,0']);         // full-resolution tiles a deep zoom shows
- *   pic = { path, kind: 'bitmap' | 'img' | 'vector', source, partial, tiles, width, height, orientation, ms }
+ *   decoder.wantFull(pic);                          // full resolution, for a deep zoom
+ *   pic = { path, kind: 'bitmap' | 'img' | 'vector', source, partial, full, width, height, orientation, exif, ms }
  *
  * 'bitmap' pictures come from the decoder thread (js/decode-worker.js) as an
  * ImageBitmap, upright (EXIF applied), at most screen-sized: `partial` says
- * the bitmap holds fewer pixels than the picture. Zoomed in past that, the
- * view asks for the tiles (TILE px squares) it shows, which a second decoder
- * thread cuts from the full decode one at a time, so each lands in a frame of
- * its own. Neither the page nor the GPU ever takes 96 MB at once.
+ * the bitmap holds fewer pixels than the picture. That keeps the neighbours
+ * held for Next and Previous small. Zoomed in past it, the view asks for the
+ * whole picture at full resolution (`full`), which a second decoder thread
+ * sends from the decode it keeps: a transferred ImageBitmap moves to the page
+ * as a handle and bro uploads it to the GPU before it is drawn.
  *
  * WebP and SVG are not read by bro.image; they load as an <img> on the page
  * ('img', decoded off the page thread by bro; 'vector' is drawn at the size
@@ -24,8 +25,6 @@ import { formatOf } from './formats.js';
 
 /** Pictures kept decoded: the current one and its neighbours. */
 const KEEP = 3;
-/** The side of a full-resolution tile, in image pixels. */
-export const TILE = 1024;
 
 /** A decoder thread and its queue of jobs: one at a time, urgent ones first. */
 class Channel {
@@ -80,18 +79,15 @@ class Channel {
 export class Decoder {
   /**
    * inUse(pic): whether a picture is on screen (it is never closed then).
-   * onTile(pic): a full-resolution tile of pic arrived.
+   * onFull(pic): the full-resolution bitmap of pic arrived.
    */
-  constructor({ inUse, onTile } = {}) {
+  constructor({ inUse, onFull } = {}) {
     this.inUse = inUse;
-    this.onTile = onTile;
+    this.onFull = onFull;
     this.pictures = new Channel();   // previews: the current image and its neighbours
-    this.detail = new Channel();     // tiles of the image on screen (keeps its full decode)
+    this.detail = new Channel();     // the image on screen at full resolution, and copies (keeps its full decode)
     this.cache = new Map();          // path -> picture (insertion order = age)
     this.inflight = new Map();       // path -> promise
-    this.tileFor = null;             // the picture whose tiles are wanted
-    this.tileQueue = [];             // tile keys to fetch, in order
-    this.tileBusy = false;
     this.maxSide = previewSide();
   }
 
@@ -138,40 +134,23 @@ export class Decoder {
     }
   }
 
-  /** Fetch these full-resolution tiles of `pic` ('tx,ty' keys), nearest first; others are dropped. */
-  wantTiles(pic, keys) {
-    if (!pic || !pic.partial) return;
-    if (this.tileFor !== pic) this.tileQueue = [];
-    this.tileFor = pic;
-    this.tileQueue = keys.filter((k) => !pic.tiles.has(k));
-    this.pumpTiles();
+  /** Fetch the full-resolution bitmap of a partial `pic` (once; onFull says when it is in). */
+  wantFull(pic) {
+    if (!pic || !pic.partial || pic.full || pic.fullPending) return;
+    pic.fullPending = true;
+    this.detail.send({ op: 'picture', path: pic.path, maxSide: 0 }).then((m) => {
+      if (pic.released) { m.bitmap.close(); return; }
+      pic.full = m.bitmap;
+      if (this.onFull) this.onFull(pic);
+    }, () => {}).finally(() => { pic.fullPending = false; });
   }
 
-  pumpTiles() {
-    if (this.tileBusy || !this.tileQueue.length || !this.tileFor) return;
-    const pic = this.tileFor;
-    const key = this.tileQueue.shift();
-    const [tx, ty] = key.split(',').map(Number);
-    this.tileBusy = true;
-    this.detail.send({ op: 'tile', path: pic.path, tx, ty, tile: TILE }).then((m) => {
-      if (pic.released) m.bitmap.close();
-      else {
-        pic.tiles.set(key, { bitmap: m.bitmap, x: m.x, y: m.y });
-        if (this.onTile) this.onTile(pic);
-      }
-    }, () => {}).finally(() => {
-      this.tileBusy = false;
-      this.pumpTiles();
-    });
-  }
-
-  /** Let go of a picture's tiles (the view moved on). */
+  /** Let go of a picture's full-resolution bitmap (the view moved on). */
   release(pic) {
-    if (!pic || !pic.tiles || !pic.tiles.size) return;
-    const tiles = Array.from(pic.tiles.values());
-    pic.tiles.clear();
-    if (this.tileFor === pic) { this.tileFor = null; this.tileQueue = []; }
-    setTimeout(() => { for (const t of tiles) t.bitmap.close(); }, 250);
+    if (!pic || !pic.full) return;
+    const full = pic.full;
+    pic.full = null;
+    setTimeout(() => full.close(), 250);
   }
 
   /** The file was renamed: keep its picture under the new name. */
@@ -206,7 +185,7 @@ export class Decoder {
     else {
       const t0 = now();
       promise = this.pictures.send({ op: 'picture', path, maxSide: this.maxSide }, urgent).then((m) => ({
-        path, kind: 'bitmap', source: m.bitmap, partial: m.bitmap.width < m.width, tiles: new Map(),
+        path, kind: 'bitmap', source: m.bitmap, partial: m.bitmap.width < m.width, full: null,
         width: m.width, height: m.height, orientation: m.orientation || 1, exif: m.exif || null, ms: now() - t0,
       }), () => loadOnPage(path, 'img'));          // bro.image refused it: try the page's decoder
     }
@@ -257,7 +236,7 @@ function loadOnPage(path, kind) {
       return;
     }
     resolve({
-      path, kind: kind === 'vector' ? 'vector' : 'img', source: img, partial: false, tiles: new Map(),
+      path, kind: kind === 'vector' ? 'vector' : 'img', source: img, partial: false, full: null,
       width: img.naturalWidth, height: img.naturalHeight, orientation: 1, ms: now() - t0,
     });
   });

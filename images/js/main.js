@@ -68,15 +68,14 @@ const toolbar = new Toolbar(ui.toolbar, commands);
 
 const viewer = new Viewer({
   onChange: () => { updateStatus(); toolbar.refresh(); },
-  // Zoomed past the screen-sized preview: the full-resolution tiles on screen.
-  onNeedTiles: (pic, keys) => decoder.wantTiles(pic, keys),
+  // Zoomed past the screen-sized preview: the picture at full resolution.
+  onNeedFull: (pic) => decoder.wantFull(pic),
 });
 viewer.el.dataset.bg = settings.get('background');
 const details = new Details();
 const decoder = new Decoder({
   inUse: (pic) => viewer.pic === pic,
-  // A tile is drawn on the frame after it arrives, so taking delivery and uploading it do not share one.
-  onTile: (pic) => { if (viewer.pic === pic) viewer.schedule(); },
+  onFull: (pic) => { if (viewer.pic === pic) viewer.schedule(); },
 });
 const folder = new Folder({ onChange: () => folderChanged() });
 

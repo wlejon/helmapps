@@ -9,15 +9,14 @@
  *   viewer.model()                     // { scale, fit, fitScale, rotation, flipH, flipV, panX, panY, ... }
  *
  * Raster pictures draw into a <canvas>: they arrive from the decoder thread
- * as a screen-sized ImageBitmap plus full-resolution tiles (js/decoder.js),
- * which the canvas composes; it samples with mipmaps or a cubic filter, so a
+ * as a screen-sized ImageBitmap, and at full resolution once a zoom needs it
+ * (js/decoder.js); the canvas samples with mipmaps or a cubic filter, so a
  * downscaled photo stays smooth, and above 200% it turns smoothing off for
  * crisp pixels. An SVG is an <img> laid out at the size it is shown, which
  * bro rasterizes sharp at any zoom.
  */
 
 import { h, clamp, perFrame } from '/lib/dom.js';
-import { TILE } from './decoder.js';
 
 /** The zoom levels Zoom In and Zoom Out step through. */
 export const ZOOM_STEPS = [0.02, 0.05, 0.1, 0.125, 0.167, 0.25, 0.333, 0.5, 0.667, 0.75, 1,
@@ -31,11 +30,11 @@ const MAX_VECTOR_PX = 8192;
 const WHEEL_STEP = 1.2;
 
 export class Viewer {
-  /** onNeedTiles(pic, keys): the zoom shows more pixels than a partial picture holds. */
-  constructor({ onChange, onNeedTiles } = {}) {
+  /** onNeedFull(pic): the zoom shows more pixels than a partial picture holds. */
+  constructor({ onChange, onNeedFull } = {}) {
     this.onChange = onChange;
-    this.onNeedTiles = onNeedTiles;
-    this.missingTiles = 0;
+    this.onNeedFull = onNeedFull;
+    this.waitingFull = false;
     this.pic = null;
     this.v = { fit: true, scale: 1, rotation: 0, flipH: false, flipV: false, panX: 0, panY: 0 };
     this.size = { w: 0, h: 0 };          // the stage, in CSS px (read once per draw)
@@ -179,7 +178,7 @@ export class Viewer {
       flipH: this.v.flipH, flipV: this.v.flipV, panX: this.v.panX, panY: this.v.panY,
       width: this.pic ? this.pic.width : 0, height: this.pic ? this.pic.height : 0,
       pixelated: this.scale() > PIXELATED_ABOVE, kind: this.pic ? this.pic.kind : null,
-      partial: !!(this.pic && this.pic.partial), missingTiles: this.missingTiles,
+      partial: !!(this.pic && this.pic.partial), waitingFull: this.waitingFull,
     };
   }
 
@@ -251,50 +250,12 @@ export class Viewer {
     ctx.imageSmoothingEnabled = s <= PIXELATED_ABOVE;
     ctx.imageSmoothingQuality = 'high';
     const x0 = (-pic.width * s) / 2, y0 = (-pic.height * s) / 2;
-    ctx.drawImage(pic.source, x0, y0, pic.width * s, pic.height * s);
-    // Zoomed past the screen-sized preview: the full-resolution tiles on
-    // screen go over it, and the ones not here yet are asked for.
-    if (pic.partial && pic.width * s * dpr > (pic.source.width || 0) * 1.02) {
-      const missing = [];
-      for (const [tx, ty] of this.visibleTiles(s, fx, fy)) {
-        const key = `${tx},${ty}`;
-        const t = pic.tiles.get(key);
-        if (!t) { missing.push(key); continue; }
-        const sx = tx * TILE - t.x, sy = ty * TILE - t.y;
-        const sw = Math.min(TILE, pic.width - tx * TILE), sh = Math.min(TILE, pic.height - ty * TILE);
-        ctx.drawImage(t.bitmap, sx, sy, sw, sh, x0 + tx * TILE * s, y0 + ty * TILE * s, sw * s, sh * s);
-      }
-      this.missingTiles = missing.length;
-      if (missing.length && this.onNeedTiles) this.onNeedTiles(pic, missing);
-    } else {
-      this.missingTiles = 0;
-    }
-  }
-
-  /**
-   * The tiles of the picture the stage shows, nearest the centre first: the
-   * stage's corners mapped back through the flip and the turn into picture
-   * pixels.
-   */
-  visibleTiles(s, fx, fy) {
-    const pic = this.pic;
-    const { w: vw, h: vh } = this.size;
-    const cx = vw / 2 + this.v.panX, cy = vh / 2 + this.v.panY;
-    const rad = (-this.v.rotation * Math.PI) / 180;
-    const cos = Math.round(Math.cos(rad)), sin = Math.round(Math.sin(rad));
-    let u0 = Infinity, v0 = Infinity, u1 = -Infinity, v1 = -Infinity;
-    for (const [px, py] of [[0, 0], [vw, 0], [0, vh], [vw, vh]]) {
-      const dx = ((px - cx) / s) * fx, dy = ((py - cy) / s) * fy;
-      const u = dx * cos - dy * sin + pic.width / 2;
-      const v = dx * sin + dy * cos + pic.height / 2;
-      u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v);
-    }
-    const tx0 = Math.max(0, Math.floor(u0 / TILE)), tx1 = Math.min(Math.ceil(pic.width / TILE) - 1, Math.floor(u1 / TILE));
-    const ty0 = Math.max(0, Math.floor(v0 / TILE)), ty1 = Math.min(Math.ceil(pic.height / TILE) - 1, Math.floor(v1 / TILE));
-    const mu = (u0 + u1) / 2 / TILE, mv = (v0 + v1) / 2 / TILE;
-    const out = [];
-    for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) out.push([tx, ty]);
-    return out.sort((a, b) => Math.hypot(a[0] + 0.5 - mu, a[1] + 0.5 - mv) - Math.hypot(b[0] + 0.5 - mu, b[1] + 0.5 - mv));
+    // Zoomed past the screen-sized preview: the full-resolution bitmap once
+    // it is here (asked for the first time it is needed).
+    const needFull = pic.partial && pic.width * s * dpr > (pic.source.width || 0) * 1.02;
+    if (needFull && !pic.full && this.onNeedFull) this.onNeedFull(pic);
+    ctx.drawImage(needFull && pic.full ? pic.full : pic.source, x0, y0, pic.width * s, pic.height * s);
+    this.waitingFull = needFull && !pic.full;
   }
 
   // ---- input ----------------------------------------------------------------------
