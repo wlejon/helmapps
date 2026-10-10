@@ -94,11 +94,23 @@ DU_PERF_ROOT='C:\' VERBOSE=1 scripts/run_tests.sh diskusage perf
 `trace` command, which a headless script can call:
 
 ```js
-const id = controlCommand('trace', '20', '--worst=3');   // the frames of the next 20 ms
-let r = null;
-while (r == null) { advanceTime(16); r = controlResult(id); }
-console.log(r.payload);
+// A control command answers on a later frame.
+const ask = (...argv) => {
+  const id = controlCommand(...argv);
+  let r = null;
+  while (r == null) { advanceTime(16); r = controlResult(id); }
+  return r.payload;
+};
+const t0 = ask('now');                                   // the trace's clock, before the work
+const f = measureFrames(() => app.state.done, 'loading the big folder');
+console.log(ask('trace', `--since=${t0}`, '--worst=3'));  // the frames since t0
 ```
+
+The trace looks back: `trace 20` is the frames of the **last** 20 seconds,
+not the next ones, so a trace asked for before the work finds nothing in
+its window. Bracket the work instead: `now` before it (the trace's clock,
+real milliseconds, not the virtual `performance.now()`), then `trace
+--since=<that>` after it (`--until=` closes the window early).
 
 For each of the worst frames it reports `js` (your callbacks), `style`,
 `layout`, `record` (paint) and **`forced layouts`**: how many times your
