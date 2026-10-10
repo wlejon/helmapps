@@ -60,6 +60,17 @@ assert(Math.abs(player.readPosition() - at) < 0.05, 'a paused song does not move
 clickEl(document.querySelector('.mu-np-play'));
 waitFor(() => player.playing, 'the bar\'s play button to play');
 
+// The media keys, by the names bro gives them.
+const media = (name) => { keyDown(name); keyUp(name); advanceTime(16); };
+media('MediaPlayPause');
+waitFor(() => player.state === 'paused', 'MediaPlayPause to pause');
+media('MediaPlayPause');
+waitFor(() => player.playing, 'MediaPlayPause to play');
+media('MediaTrackNext');
+waitFor(() => title() === 'Three', 'MediaTrackNext to play Three');
+media('MediaTrackPrevious');
+waitFor(() => title() === 'Two', 'MediaTrackPrevious to go back to Two');
+
 // Repeat one: at its end the song starts over and the queue stays put.
 const short = app.library.albums().find((a) => a.title === 'Short');
 app.playSongs(short.songs, 0);

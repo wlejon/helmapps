@@ -55,65 +55,11 @@ the MPRIS player side) are in `../GAPS.md`.
 - **Impact:** the seek bar is a plain slider.
 - **Belongs in:** bro
 
-### Media keys arrive without names
-- **Where:** bro (keyboard events from SDL)
-- **Expected:** `e.key` `MediaPlayPause` / `MediaTrackNext` /
-  `MediaTrackPrevious` / `MediaStop`, as browsers give.
-- **Actual:** `e.key` is a number as a string and `e.code` is `Unknown262`,
-  `Unknown263`, ... (SDL scancodes 262/263/267/268/269/271).
-- **Impact:** the commands are bound to the standard names, so they will work
-  when bro names the keys; today the keys do nothing.
-- **Belongs in:** bro (SDL scancode → `key`/`code` table)
-
-### `setTimeout(0)` in a worker takes about 500 ms to come back
-- **Where:** bro (worker event loop)
-- **Expected:** a zero timer runs on the worker's next turn (well under 1 ms
-  when the worker is otherwise idle).
-- **Actual:** ~500 ms each under `bro-headless`. A scan that yielded every 32
-  files spent 27 s of a 28 s scan of 1500 files waiting (`lastScan.waitMs`).
-- **Impact:** the scan worker yields (so a newer scan can stop it) once per
-  second of work instead; 1500 files now scan in ~1.2 s.
-- **Belongs in:** bro
-
-### The worker loader mistakes any line starting with `await` for top-level await
-- **Where:** bro (`src/bronze_host/host_worker.cpp`, `hasAwaitStmt`)
-- **Expected:** a module worker is compiled as a module, as written.
-- **Actual:** if any line's first word is `await` (an ordinary `await x();`
-  inside an async function), the whole source is wrapped in
-  `(async () => { ... })()`, and the module's imports then fail with
-  "an import or export declaration may only appear at the top level of a
-  module" (pointing at a line that is fine).
-- **Impact:** `js/library-worker.js` has no line that starts with `await`
-  (they read `if (due()) await pause();`). A comment there says why.
-- **Belongs in:** bro: only wrap classic scripts, and only for real top-level
-  `await` (bronze's parser knows).
-
-### `bro.conf` rewrites the whole store on every `set`
-- **Where:** bro (`bro.conf`)
-- **Expected:** a cheap write, or writes batched off the thread.
-- **Actual:** each `set` is synchronous and costs ~1-4 ms, and grows with
-  everything else in the store: with a 1500-path queue saved as a setting,
-  every `set` (the position, the queue index) took ~7 ms and a skip ~35 ms.
-  (`../images/GAPS.md` has the synchronous part.)
-- **Impact:** the queue's paths are not a setting: they are `queue.json` in
-  `bro.app.dataDir`, written atomically by the scan worker. The brief listed
-  the queue among the settings; the place in it (`queueIndex`) and
-  `position` are settings.
-- **Belongs in:** bro
-
 ### `<img>` decodes synchronously
 - **Where:** bro (`HTMLImageElement`), as in `../images/GAPS.md`
 - **Impact:** covers are 320 px JPEGs made by the scan worker, and decoded
   `<img>` elements are kept on a shelf (`js/covers.js`) and moved between
   grid cells instead of re-pointed.
-
-### `fs.openSync` / `readSync` / `fstatSync` / `closeSync` are undocumented
-- **Where:** bro docs (`docs/brokit-api.js`)
-- **Actual:** they exist and work (`readSync(fd, u8, offset, length, position)`)
-  but are not listed.
-- **Impact:** the tag readers read only the bytes they need through them,
-  found by trying.
-- **Belongs in:** bro docs
 
 ## Kit (`../lib`)
 

@@ -110,12 +110,6 @@ another app by id off Linux) are in `../GAPS.md`.
   comes as 1024 px tiles only for the part on screen, one per frame.
 - **Belongs in:** bro
 
-## Creating a Worker costs the page ~22 ms
-- **Where:** bro
-- **Impact:** the decoder workers are created on first use, never during
-  start-up.
-- **Belongs in:** bro
-
 ## bro.thumb writes the user's real thumbnail cache, and tests cannot redirect it
 - **Where:** bro (`bro.thumb`, Windows `native_shell`)
 - **Expected:** the cache directory follows `BRO_APP_HOME` (or an XDG
@@ -124,11 +118,6 @@ another app by id off Linux) are in `../GAPS.md`.
   `%LOCALAPPDATA%\thumbnails\normal` (`~/.cache/thumbnails` on Linux).
 - **Impact:** running the tests leaves a few hundred small PNGs there.
 - **Belongs in:** bro / brothumb
-
-## bro.conf `set` writes synchronously (1-5 ms)
-- **Where:** bro (`bro.conf`)
-- **Impact:** the app writes `lastFolder` only when it changes.
-- **Belongs in:** bro (coalesce writes off the thread)
 
 ## brokit `path.join` is slow (~15 µs a call)
 - **Where:** brokit `path`

@@ -58,8 +58,8 @@ How it stays responsive (`../docs/performance.md`):
 | Mod+, | Library folders |
 | Mod+Q | Quit |
 
-The media keys are bound to `MediaPlayPause`, `MediaTrackNext`,
-`MediaTrackPrevious` and `MediaStop`; bro does not name them yet (`GAPS.md`).
+The media keys work too: `MediaPlayPause`, `MediaTrackNext`,
+`MediaTrackPrevious` and `MediaStop`.
 
 Settings: `folders` (null = the Music folder), `volume`, `muted`, `shuffle`,
 `repeat`, `view`, `queueIndex`, `position`, `columns` (list column widths).

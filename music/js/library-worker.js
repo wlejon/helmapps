@@ -32,7 +32,7 @@ const COVER_EXTS = ['jpg', 'jpeg', 'png'];
 const COVER_PX = 320;
 const BATCH = 200;
 const PROGRESS_MS = 200;
-const SLICE_MS = 1000;           // work between yields to the worker's message loop
+const SLICE_MS = 50;             // work between yields to the worker's message loop
 
 let indexPath = '';
 let coversDir = '';
@@ -152,11 +152,8 @@ async function scan({ id, roots }) {
   scanId = id;
   const t0 = Date.now();
   const stats = { folders: 0, files: 0, parsed: 0, errors: 0, parseMs: 0, waitMs: 0 };
-  // Yield (so a newer scan's message can arrive) once per slice of work, not
-  // per N files: a setTimeout(0) in a worker takes ~500 ms to come back
-  // (GAPS.md), and a yield every 32 files made a 1500-song scan 28 s long.
-  // (No line here starts with `await`: bro's worker loader takes such a line
-  // for a top-level await and wraps the module in a function, GAPS.md.)
+  // Yield (so a newer scan's or a stop message can arrive) after each short
+  // slice of work; a zero timer comes back on the worker's next turn.
   let sliceAt = Date.now();
   const due = () => { flush(false); return Date.now() - sliceAt >= SLICE_MS; };
   const pause = () => {
@@ -230,9 +227,13 @@ async function scan({ id, roots }) {
         }
         index.set(p, rec);
         batch.push(rec);
-        if (due()) await pause();
+        if (due()) {
+          await pause();
+        }
       }
-      if (due()) await pause();
+      if (due()) {
+        await pause();
+      }
     }
   }
   if (scanId !== id) { flush(true); stopped(id, stats); return; }

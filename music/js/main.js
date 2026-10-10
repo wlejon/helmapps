@@ -433,9 +433,9 @@ function startBarTicks() {
 
 // The queue's songs are a file of their own (queue.json in the app's data
 // folder), written on the library's thread; its place in them and the
-// position are settings. bro.conf writes synchronously and rewrites the
-// whole store each time (GAPS.md): with a 1500-song queue in it every
-// setting cost ~7 ms to save, and a skip ~35 ms.
+// position are settings. A setting is cheap to set, but the store is one
+// file saved whole, so a list of thousands of paths in it would be rewritten
+// with every position save.
 const QUEUE_FILE = path.join(typeof bro !== 'undefined' && bro.app ? bro.app.dataDir : '.', 'queue.json');
 let savedQueue = '';
 function saveQueue() {
