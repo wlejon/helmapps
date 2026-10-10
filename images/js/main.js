@@ -16,7 +16,6 @@
 
 import { startApp } from '/lib/app.js';
 import { h, api, debounce } from '/lib/dom.js';
-import { defineIcon } from '/lib/icons.js';
 import { appFrame, Toolbar, SplitPane, emptyState } from '/lib/layout.js';
 import { VirtualList } from '/lib/list.js';
 import { menu } from '/lib/menu.js';
@@ -27,7 +26,7 @@ import { Viewer } from './viewer.js';
 import { Decoder } from './decoder.js';
 import { Folder } from './folder.js';
 import { Thumbs } from './thumbs.js';
-import { StripList, cellRenderer, paintThumb, visiblePaths } from './gallery.js';
+import { stripList, cellRenderer, paintThumb, visiblePaths } from './gallery.js';
 import { Details } from './details.js';
 import { FileActions } from './actions.js';
 import { Presentation } from './presentation.js';
@@ -35,8 +34,6 @@ import { isImage, dialogFilter, compareNames } from './formats.js';
 
 const fs = require('fs');
 const path = require('path');
-
-defineIcon('flip-v', '<path d="M3 12h18"/><path d="M7 8l5-5 5 5zM7 16l5 5 5-5z"/>');
 
 const app = startApp({
   settings: {
@@ -112,7 +109,7 @@ const grid = new VirtualList({
 grid.el.classList.add('iv-grid');
 
 let syncingStrip = false;
-const strip = new StripList({
+const strip = stripList({
   cellWidth: 88,
   cellHeight: 76,
   padding: 4,
@@ -124,10 +121,6 @@ const strip = new StripList({
     openImage(items[0].path);
   },
 });
-strip.scroller.addEventListener('wheel', (e) => {
-  e.preventDefault();
-  strip.scroller.scrollLeft += (e.deltaY || 0) + (e.deltaX || 0);
-}, { passive: false });
 
 // Requests for cells scrolled away are dropped.
 const trimThumbs = debounce(() => thumbs.keepOnly([...visiblePaths(grid), ...visiblePaths(strip)]), 100);
