@@ -279,6 +279,36 @@
   letter-spacing: var(--track-micro);
 }
 
+.list-header .col { position: relative; }
+
+/* The divider after a column: a visible rule in the gap between two header
+   cells, so every column edge (a flexible Name column's too, far from any
+   right-aligned label) can be found and dragged. The grab area is wider
+   than the rule. */
+.col-grip {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -12px;
+  width: 12px;
+  z-index: 1;
+  cursor: col-resize;
+}
+
+.col-grip::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 9px;
+  bottom: 9px;
+  width: 1px;
+  background: var(--rim-strong);
+}
+
+.list-header:hover .col-grip::after { top: 6px; bottom: 6px; background: var(--t4); }
+.col-grip:hover::after, .list-header.resizing .col-grip::after { top: 4px; bottom: 4px; width: 2px; left: 5px; background: var(--accent); }
+.list-header.resizing { cursor: col-resize; }
+
 .list-header .col.sortable:hover { color: var(--t1); }
 .list-header .col.sorted { color: var(--t1); }
 .list-header .col .icon { width: 12px; height: 12px; }

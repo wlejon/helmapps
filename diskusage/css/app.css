@@ -63,38 +63,14 @@
 .du-drive .meter.full .meter-fill { background: var(--danger); }
 .du-drive-free { display: flex; justify-content: space-between; font-size: var(--fs-cap); color: var(--t2); }
 
-/* The share of the folder a row takes: a bar and its figure. */
-.du-bar {
-  position: relative;
-  flex: 1;
-  height: 6px;
-  border-radius: var(--r-chip);
-  background: var(--well-2);
-  overflow: hidden;
-}
-
-.du-bar-fill {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  border-radius: var(--r-chip);
-  background: var(--accent);
-}
-
+/* The share of the folder a row takes. */
 .du-pct {
-  flex: none;
-  width: 42px;
-  text-align: right;
-  font-size: var(--fs-cap);
   font-variant-numeric: tabular-nums;
   color: var(--t3);
 }
 
-/* Files are a quieter bar than folders; empty things fade back. */
-.vlist-row.du-file .du-bar-fill { background: var(--t4); }
+/* Empty things fade back. */
 .vlist-row.du-zero { color: var(--t4); }
-.vlist-row.du-zero .du-bar-fill { background: transparent; }
 .vlist-row.du-zero .col .icon { color: var(--t4); }
 .vlist-row.selected .du-pct { color: var(--t2); }
 

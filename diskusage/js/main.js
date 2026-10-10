@@ -41,6 +41,7 @@ const app = startApp({
   settings: {
     showHidden: { type: 'bool', default: false },
     lastRoot: { type: 'string', default: '' },
+    columns: { type: 'json', default: {} },        // column widths the user dragged
   },
 });
 const { commands, settings } = app;
@@ -84,7 +85,7 @@ ui.statusbar.append(statusText);
 // A folder still being counted: a live dot, and its size so far (if any).
 const sizeCell = (n) => (n.complete ? formatBytes(n.bytes)
   : [h('span.du-live', { title: 'Still counting' }), h('span.du-partial', n.bytes ? formatBytes(n.bytes) : '')]);
-const shareText = (s) => (s >= 10 ? `${Math.round(s)}%` : s >= 0.1 ? `${s.toFixed(1)}%` : s > 0 ? '<0.1%' : '');
+const shareText = (n) => (n.share >= 10 ? `${Math.round(n.share)}%` : n.share >= 0.1 ? `${n.share.toFixed(1)}%` : n.bytes > 0 ? '<0.1%' : '');
 
 const list = new VirtualList({
   layout: 'list',
@@ -92,18 +93,17 @@ const list = new VirtualList({
   key: (n) => n.path,
   label: (n) => n.name,
   sort: state.sort,
-  rowClass: (n) => (n.bytes === 0 ? 'du-zero' : n.isDirectory ? '' : 'du-file'),
+  rowClass: (n) => (n.bytes === 0 ? 'du-zero' : ''),
   columns: [
-    { id: 'name', label: 'Name', flex: 3, sortable: true,
+    { id: 'name', label: 'Name', sortable: true, minWidth: 120,
       cell: (n) => [icon(n.isDirectory ? 'folder' : iconFor(n)), h('span.ellipsis', n.name)] },
-    { id: 'share', label: 'Share', flex: 2,
-      cell: (n) => [
-        h('div.du-bar', h('div.du-bar-fill', { style: { width: `${Math.max(0.4, n.share)}%` } })),
-        h('span.du-pct', shareText(n.share))] },
-    { id: 'size', label: 'Size', width: 92, align: 'right', sortable: true, cell: sizeCell },
-    { id: 'files', label: 'Files', width: 92, align: 'right', sortable: true,
+    { id: 'size', label: 'Size', width: 96, align: 'right', sortable: true, cell: sizeCell },
+    { id: 'share', label: 'Share', width: 72, align: 'right', cell: (n) => h('span.du-pct', shareText(n)) },
+    { id: 'files', label: 'Files', width: 96, align: 'right', sortable: true,
       cell: (n) => (n.isDirectory && (n.complete || n.files) ? formatNumber(n.files) : '') },
   ],
+  columnWidths: settings.get('columns'),
+  onColumnResize: (w) => settings.set('columns', w),
   render: null,
   onSort: (id, dir) => { state.sort = { id, dir }; drawFolder(); },
   onActivate: (items) => activate(items[0]),
@@ -368,7 +368,7 @@ function drawFolder() {
   // The native side sorts and cuts to MAX_ROWS; the page sorts only what it shows.
   const rows = scan.children(p, { sort: state.sort.id === 'name' ? 'name' : 'bytes', limit: state.maxRows }) || [];
   // A row shows only its own fields (lib/list.js), so its share of the folder
-  // rides on it; rounded to the 0.1% a bar can show, a row whose share has
+  // rides on it; rounded to the 0.1% the column shows, a row whose share has
   // not visibly moved is not redrawn.
   for (const r of rows) r.share = item.bytes > 0 ? Math.round((r.bytes / item.bytes) * 1000) / 10 : 0;
   if (list.sort !== state.sort) list.setSort(state.sort);

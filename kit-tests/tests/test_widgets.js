@@ -91,6 +91,56 @@ clickEl(sl.header.querySelector('.col'));
 eq(sortedBy, ['a', -1], 'second reverses');
 sl.destroy();
 
+// Column dividers: dragging one sizes the fixed column beside the flexible
+// one, header and rows alike; the widths come back to restore; double-click resets.
+let resized = null;
+const rl = new VirtualList({
+  key: (x) => x.a,
+  columns: [{ id: 'a', label: 'A', flex: 1 }, { id: 'b', label: 'B', width: 80 }, { id: 'c', label: 'C', width: 60 }],
+  columnWidths: { c: 90 },
+  onColumnResize: (w) => { resized = w; },
+});
+ui.content.appendChild(rl.el);
+rl.setItems([{ a: 1, b: 2, c: 3 }]);
+advanceTime(16);
+const headCol = (i) => rl.header.querySelectorAll('.col')[i];
+const rowCol = (i) => rl.el.querySelectorAll('.vlist-row .col')[i];
+eq(Math.round(headCol(2).getBoundingClientRect().width), 90, 'saved widths are restored');
+const grips = rl.header.querySelectorAll('.col-grip');
+eq(grips.length, 2, 'a grip between each pair of columns, none after the last');
+const [gx, gy] = center(grips[0]);
+drag([gx, gy], [gx - 40, gy]);
+eq(Math.round(headCol(1).getBoundingClientRect().width), 120, 'dragging left of a fixed column widens it');
+eq(Math.round(rowCol(1).getBoundingClientRect().width), 120, 'and its cells with it');
+eq(resized, { b: 120, c: 90 }, 'the new widths are reported');
+dblClickEl(grips[0]);
+eq(Math.round(headCol(1).getBoundingClientRect().width), 80, 'double-click resets');
+// Between two fixed columns the divider follows the pointer: they trade width.
+const divider = () => headCol(2).getBoundingClientRect().left;
+const before = divider();
+const [hx, hy] = center(grips[1]);
+drag([hx, hy], [hx + 20, hy]);
+eq([Math.round(headCol(1).getBoundingClientRect().width), Math.round(headCol(2).getBoundingClientRect().width)], [100, 70],
+  'two fixed columns trade width');
+eq(Math.round(divider() - before), 20, 'and the divider moved with the pointer');
+rl.destroy();
+
+// Tooltips: hovering a [data-tip] shows its text and key cap after a pause.
+const { installTooltips } = await import('/lib/tooltip.js');
+installTooltips();
+const tipBtn = h('button.btn', { 'data-tip': 'Refresh', 'data-keys': 'F5' }, 'R');
+ui.toolbar.appendChild(tipBtn);
+advanceTime(16);
+mouseMove(...center(tipBtn));
+advanceTime(200);
+assert(!document.querySelector('.tooltip'), 'no tooltip before the pause');
+advanceTime(500);
+const tipEl = document.querySelector('.tooltip');
+assert(tipEl && tipEl.textContent.includes('Refresh') && tipEl.textContent.includes('F5'), 'the tooltip shows its label and keys');
+press('escape');
+assert(!document.querySelector('.tooltip'), 'a key hides it');
+tipBtn.remove();
+
 // ---- VirtualList: grid ------------------------------------------------------
 list.setLayout('grid', { cellWidth: 100, cellHeight: 100 });
 advanceTime(32);
