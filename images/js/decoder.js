@@ -16,8 +16,8 @@
  * its own. Neither the page nor the GPU ever takes 96 MB at once.
  *
  * WebP and SVG are not read by bro.image; they load as an <img> on the page
- * ('img' decodes there, which stalls a frame for a big file; 'vector' is
- * drawn at the size it is shown). GAPS.md.
+ * ('img', decoded off the page thread by bro; 'vector' is drawn at the size
+ * it is shown). GAPS.md.
  */
 
 import { formatOf } from './formats.js';

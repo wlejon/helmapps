@@ -8,12 +8,12 @@
  *   viewer.zoomIn(); viewer.fit(); viewer.zoomTo(1); viewer.rotate(90); viewer.flip('h');
  *   viewer.model()                     // { scale, fit, fitScale, rotation, flipH, flipV, panX, panY, ... }
  *
- * Raster pictures draw into a <canvas>: bro draws an <img> with
- * nearest-neighbour sampling at every size and ignores image-rendering (see
- * GAPS.md), while a 2D canvas samples with mipmaps or a cubic filter. So a
- * downscaled photo stays smooth, and above 200% the canvas turns smoothing
- * off for crisp pixels. An SVG is an <img> laid out at the size it is shown,
- * which bro rasterizes sharp at any zoom.
+ * Raster pictures draw into a <canvas>: they arrive from the decoder thread
+ * as a screen-sized ImageBitmap plus full-resolution tiles (js/decoder.js),
+ * which the canvas composes; it samples with mipmaps or a cubic filter, so a
+ * downscaled photo stays smooth, and above 200% it turns smoothing off for
+ * crisp pixels. An SVG is an <img> laid out at the size it is shown, which
+ * bro rasterizes sharp at any zoom.
  */
 
 import { h, clamp, perFrame } from '/lib/dom.js';

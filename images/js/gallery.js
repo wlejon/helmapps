@@ -21,12 +21,8 @@ const OVERSCAN = 3;
  * the cell still showing that item.
  */
 export function cellRenderer(thumbs, cells) {
-  // bro decodes an <img> again every time its src is set, so each list keeps
-  // the decoded preview elements and moves them between recycled cells.
-  const images = new ImageShelf();
   return (item, el) => {
     cells.add(el);
-    el._images = images;
     el._path = item.path;
     el.title = item.name;
     if (!el._box) {
@@ -52,38 +48,13 @@ export function paintThumb(el, url) {
     return;
   }
   box.classList.remove('loading');
-  const img = el._images.get(url);
+  // One <img> per cell, its src swapped as the cell is recycled: bro decodes
+  // off the page thread and keeps decoded pictures by URL, so a preview seen
+  // before shows at once.
+  let img = el._img;
+  if (!img) img = el._img = h('img', { alt: '' });
+  if (img.getAttribute('src') !== url) img.src = url;
   if (box.firstChild !== img) box.replaceChildren(img);
-}
-
-/** Decoded preview <img> elements by URL, the most recent few hundred. */
-class ImageShelf {
-  constructor(limit = 400) {
-    this.limit = limit;
-    this.map = new Map();
-  }
-
-  get(url) {
-    let img = this.map.get(url);
-    if (img) {
-      this.map.delete(url);
-    } else {
-      img = h('img', { alt: '' });
-      img.src = url;
-    }
-    this.map.set(url, img);
-    if (this.map.size > this.limit) {
-      const [oldest] = this.map.keys();
-      const old = this.map.get(oldest);
-      if (!old.isConnected) this.map.delete(oldest);
-    }
-    return img;
-  }
-
-  /** Forget a preview (its file changed). */
-  forget(url) {
-    this.map.delete(url);
-  }
 }
 
 /** One row of cells that scrolls sideways. */

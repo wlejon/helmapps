@@ -38,14 +38,6 @@ const path = require('path');
 
 defineIcon('flip-v', '<path d="M3 12h18"/><path d="M7 8l5-5 5 5zM7 16l5 5 5-5z"/>');
 
-// bro binds F5 to "reload the app" for every app, even one that does not
-// watch its source, and swallows the key. F5 is this app's Slideshow, so the
-// app layer unbinds bro's default (bro.settings app layer, not persisted).
-// GAPS.md: the reload key belongs only to apps being developed.
-if (typeof bro !== 'undefined' && bro.settings && typeof bro.settings.defineAction === 'function') {
-  try { bro.settings.defineAction('system_reload_app', []); } catch (_) { /* older bro: F5 reloads */ }
-}
-
 const app = startApp({
   settings: {
     showStrip: { type: 'bool', default: true },
