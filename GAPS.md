@@ -3,17 +3,6 @@
 Engine and platform gaps found while building `lib/` and the reference app.
 Each app keeps its own `GAPS.md` in the same format (see AGENTS.md).
 
-## Notifications have no click or actions
-- **Where:** bro (`Notification`, `bro.window.notify`)
-- **Expected:** `click` on a notification (and its actions) reaches the app,
-  so "Download finished" can open the file.
-- **Actual:** the web `Notification` API posts under the app's identity on
-  every platform (toast, notification center, D-Bus), but the platforms'
-  activation callbacks are not wired up: `click` never fires and `actions`
-  is empty.
-- **Impact:** a notification informs; acting on it means switching to the app.
-- **Belongs in:** bro
-
 ## No MPRIS player side
 - **Where:** bro (`bro.mpris` is a controller only)
 - **Expected:** an app can publish itself as an MPRIS2 player so helm's
@@ -28,19 +17,22 @@ Each app keeps its own `GAPS.md` in the same format (see AGENTS.md).
 
 ## Startup is mostly the engine's
 - **Where:** bro
-- **Actual:** headless now brings the Vulkan device up on a thread while it
-  creates the window (`bro.app.startup.graphics`): an empty page's first
-  frame went from ~240 ms to ~220 ms on Windows. The device is the long pole
-  (~160 ms, most of it loading the Vulkan loader and the GPU driver), and the
-  page is compiled and run (~50 ms) only after it. The windowed `bro` still
-  creates the device after the window (it picks the device against the
-  window's surface).
+- **Actual:** headless brings the Vulkan device up on a thread while it
+  creates the window (`bro.app.startup.graphics`), and in headless and
+  windowed alike the realm's host globals (~45 ms) are installed and the
+  page's first script compiled while the device comes up
+  (`bro.app.startup.page`). First frame, `bro-headless` on Windows, warm
+  code cache, validation layer off (before -> after): empty page 200 -> 199
+  ms, kit-tests 273 -> 208, music 323 -> 236, images 323 -> 233; cold cache
+  kit-tests 282 -> 211, music 471 -> 389, images 428 -> 346. What is left is
+  the device itself (~175-195 ms, most of it loading the Vulkan loader and
+  the GPU driver): an empty page's first frame is about that. The windowed
+  `bro` still creates the device after the window (it picks the device
+  against the window's surface); its first frame was not measured.
 - **Impact:** none for an app to fix; recorded so startup budgets in
   `docs/performance.md` are read as "the app's share".
-- **Belongs in:** bro: compile and run the page while the device comes up
-  (the GPU is first needed at the first frame or a canvas/WebGL context, so
-  every use of the context would wait on it); in the windowed path, load the
-  driver and create the instance alongside the window.
+- **Belongs in:** bro: in the windowed path, load the driver and create the
+  instance alongside the window.
 
 ## Fixed while building the kit
 - `openApp(id, args)` is `bro.app.open`: another app by id on every platform
@@ -48,6 +40,11 @@ Each app keeps its own `GAPS.md` in the same format (see AGENTS.md).
 - Apps post desktop notifications with the web `Notification` API (toast,
   notification center, D-Bus); helmterm's notify-send/osascript fallback is
   gone.
+- A notification's `click` (with `event.action` for its `actions` buttons)
+  and `close` reach the app; a click raises the window, and one after the
+  app exited starts it with the notification (window `notificationclick`).
+  Headless tests click with `clickNotification(id, action?)` (bro
+  `docs/sys-api.js` 5a).
 - brokit `os` has Node's system information (`cpus`, `totalmem`, `freemem`,
   `uptime`, `loadavg`, `networkInterfaces`, `release`, `version`,
   `machine`), and `process.kill(pid, signal)` exists.
