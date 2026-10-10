@@ -51,6 +51,28 @@ const frames = (n) => { for (let i = 0; i < n; i++) advanceTime(16); };
   host.remove();
 }
 
+// ---- refreshClasses: rowClass again, rows kept ----------------------------------------------------
+{
+  const host = box(400, 300);
+  document.body.appendChild(host);
+  let marked = 3;
+  const list = new VirtualList({ key: (x) => x, rowHeight: 30, rowClass: (x) => (x === marked ? 'marked' : ''),
+    columns: [{ id: 'n', label: 'N', flex: 1, cell: (x) => `row ${x}` }] });
+  host.appendChild(list.el);
+  list.setItems(Array.from({ length: 100 }, (_, i) => i));
+  frames(2);
+  const rows = () => cellsOf(list, '.vlist-row');
+  const cellOf = (x) => rows().find((r) => r._item === x).querySelector('.col');
+  const before = [cellOf(3), cellOf(5)];
+  eq(rows().filter((r) => r.classList.contains('marked')).map((r) => r._item), [3], 'rowClass marks row 3');
+  marked = 5;
+  list.refreshClasses();
+  eq(rows().filter((r) => r.classList.contains('marked')).map((r) => r._item), [5], 'refreshClasses moves the mark');
+  assert(cellOf(3) === before[0] && cellOf(5) === before[1], 'without rebuilding the rows');
+  list.destroy();
+  host.remove();
+}
+
 // ---- arrows with Alt / Ctrl / Meta pass through ------------------------------------------------------
 {
   const host = box(600, 400);
