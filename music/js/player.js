@@ -52,7 +52,12 @@ export class Player {
     return e ? this.songOf(e.path) || { path: e.path, title: e.path.split(/[\\/]/).pop(), artist: '', album: '', duration: 0 } : null;
   }
 
+  /** The open stream's length (from the decoder), else the tags'. */
   get duration() {
+    if (this.pb >= 0 && this.ctx) {
+      const d = this.ctx.getStreamDuration(this.pb);
+      if (d > 0) return d;
+    }
     const s = this.current;
     return s ? s.duration || 0 : 0;
   }
@@ -159,6 +164,7 @@ export class Player {
 
   setRepeat(mode) {
     this.queue.setRepeat(mode);
+    if (this.pb >= 0) this.ctx.setPlaybackLoop(this.pb, this.queue.repeat === 'one');
     this.onChange();
   }
 
@@ -192,10 +198,8 @@ export class Player {
     let ctx;
     try {
       ctx = this.audio();
-      // Repeat one opens the song again at its end (ended() below) rather than
-      // looping the stream: a looping stream's position counts on past the
-      // end of the file (GAPS.md), and the seek bar would run off.
-      this.pb = ctx.createStreamFromFile(e.path, { gain: this.gain(), loop: false });
+      // Repeat one loops the stream: seamless, and its position wraps to 0.
+      this.pb = ctx.createStreamFromFile(e.path, { gain: this.gain(), loop: this.queue.repeat === 'one' });
       this.pbPath = e.path;
       if (at > 0) ctx.seekPlayback(this.pb, at);
     } catch (err) {
@@ -245,11 +249,7 @@ export class Player {
   tick() {
     if (this.state !== 'playing' || this.pb < 0) { this.ticking = false; return; }
     this.position = this.readPosition();
-    // isClipPlaying stays true for a finished disk stream (GAPS.md); its stats say when it ended.
-    const stats = this.ctx.getStreamStats(this.pb);
-    if (stats && stats.finished) {
-      this.ended();
-    }
+    if (!this.ctx.isClipPlaying(this.pb)) this.ended();   // played out to its end
     if (this.state === 'playing') requestAnimationFrame(() => this.tick());
     else this.ticking = false;
   }

@@ -218,13 +218,6 @@ async function scan({ id, roots }) {
         const rec = parse({ path: p, size: st.size, mtime: st.mtimeMs, ext: extOf(name) }, rel, dirCover);
         stats.parseMs += Date.now() - tp;
         stats.parsed++;
-        if (rec.format === 'opus') {
-          // An .ogg holding Opus: bro cannot play it either.
-          skipped.opus = (skipped.opus || 0) + 1;
-          seen.delete(p);
-          stats.files--;
-          continue;
-        }
         index.set(p, rec);
         batch.push(rec);
         if (due()) {

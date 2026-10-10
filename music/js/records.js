@@ -10,10 +10,10 @@
 
 import { fromLayout } from './tags/index.js';
 
-/** The formats bro plays (createStreamFromFile). Opus and M4A do not decode (GAPS.md). */
-export const PLAYABLE = new Set(['mp3', 'flac', 'ogg', 'oga', 'wav']);
+/** The formats bro plays (createStreamFromFile). M4A/AAC does not decode (GAPS.md). */
+export const PLAYABLE = new Set(['mp3', 'flac', 'ogg', 'oga', 'opus', 'wav']);
 /** Music files bro cannot play: counted, so the window can say they were left out. */
-export const UNPLAYABLE = new Set(['opus', 'm4a', 'aac', 'wma', 'alac', 'aiff', 'aif', 'ape', 'wv', 'mpc']);
+export const UNPLAYABLE = new Set(['m4a', 'aac', 'wma', 'alac', 'aiff', 'aif', 'ape', 'wv', 'mpc']);
 
 export const UNKNOWN_ARTIST = 'Unknown Artist';
 export const UNKNOWN_ALBUM = 'Unknown Album';

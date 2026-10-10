@@ -18,42 +18,16 @@ the MPRIS player side) are in `../GAPS.md`.
   `test_tags_id3.js`, `test_tags_flac.js`), run on the scan worker.
 - **Belongs in:** bro (`bro.media.tags`), probably over broaudio's decoders.
 
-### Opus and M4A/AAC do not play
+### M4A/AAC does not play
 - **Where:** broaudio (`createStreamFromFile`, `decodeAudioData`)
-- **Expected:** `.opus` (and Opus in `.ogg`) and `.m4a` stream like MP3/FLAC.
-- **Actual:** `createStreamFromFile` throws "Ogg Opus cannot be disk-streamed"
-  for Opus and "unrecognized" for M4A; `decodeAudioData` returns null for both.
-- **Impact:** the scan counts and leaves them out ("N files Music cannot play
-  (OPUS, M4A) left out" in the sidebar); an `.ogg` holding Opus is told apart
-  by its header and left out too. `bro.json` offers mp3/flac/ogg/oga/wav only.
-- **Belongs in:** broaudio
-
-### A disk stream has no duration, and a looping one counts on past its end
-- **Where:** broaudio (`AudioContext` streams)
-- **Expected:** a stream's duration, and a position in the file
-  (`getPlaybackPosition` 0..1, `getPlaybackPositionSeconds` wrapping at the end
-  of a looping stream).
-- **Actual:** no duration call; `getPlaybackPosition` is 0 for streams; with
-  `loop: true` `getPlaybackPositionSeconds` keeps counting (1.82 s into a
-  0.4 s file after four loops).
-- **Impact:** the length comes from the tag parser. Repeat One does not loop
-  the stream (the seek bar would run off its end); it opens the song again at
-  its end, with a small gap.
-- **Belongs in:** broaudio
-
-### `isClipPlaying` stays true after a disk stream finishes
-- **Where:** broaudio
-- **Expected:** false at the end, as `docs/audio-engine-api.js` says.
-- **Actual:** stays true; only `getStreamStats(pb).finished` says it ended.
-- **Impact:** the player reads `finished` once a frame.
-- **Belongs in:** broaudio
-
-### `bro.media.peaks` returns null for audio-only files
-- **Where:** bro (`bro.media`)
-- **Expected:** peaks for MP3/FLAC/Ogg/WAV, for a waveform seek bar.
-- **Actual:** null for every audio-only file tried (video files work).
-- **Impact:** the seek bar is a plain slider.
-- **Belongs in:** bro
+- **Expected:** `.m4a` streams like MP3/FLAC/Opus.
+- **Actual:** `createStreamFromFile` throws "unrecognized"; `decodeAudioData`
+  returns null.
+- **Impact:** the scan counts M4A files and leaves them out ("N files Music
+  cannot play (M4A) left out" in the sidebar).
+- **Belongs in:** broaudio: an MP4 demuxer (minimp4, CC0) plus the platform's
+  AAC decoder (Media Foundation, AudioToolbox); Linux needs FDK-AAC or an
+  ffmpeg backend from a host app.
 
 ### `<img>` decodes synchronously
 - **Where:** bro (`HTMLImageElement`), as in `../images/GAPS.md`
@@ -102,4 +76,5 @@ the MPRIS player side) are in `../GAPS.md`.
 ## Not built
 
 - **MPRIS player:** see `../GAPS.md` ("No MPRIS player side").
-- **Waveform seek bar:** needs `bro.media.peaks` for audio (above).
+- **Waveform seek bar:** `bro.media.peaks` reads audio files now; the seek
+  bar is still a plain slider.

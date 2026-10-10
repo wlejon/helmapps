@@ -86,6 +86,54 @@ export function flacWithComments(fields, { seconds = 2, rate = 44100 } = {}) {
   return concat([latin1('fLaC'), block(0, false, si), block(4, true, vc)]);
 }
 
+const OGG_CRC = (() => {
+  const t = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let r = i << 24;
+    for (let k = 0; k < 8; k++) r = (r & 0x80000000) ? ((r << 1) ^ 0x04c11db7) : (r << 1);
+    t[i] = r >>> 0;
+  }
+  return t;
+})();
+
+/** One Ogg page (CRC filled in) carrying whole `packets`. */
+function oggPage(serial, seq, granule, packets, flags) {
+  const lacing = [];
+  for (const p of packets) {
+    let n = p.length;
+    while (n >= 255) { lacing.push(255); n -= 255; }
+    lacing.push(n);
+  }
+  const page = concat([latin1('OggS'), Uint8Array.of(0, flags), Uint8Array.from(u32le(granule)), Uint8Array.from(u32le(0)),
+    Uint8Array.from(u32le(serial)), Uint8Array.from(u32le(seq)), Uint8Array.from(u32le(0)),
+    Uint8Array.of(lacing.length), Uint8Array.from(lacing), ...packets]);
+  let crc = 0;
+  for (const b of page) crc = ((crc << 8) ^ OGG_CRC[((crc >>> 24) ^ b) & 255]) >>> 0;
+  page.set(u32le(crc), 22);
+  return page;
+}
+
+/**
+ * An Ogg Opus file of `seconds` of silence (mono, 20 ms CELT silence frames,
+ * as WebRTC sends) with Vorbis-style comments: a real file bro decodes.
+ */
+export function opus(seconds = 0.5, fields = {}) {
+  const preSkip = 312;
+  const head = concat([latin1('OpusHead'), Uint8Array.of(1, 1, preSkip & 255, preSkip >> 8), Uint8Array.from(u32le(48000)), Uint8Array.of(0, 0, 0)]);
+  const tags = concat([latin1('OpusTags'), vorbisComment(fields)]);
+  const total = Math.round(seconds * 48000);              // samples after the pre-skip
+  const frames = Math.ceil((preSkip + total) / 960);
+  const pages = [oggPage(1, 0, 0, [head], 2), oggPage(1, 1, 0, [tags], 0)];
+  let done = 0;
+  for (let seq = 2; done < frames; seq++) {
+    const n = Math.min(50, frames - done);
+    done += n;
+    const granule = done === frames ? preSkip + total : done * 960;   // the last page trims the end
+    pages.push(oggPage(1, seq, granule, Array.from({ length: n }, () => Uint8Array.of(0xf8, 0xff, 0xfe)), done === frames ? 4 : 0));
+  }
+  return concat(pages);
+}
+
 /**
  * A mono 16-bit WAV of `seconds` of a sine, at a low rate so files stay
  * small; `info` ({ title, artist, album, track }) adds a LIST/INFO chunk.

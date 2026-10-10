@@ -8,9 +8,9 @@ The bar along the bottom has the song, the transport (shuffle, previous,
 play/pause, next, repeat off/all/one), the seek bar, volume and mute. Music
 comes back on the song and position you left, paused.
 
-MP3, FLAC, Ogg Vorbis and WAV play. Opus and M4A do not play in bro, so the
-scan counts them and leaves them out (see `GAPS.md`). Tags are read from
-ID3v2.2–2.4/ID3v1, FLAC and Ogg Vorbis comments and WAV INFO; an untagged
+MP3, FLAC, Ogg Vorbis, Opus and WAV play. M4A does not play in bro, so the
+scan counts it and leaves it out (see `GAPS.md`). Tags are read from
+ID3v2.2–2.4/ID3v1, FLAC, Ogg Vorbis and Opus comments and WAV INFO; an untagged
 file takes its artist, album, disc, track and title from an
 `Artist/Album/NN Title` layout. Covers are the embedded picture, else a
 `cover.jpg` / `folder.jpg` beside the songs.

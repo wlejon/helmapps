@@ -76,14 +76,18 @@ const short = app.library.albums().find((a) => a.title === 'Short');
 app.playSongs(short.songs, 0);
 waitFor(() => title() === 'Blip', 'Blip to play');
 player.setRepeat('one');
+assert(Math.abs(player.duration - 0.4) < 0.01, `the stream's length is the file's: ${player.duration}`);
 let wrapped = false;
 let last = 0;
+let most = 0;
 waitFor(() => {
   const p = player.readPosition();
   if (p + 0.1 < last) wrapped = true;
   last = p;
+  most = Math.max(most, p);
   return wrapped;
 }, 'repeat-one to loop the song', 15000);
+assert(most <= 0.41, `the position stays inside the song while it loops (got to ${most})`);
 eq(playing(), 'Blip', 'repeat one stays on the song');
 eq(player.queue.index, 0, 'the queue did not move');
 

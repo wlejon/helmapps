@@ -4,7 +4,7 @@
 // counted and left out; the index is saved for the next start.
 
 import { app, waitFor, eq, settle, fixtureDir, clickEl } from '/lib/test.js';
-import { wav, flacWithComments, id3v24, id3TextFrame, id3PictureFrame, useLibrary } from '/app/tests/fixtures.js';
+import { wav, opus, flacWithComments, id3v24, id3TextFrame, id3PictureFrame, useLibrary } from '/app/tests/fixtures.js';
 
 const fs = require('fs');
 const path = require('path');
@@ -23,7 +23,7 @@ const dir = fixtureDir({
   'Compilation/04 Song.flac': flacWithComments({ TITLE: 'Flac One', ARTIST: 'Ørkester', ALBUM: 'Deep', TRACKNUMBER: '4' }, { seconds: 61 }),
   'Loose/tagged.mp3': mp3(id3v24([id3TextFrame('TIT2', 'Wide Ünicode', 'utf16'), id3TextFrame('TPE1', 'Mp3 Artist'),
     id3TextFrame('TALB', 'Mp3 Album'), id3TextFrame('TRCK', '9'), id3PictureFrame(png)])),
-  'skip/voice.opus': new Uint8Array(64),
+  'Voices/Talk/voice.opus': opus(0.3, { TITLE: 'Voice', ARTIST: 'Voices', ALBUM: 'Talk', TRACKNUMBER: '1' }),
   'skip/song.m4a': new Uint8Array(64),
   'notes.txt': 'not music',
   '.hidden/secret.wav': wav(0.1),
@@ -33,13 +33,13 @@ useLibrary(app, dir);
 waitFor(() => app.library.lastScan, 'the first scan', 20000);
 eq(app.library.roots, [dir], 'the library is the fixture folder, nothing else');
 const scan = app.library.lastScan;
-eq(scan.files, 5, 'five playable files found');
-eq(scan.parsed, 5, 'each read once');
-eq([scan.skipped.opus, scan.skipped.m4a], [1, 1],'Opus and M4A are counted and left out');
+eq(scan.files, 6, 'six playable files found (Opus among them)');
+eq(scan.parsed, 6, 'each read once');
+eq([scan.skipped.opus, scan.skipped.m4a], [undefined, 1], 'M4A is counted and left out');
 
 const songs = app.library.songs();
 const by = (title) => songs.find((s) => s.title === title);
-eq(songs.map((s) => s.title).sort(), ['Dawn', 'Flac One', 'Hidden Track', 'Noon', 'Wide Ünicode'], 'every song, by its title');
+eq(songs.map((s) => s.title).sort(), ['Dawn', 'Flac One', 'Hidden Track', 'Noon', 'Voice', 'Wide Ünicode'], 'every song, by its title');
 
 // Tags win; the folder layout fills in for the untagged file.
 const hidden = by('Hidden Track');
@@ -50,32 +50,38 @@ assert(Math.abs(by('Dawn').duration - 0.2) < 0.01, 'the WAV length');
 
 // Albums and artists.
 const albums = app.library.albums();
-eq(albums.map((a) => a.title).sort(), ['Deep', 'First Light', 'Mp3 Album', 'Untagged Album'], 'four albums');
+eq(albums.map((a) => a.title).sort(), ['Deep', 'First Light', 'Mp3 Album', 'Talk', 'Untagged Album'], 'five albums');
 const first = albums.find((a) => a.title === 'First Light');
 eq(first.songs.map((s) => s.title), ['Dawn', 'Noon'], 'an album lists its tracks in order');
 assert(first.cover && fs.existsSync(first.cover), 'the folder picture became the album cover');
 const mp3Album = albums.find((a) => a.title === 'Mp3 Album');
 assert(mp3Album.cover && fs.existsSync(mp3Album.cover), 'the embedded picture became the album cover');
 eq(albums.find((a) => a.title === 'Deep').cover, '', 'no picture, no cover');
-eq(app.library.artists().map((a) => a.name), ['Aurora', 'Kestrel', 'Mp3 Artist', 'Ørkester'], 'artists, sorted');
+eq(app.library.artists().map((a) => a.name), ['Aurora', 'Kestrel', 'Mp3 Artist', 'Voices', 'Ørkester'], 'artists, sorted');
 
 // The index is saved where the next start reads it.
 waitFor(() => fs.existsSync(path.join(bro.app.cacheDir, 'library.json')), 'the saved index');
 const saved = JSON.parse(fs.readFileSync(path.join(bro.app.cacheDir, 'library.json'), 'utf8'));
-eq(saved.songs.length, 5, 'the saved index holds every song');
+eq(saved.songs.length, 6, 'the saved index holds every song');
 
 // The window: the album grid, the songs list, the sidebar's count.
 app.go('albums');
 settle(100);
-waitFor(() => document.querySelectorAll('.mu-albums .vgrid-cell').length === 4, 'four album cells');
-assert(document.querySelector('.mu-scan-text').textContent.includes('5 songs'), 'the sidebar counts the songs');
-assert(document.querySelector('.mu-scan-text').textContent.includes('2 files Music cannot play'), 'and says what was left out');
+waitFor(() => document.querySelectorAll('.mu-albums .vgrid-cell').length === 5, 'five album cells');
+assert(document.querySelector('.mu-scan-text').textContent.includes('6 songs'), 'the sidebar counts the songs');
+assert(document.querySelector('.mu-scan-text').textContent.includes('1 file Music cannot play (M4A)'), 'and says what was left out');
 clickEl(Array.from(document.querySelectorAll('.sidebar-item')).find((b) => b.textContent.includes('Songs')));
-waitFor(() => app.state.view === 'songs' && document.querySelectorAll('.vlist-row').length === 5, 'five song rows');
+waitFor(() => app.state.view === 'songs' && document.querySelectorAll('.vlist-row').length === 6, 'six song rows');
+
+// The Opus song plays, and its length comes from the stream.
+app.playSongs([by('Voice')], 0);
+waitFor(() => app.player.playing, 'the Opus song to play');
+assert(Math.abs(app.player.duration - 0.3) < 0.01, `the Opus stream's length: ${app.player.duration}`);
+waitFor(() => app.player.state === 'stopped', 'the Opus song to play to its end', 10000);
 
 // Folders: the library folder, then into one.
 app.go('folders', '');
-waitFor(() => app.views.folders.items.length === 4, 'the top folders');
+waitFor(() => app.views.folders.items.length === 5, 'the top folders');
 app.go('folders', path.join(dir, 'Aurora', 'First Light'));
 waitFor(() => app.views.folders.items.map((x) => x.title).join() === 'Dawn,Noon', 'a folder lists its songs');
 

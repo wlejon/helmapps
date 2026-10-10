@@ -11,7 +11,7 @@
  */
 
 import { api, debounce } from '/lib/dom.js';
-import { UNKNOWN_ARTIST, UNKNOWN_ALBUM, sortKey, PLAYABLE } from './records.js';
+import { UNKNOWN_ARTIST, UNKNOWN_ALBUM, sortKey, PLAYABLE, UNPLAYABLE } from './records.js';
 
 const path = require('path');
 
@@ -303,5 +303,5 @@ function relevant(p) {
   const dot = name.lastIndexOf('.');
   if (dot < 0) return true;                                        // a folder (most likely)
   const ext = name.slice(dot + 1).toLowerCase();
-  return PLAYABLE.has(ext) || ext === 'jpg' || ext === 'jpeg' || ext === 'png' || ext === 'opus' || ext === 'm4a';
+  return PLAYABLE.has(ext) || ext === 'jpg' || ext === 'jpeg' || ext === 'png' || UNPLAYABLE.has(ext);
 }
