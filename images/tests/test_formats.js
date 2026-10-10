@@ -1,10 +1,10 @@
-// Which formats open, and how: PNG, JPEG, GIF, BMP and ICO decode on the
-// decoder thread; WebP on the page; SVG draws as a vector. TIFF does not
-// decode in bro, so it is not listed (GAPS.md). A JPEG with an EXIF
-// orientation shows upright.
+// Which formats open, and how: PNG, JPEG, GIF, BMP, ICO and TIFF decode on
+// the decoder thread; WebP on the page; SVG draws as a vector. A JPEG with an
+// EXIF orientation shows upright, and its camera fields show in the details.
+// Mod+C copies the picture as a PNG.
 
 import { app, waitFor, eq, fixtureDir } from '/lib/test.js';
-import { png, jpeg, gif, bmp, ico, webp, svg, tiff, orientedJpeg, shown } from '/app/tests/images.js';
+import { png, jpeg, gif, bmp, ico, webp, svg, tiff, orientedJpeg, cameraJpeg, shown } from '/app/tests/images.js';
 
 const path = require('path');
 
@@ -18,6 +18,7 @@ const dir = fixtureDir({
   'g.svg': svg(32, 24),
   'h.tif': tiff(8, 8),
   'rotated.jpg': orientedJpeg(60, 40, 6),
+  'camera.jpg': cameraJpeg(32, 24),
 });
 
 const expect = {
@@ -28,12 +29,13 @@ const expect = {
   'e.ico': [32, 32, 'bitmap'],
   'f.webp': [1, 1, 'img'],
   'g.svg': [32, 24, 'vector'],
+  'h.tif': [8, 8, 'bitmap'],
   'rotated.jpg': [40, 60, 'bitmap'], // 60x40 stored, EXIF 6: shown 40 wide, 60 tall
 };
 
 app.openPath(dir);
-waitFor(() => app.folder.items.length === 8, 'the folder listed');
-assert(!app.folder.items.some((it) => it.name === 'h.tif'), 'TIFF is not listed: bro cannot decode it');
+waitFor(() => app.folder.items.length === 10, 'the folder listed');
+assert(app.folder.items.some((it) => it.name === 'h.tif'), 'TIFF is listed');
 
 for (const [name, [w, h, kind]] of Object.entries(expect)) {
   app.openImage(path.join(dir, name));
@@ -44,6 +46,31 @@ for (const [name, [w, h, kind]] of Object.entries(expect)) {
   assert(!app.state.error, `${name} shows without an error`);
 }
 eq(app.state.pic.orientation, 6, 'the EXIF orientation is read');
+
+// The camera's EXIF shows in the details panel.
+app.openImage(path.join(dir, 'camera.jpg'));
+shown(app, waitFor, 'camera.jpg');
+eq(app.state.pic.exif.model, 'Canon EOS R5', 'the EXIF model is read');
+app.commands.run('details');
+const details = () => document.querySelector('.iv-details-body').textContent;
+waitFor(() => details().includes('EOS R5'), 'the camera in the details');
+assert(details().includes('f/2.8') && details().includes('400'), `aperture and ISO shown: ${details()}`);
+
+// Mod+C copies the picture itself, as a PNG; Copy Path is its own command.
+app.commands.run('copy');
+waitFor(() => Array.from(document.querySelectorAll('.toast')).some((t) => t.textContent.includes('Copied the image')),
+  'the image copied');
+let copied = null;
+navigator.clipboard.read().then(async (items) => {
+  const blob = await items[0].getType('image/png');
+  copied = bro.image.decodeOriented(new Uint8Array(await blob.arrayBuffer()));
+}, (err) => { copied = { error: err.message }; });
+waitFor(() => copied, 'the clipboard read');
+eq([copied.width, copied.height], [32, 24], 'the clipboard holds the picture at full size');
+app.commands.run('copy-path');
+let text = null;
+waitFor(() => { navigator.clipboard.readText().then((t) => { text = t; }); return text && text.endsWith('camera.jpg'); },
+  'Copy Path puts the path on the clipboard');
 
 // A file that is not really an image: an error state, not an exception.
 const bad = fixtureDir({ 'broken.png': 'this is not a PNG' });

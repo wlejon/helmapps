@@ -5,14 +5,6 @@ measured with `bro-headless`; the app does not work around any of them
 beyond saying so in the window. Kit-level gaps shared by every app (opening
 another app by id off Linux) are in `../GAPS.md`.
 
-## TIFF does not decode
-- **Where:** broimage (`bro.image.decode*`), `<img>`
-- **Expected:** TIFF (uncompressed, LZW, JPEG-in-TIFF) opens like PNG.
-- **Actual:** all three fail in `<img>` and in `bro.image.decodeOriented`.
-- **Repro:** `tests/images.js` `tiff()`; `test_formats.js` asserts it is not offered.
-- **Impact:** TIFF is left out of `bro.json` fileTypes and the Open dialog.
-- **Belongs in:** broimage
-
 ## No AVIF or HEIC decoder
 - **Where:** broimage
 - **Expected:** phone photos (HEIC) and AVIF open.
@@ -31,27 +23,12 @@ another app by id off Linux) are in `../GAPS.md`.
   `bro.thumb` has none.
 - **Belongs in:** broimage
 
-## Only the EXIF orientation is readable
-- **Where:** broimage
-- **Expected:** camera, lens, exposure, ISO, date taken, GPS.
-- **Actual:** `readExifOrientation` is the one EXIF field exposed.
-- **Impact:** the details panel shows Orientation and says that is all bro
-  reads.
-- **Belongs in:** broimage (`bro.image.readExif`)
-
 ## GIF and WebP do not animate
 - **Where:** bro (`<img>`), broimage
 - **Expected:** an animated GIF/WebP plays (or frames are decodable).
 - **Actual:** the first frame only, with no frame API.
 - **Impact:** the first frame is shown.
 - **Belongs in:** bro / broimage
-
-## The clipboard cannot hold an image
-- **Where:** bro (`navigator.clipboard`)
-- **Expected:** `navigator.clipboard.write([new ClipboardItem({'image/png': blob})])`.
-- **Actual:** only `readText` / `writeText`; no `write`, no `ClipboardItem`.
-- **Impact:** Mod+C is "Copy Path".
-- **Belongs in:** bro
 
 ## Taking delivery of a big ImageBitmap costs the page a frame
 - **Where:** bro (Worker transfer, canvas upload)

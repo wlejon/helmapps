@@ -10,6 +10,8 @@
  *   { id, op: 'tile', path, tx, ty, tile } -> { id, bitmap, x, y }   one full-resolution
  *       tile (tile px square, plus a 1 px border so neighbours blend), placed at x, y
  *   { id, op: 'thumb', path, size }       -> { id, png }   a small PNG, for the strip and the grid
+ *   { id, op: 'png', path }               -> { id, png }   the whole picture as a PNG (upright), to copy
+ *   'picture' also answers `exif`: bro.image.readExif's fields, or null
  *   any may answer { id, error }           bro.image could not decode it (the page tries <img>)
  *
  * Why a screen-sized bitmap first: taking delivery of an ImageBitmap costs
@@ -47,7 +49,9 @@ function decodeFile(path) {
     throw new Error('bro.image cannot decode this file');
   }
   const orientation = bro.image.readExifOrientation(bytes) || 1;
-  return { img, orientation };
+  let exif = null;
+  try { exif = bro.image.readExif(bytes); } catch (_) { exif = null; }
+  return { img, orientation, exif };
 }
 
 /** RGBA in, RGBA at most `size` px on its long side out (area filter: no aliasing). */
@@ -88,7 +92,14 @@ const copyBuffer = (u8) => u8.slice().buffer;
 self.onmessage = async (e) => {
   const { id, op, path, size, maxSide } = e.data || {};
   try {
-    const { img, orientation } = decode(path);
+    const { img, orientation, exif } = decode(path);
+    if (op === 'png') {
+      const png = bro.image.encodePng(img.pixels, img.width, img.height, 4);
+      if (!png) throw new Error('could not encode the image');
+      const buf = copyBuffer(png);
+      self.postMessage({ id, png: buf }, [buf]);
+      return;
+    }
     if (op === 'thumb') {
       const small = shrink(img, size || 256);
       const png = bro.image.encodePng(small.pixels, small.width, small.height, 4);
@@ -104,7 +115,7 @@ self.onmessage = async (e) => {
       self.postMessage({ id, bitmap, x: out.x, y: out.y }, [bitmap]);
       return;
     }
-    const meta = { id, width: img.width, height: img.height, orientation };
+    const meta = { id, width: img.width, height: img.height, orientation, exif };
     // An ImageBitmap made here moves to the page with its pixels. Raw pixels
     // are the fallback where a worker cannot make one.
     if (typeof createImageBitmap === 'function' && typeof ImageData === 'function') {

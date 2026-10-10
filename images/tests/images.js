@@ -37,6 +37,44 @@ export function orientedJpeg(w, h, orientation) {
   return out;
 }
 
+/**
+ * A JPEG whose EXIF names the camera (Make, Model), and in the Exif IFD the
+ * aperture (FNumber f/2.8) and ISO 400. Little-endian TIFF.
+ */
+export function cameraJpeg(w, h, make = 'Canon', model = 'Canon EOS R5') {
+  const jpg = jpeg(w, h, [120, 90, 60]);
+  const ascii = (s) => [...s].map((c) => c.charCodeAt(0)).concat(0);
+  const mk = ascii(make), md = ascii(model);
+  // Layout: header 8 | IFD0 (3 entries) at 8 | Exif IFD (2 entries) | data.
+  const ifd0 = 8, ifd0Size = 2 + 3 * 12 + 4;
+  const exif = ifd0 + ifd0Size, exifSize = 2 + 2 * 12 + 4;
+  const makeAt = exif + exifSize, modelAt = makeAt + mk.length, fnAt = modelAt + md.length;
+  const t = new Uint8Array(fnAt + 8);
+  const dv = new DataView(t.buffer);
+  t.set([0x49, 0x49, 0x2a, 0]); dv.setUint32(4, ifd0, true);
+  const entry = (at, tag, type, count, value) => {
+    dv.setUint16(at, tag, true); dv.setUint16(at + 2, type, true); dv.setUint32(at + 4, count, true);
+    if (type === 3 && count === 1) dv.setUint16(at + 8, value, true); else dv.setUint32(at + 8, value, true);
+  };
+  dv.setUint16(ifd0, 3, true);
+  entry(ifd0 + 2, 0x010f, 2, mk.length, makeAt);
+  entry(ifd0 + 14, 0x0110, 2, md.length, modelAt);
+  entry(ifd0 + 26, 0x8769, 4, 1, exif);
+  dv.setUint16(exif, 2, true);
+  entry(exif + 2, 0x829d, 5, 1, fnAt);
+  entry(exif + 14, 0x8827, 3, 1, 400);
+  t.set(mk, makeAt); t.set(md, modelAt);
+  dv.setUint32(fnAt, 28, true); dv.setUint32(fnAt + 4, 10, true);
+  const payload = [0x45, 0x78, 0x69, 0x66, 0, 0, ...t];
+  const len = payload.length + 2;
+  const app1 = [0xff, 0xe1, len >> 8, len & 255, ...payload];
+  const out = new Uint8Array(jpg.length + app1.length);
+  out.set(jpg.subarray(0, 2), 0);
+  out.set(app1, 2);
+  out.set(jpg.subarray(2), 2 + app1.length);
+  return out;
+}
+
 /** A 24-bit BMP. */
 export function bmp(w, h) {
   const row = Math.ceil((w * 3) / 4) * 4;

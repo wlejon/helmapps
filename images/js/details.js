@@ -1,7 +1,7 @@
 /**
  * The details panel: what the file is. Name, folder, dimensions, size, type,
- * modified time, and the EXIF fields bro exposes (only the orientation: bro
- * has no EXIF reader beyond it; see GAPS.md).
+ * modified time, and the photo's EXIF (camera, lens, exposure, date taken,
+ * location, orientation) when the file carries it.
  */
 
 import { h } from '/lib/dom.js';
@@ -59,16 +59,36 @@ export class Details {
       ['Type', f ? f.type : ''],
       ['Modified', st ? formatDateLong(st.mtime) : '…'],
     ];
-    const exif = pic && pic.orientation > 1 ? orientationText(pic.orientation) : '';
-    const exifRows = [['Orientation', exif ? `${exif} (shown upright)` : 'Normal']];
     const parts = [section('File', rows)];
-    if (pic && pic.kind === 'bitmap') {
-      parts.push(section('EXIF', exifRows),
-        h('div.iv-details-note.dim', 'bro reads only the orientation from EXIF; camera, lens and exposure details are not available yet.'));
-    }
+    if (pic && pic.exif) parts.push(section('Camera', exifRows(pic)));
     this.body.replaceChildren(...parts);
   }
 }
+
+/** The photo's EXIF (bro.image.readExif) as rows; absent fields are left out. */
+function exifRows(pic) {
+  const e = pic.exif;
+  const o = pic.orientation > 1 ? orientationText(pic.orientation) : '';
+  const camera = [e.make, e.model && e.make && e.model.startsWith(e.make) ? e.model.slice(e.make.length).trim() : e.model]
+    .filter(Boolean).join(' ');
+  const focal = e.focalLength !== undefined
+    ? `${trim(e.focalLength)} mm${e.focalLength35mm ? ` (${e.focalLength35mm} mm equiv.)` : ''}` : '';
+  const hasGps = e.latitude !== undefined && e.longitude !== undefined;
+  return [
+    ['Camera', camera],
+    ['Lens', e.lensModel || ''],
+    ['Exposure', e.exposureTimeText ? `${e.exposureTimeText} s` : ''],
+    ['Aperture', e.fNumber !== undefined ? `f/${trim(e.fNumber)}` : ''],
+    ['ISO', e.iso !== undefined ? String(e.iso) : ''],
+    ['Focal length', focal],
+    ['Taken', e.dateTaken ? formatDateLong(new Date(e.dateTaken)) : ''],
+    ['Location', hasGps ? `${e.latitude.toFixed(5)}, ${e.longitude.toFixed(5)}` : ''],
+    ['Altitude', e.altitude !== undefined ? `${Math.round(e.altitude)} m` : ''],
+    ['Orientation', o ? `${o} (shown upright)` : ''],
+  ];
+}
+
+const trim = (n) => String(Math.round(n * 10) / 10);
 
 function section(title, rows) {
   return h('div.iv-details-section',

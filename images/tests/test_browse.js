@@ -4,7 +4,7 @@
 // Backspace step too; the strip follows and a click on it goes.
 
 import { app, waitFor, eq, press, mod, clickEl, fixtureDir } from '/lib/test.js';
-import { png, jpeg, tiff, shown } from '/app/tests/images.js';
+import { png, jpeg, shown } from '/app/tests/images.js';
 
 const path = require('path');
 
@@ -14,7 +14,7 @@ const dir = fixtureDir({
   'Apple.png': png(20, 30),
   'banana.PNG': png(20, 20),
   'notes.txt': 'not an image',
-  'scan.tif': tiff(4, 4),             // bro cannot decode TIFF: not listed
+  'scan.avif': 'no AVIF decoder',     // bro cannot decode AVIF: not listed
   'sub/inner.png': png(10, 10),       // a folder, not an image
 });
 const order = ['Apple.png', 'banana.PNG', 'img2.jpg', 'img10.png'];

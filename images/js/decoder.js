@@ -110,6 +110,24 @@ export class Decoder {
     return this.start(path, true);
   }
 
+  /**
+   * The picture as a PNG Blob at full resolution, upright: encoded on the
+   * decoder thread (which keeps the full decode of the picture on screen);
+   * a picture decoded on the page is drawn to a canvas at its own size.
+   */
+  async png(pic) {
+    if (pic.kind === 'bitmap') {
+      const m = await this.detail.send({ op: 'png', path: pic.path });
+      return new Blob([m.png], { type: 'image/png' });
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = pic.width;
+    canvas.height = pic.height;
+    canvas.getContext('2d').drawImage(pic.source, 0, 0, pic.width, pic.height);
+    return new Promise((resolve, reject) => canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error('could not encode the image'))), 'image/png'));
+  }
+
   /** Decode these in the background, if nothing more urgent is waiting. */
   prefetch(paths) {
     for (const p of paths) {
@@ -189,7 +207,7 @@ export class Decoder {
       const t0 = now();
       promise = this.pictures.send({ op: 'picture', path, maxSide: this.maxSide }, urgent).then((m) => ({
         path, kind: 'bitmap', source: m.bitmap, partial: m.bitmap.width < m.width, tiles: new Map(),
-        width: m.width, height: m.height, orientation: m.orientation || 1, ms: now() - t0,
+        width: m.width, height: m.height, orientation: m.orientation || 1, exif: m.exif || null, ms: now() - t0,
       }), () => loadOnPage(path, 'img'));          // bro.image refused it: try the page's decoder
     }
     promise = promise.then((pic) => {

@@ -1,6 +1,6 @@
 /**
  * What can be done to the file on screen: rename it, move it to the Trash
- * (with Undo), copy its path, open it in another app, show it in Files. The
+ * (with Undo), copy the picture or its path, open it in another app, show it in Files. The
  * view's rotate and flip never come here: they change the view only.
  *
  *   const actions = new FileActions({ current: () => state.path, vfs, onRenamed, onTrashed, onRestored });
@@ -17,8 +17,9 @@ const fs = require('fs');
 const path = require('path');
 
 export class FileActions {
-  constructor({ current, onRenamed, onTrashed, onRestored }) {
+  constructor({ current, imagePng, onRenamed, onTrashed, onRestored }) {
     this.current = current;
+    this.imagePng = imagePng;   // (path) => Promise<Blob>: the picture as a PNG
     this.onRenamed = onRenamed;
     this.onTrashed = onTrashed;
     this.onRestored = onRestored;
@@ -93,10 +94,20 @@ export class FileActions {
     return true;
   }
 
-  /**
-   * Mod+C. bro's clipboard holds text only (navigator.clipboard has no
-   * write() or ClipboardItem; see GAPS.md), so this copies the path.
-   */
+  /** Mod+C: the picture itself onto the clipboard, as a PNG. */
+  async copyImage() {
+    const p = this.current();
+    if (!p || !this.imagePng) return;
+    try {
+      const png = await this.imagePng(p);
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
+      toast('Copied the image', { icon: 'copy' });
+    } catch (err) {
+      toast(`Could not copy: ${err.message}`, { error: true });
+    }
+  }
+
+  /** Mod+Shift+C: the file's path, as text. */
   async copyPath() {
     const p = this.current();
     if (!p) return;

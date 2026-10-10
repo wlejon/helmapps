@@ -9,8 +9,8 @@
     "singleInstance": true,
     "fileTypes": [
         { "name": "Images",
-          "mimeTypes": ["image/png", "image/jpeg", "image/gif", "image/webp", "image/bmp", "image/svg+xml", "image/x-icon", "image/vnd.microsoft.icon"],
-          "extensions": ["png", "jpg", "jpeg", "jpe", "gif", "webp", "bmp", "svg", "ico"] },
+          "mimeTypes": ["image/png", "image/jpeg", "image/gif", "image/webp", "image/bmp", "image/svg+xml", "image/x-icon", "image/vnd.microsoft.icon", "image/tiff"],
+          "extensions": ["png", "jpg", "jpeg", "jpe", "gif", "webp", "bmp", "svg", "ico", "tif", "tiff"] },
         { "name": "Folder", "mimeTypes": ["inode/directory"] }
     ],
     "permissions": [],

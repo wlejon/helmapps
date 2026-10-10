@@ -172,6 +172,7 @@ const presentation = new Presentation({
 
 const actions = new FileActions({
   current: () => state.path,
+  imagePng: (p) => decoder.get(p).then((pic) => decoder.png(pic)),
   onRenamed: renamed,
   onTrashed: trashed,
   onRestored: (p) => { folder.reload(); openImage(p); },
@@ -217,7 +218,8 @@ commands.addAll([
   { id: 'rename', label: 'Rename…', icon: 'edit', keys: ['F2'], enabled: hasFile, run: () => actions.rename() },
   { id: 'trash', label: 'Move to Trash', icon: 'trash', keys: ['Delete'], danger: true,
     enabled: () => hasFile() && !!api('vfs'), run: () => actions.trash() },
-  { id: 'copy', label: 'Copy Path', icon: 'copy', keys: ['Mod+C'], enabled: hasFile, run: () => actions.copyPath() },
+  { id: 'copy', label: 'Copy Image', icon: 'copy', keys: ['Mod+C'], enabled: hasFile, run: () => actions.copyImage() },
+  { id: 'copy-path', label: 'Copy Path', keys: ['Mod+Shift+C'], enabled: hasFile, run: () => actions.copyPath() },
   { id: 'open-with', label: 'Open With…', icon: 'external-link', enabled: () => hasFile() && !!api('apps'),
     run: () => actions.openWithMenu(document.querySelector('[data-command="menu"]')) },
   { id: 'show-in-files', label: 'Show in Files', icon: 'folder', keys: ['Mod+Shift+O'], enabled: () => hasFile() && !!api('apps'),
@@ -293,7 +295,7 @@ function moreMenu() {
     commands.item('fullscreen'), commands.item('strip'),
     { label: 'Background', icon: 'palette', submenu: [commands.item('bg-dark'), commands.item('bg-mid'), commands.item('bg-checker')] },
     { separator: true },
-    commands.item('copy'), commands.item('open-with'), commands.item('show-in-files'),
+    commands.item('copy'), commands.item('copy-path'), commands.item('open-with'), commands.item('show-in-files'),
     { separator: true },
     commands.item('rename'), commands.item('trash'),
   ], anchor);
@@ -307,7 +309,7 @@ function stageMenu(e) {
     { separator: true },
     commands.item('rotate-cw'), commands.item('rotate-ccw'), commands.item('flip-h'), commands.item('flip-v'),
     { separator: true },
-    commands.item('copy'), commands.item('open-with'), commands.item('show-in-files'),
+    commands.item('copy'), commands.item('copy-path'), commands.item('open-with'), commands.item('show-in-files'),
     { separator: true },
     commands.item('rename'), commands.item('trash'),
   ], e.clientX, e.clientY);
