@@ -158,6 +158,25 @@ press('down');
 eq(list.cursor, 1 + cols, 'Down in a grid moves a row');
 list.setLayout('list');
 
+// A fluid grid: the cells widen to fill the row edge to edge, square, no gaps,
+// and a click lands on the cell under the pointer.
+const wall = new VirtualList({ layout: 'grid', cellWidth: 150, fill: true, aspect: 1, gap: 0, padding: 0,
+  key: (x) => x, render: (x, el) => { el.textContent = String(x); } });
+ui.content.appendChild(wall.el);
+wall.setItems(Array.from({ length: 100 }, (_, i) => i));
+advanceTime(32);
+const wallW = wall.scroller.clientWidth;
+const wcols = wall.columnsPerRow();
+const wcell = (i) => wall.pool.get(i).getBoundingClientRect();
+const rowEnd = wcell(wcols - 1);
+assert(Math.abs(rowEnd.right - wall.scroller.getBoundingClientRect().left - wallW) <= 1,
+  `the last column reaches the edge: ${rowEnd.right} of ${wallW}`);
+assert(wcell(0).width >= 150 && Math.abs(wcell(0).width - wcell(0).height) <= 1, `cells are at least cellWidth and square: ${wcell(0).width}x${wcell(0).height}`);
+eq(Math.round(wcell(1).left - wcell(0).right), 0, 'no gap between cells');
+clickEl(wall.pool.get(wcols + 1));
+eq(wall.cursor, wcols + 1, 'a click lands on the cell under the pointer');
+wall.destroy();
+
 // ---- Menus ------------------------------------------------------------------
 let chosen = null;
 const anchor = h('button.btn', 'Menu');

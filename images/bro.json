@@ -1,0 +1,25 @@
+{
+    "id": "helm.images",
+    "name": "Image Viewer",
+    "version": "0.1.0",
+    "description": "Look at images: fit, zoom, pan, and step through a folder",
+    "icon": "assets/icon.svg",
+    "categories": ["Graphics", "Viewer"],
+    "keywords": ["image", "photo", "picture", "viewer", "gallery", "slideshow"],
+    "singleInstance": true,
+    "fileTypes": [
+        { "name": "Images",
+          "mimeTypes": ["image/png", "image/jpeg", "image/gif", "image/webp", "image/bmp", "image/svg+xml", "image/x-icon", "image/vnd.microsoft.icon"],
+          "extensions": ["png", "jpg", "jpeg", "jpe", "gif", "webp", "bmp", "svg", "ico"] },
+        { "name": "Folder", "mimeTypes": ["inode/directory"] }
+    ],
+    "permissions": [],
+    "app": ".",
+    "width": 1000,
+    "height": 700,
+    "minWidth": 480,
+    "minHeight": 320,
+    "resizable": true,
+    "splash": false,
+    "watch": false
+}

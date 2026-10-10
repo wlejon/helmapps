@@ -1,0 +1,68 @@
+/* Image Viewer: only what the kit does not already draw. */
+
+/* Toolbar: the image's name, and the zoom level that opens the zoom menu. */
+.iv-title { flex: 0 1 auto; min-width: 0; margin-left: var(--s2); font-size: var(--fs-title); font-weight: 600; color: var(--t1); }
+.iv-zoom { min-width: 56px; justify-content: center; }
+
+/* The view: the picture on the content surface, nothing else. */
+.iv-view { position: relative; flex: 1 1 0px; min-height: 0; }
+.iv-stage { position: absolute; left: 0; top: 0; right: 0; bottom: 0; overflow: hidden; outline: none; background: var(--surface-0); }
+.iv-stage[data-bg="mid"] { background: var(--surface-3); }
+.iv-stage.pannable { cursor: grab; }
+.iv-stage.panning { cursor: grabbing; }
+.iv-canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+.iv-vector { position: absolute; transform-origin: 50% 50%; }
+
+/* Behind the picture's own rectangle: a checkerboard shows what is transparent. */
+.iv-backdrop { position: absolute; }
+.iv-stage[data-bg="checker"] .iv-backdrop {
+  background-color: var(--surface-3);
+  background-image: repeating-conic-gradient(var(--well-4) 0 25%, transparent 0 50%);
+  background-size: 16px 16px;
+}
+
+.iv-loading { position: absolute; left: 0; top: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.iv-error { position: absolute; left: 0; top: 0; right: 0; bottom: 0; display: flex; background: var(--surface-0); }
+.iv-start { flex: 1 1 0px; }
+
+/* Previews, in the folder grid and the strip. */
+.iv-thumb { display: flex; align-items: center; justify-content: center; flex: 1 1 0px; min-height: 0; width: 100%; color: var(--t4); }
+.iv-thumb img { max-width: 100%; max-height: 100%; border-radius: var(--r-sm); }
+.iv-thumb.loading { background: var(--well); border-radius: var(--r-ctl); }
+
+/* The folder grid: tiles edge to edge, each picture cropped to fill its
+   square. Nothing marks a tile until the pointer is on it; the selected one
+   keeps an accent frame. */
+.iv-grid .vgrid-cell { padding: 0; border-radius: 0; overflow: hidden; background: var(--surface-0); }
+.iv-grid .vgrid-cell:hover { background: var(--surface-0); }
+.iv-grid .iv-thumb { width: 100%; height: 100%; }
+.iv-grid .iv-thumb.loading { border-radius: 0; background: var(--surface-1); }
+.iv-grid .iv-thumb img { width: 100%; height: 100%; max-width: none; max-height: none; object-fit: cover; border-radius: 0; }
+.iv-grid .vgrid-cell::after { content: ''; position: absolute; left: 0; top: 0; right: 0; bottom: 0; border: 2px solid transparent; pointer-events: none; }
+.iv-grid .vgrid-cell:hover::after { border-color: var(--t3); }
+.iv-grid .vgrid-cell.selected::after { border-color: var(--accent); }
+.iv-grid .vlist:focus-visible .vgrid-cell.cursor { box-shadow: none; }
+.iv-grid .vlist:focus-visible .vgrid-cell.cursor::after { border-color: var(--accent-line); }
+
+/* The strip: one row along the bottom, on the chrome's surface. */
+.vlist-wrap.iv-strip { flex: none !important; height: 85px; background: var(--surface-1); border-top: 1px solid var(--hairline); }
+.iv-strip .vlist { overflow-x: auto; overflow-y: hidden; }
+.iv-strip .vgrid-cell { padding: var(--s1); border-radius: var(--r-ctl); }
+.iv-strip .vgrid-cell.selected { background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent-line); }
+
+/* The details panel. */
+.iv-details { display: flex; flex-direction: column; flex: 1 1 0px; min-height: 0; background: var(--surface-1); border-left: 1px solid var(--hairline); }
+.iv-details-head { flex: none; padding: var(--s4) var(--s4) var(--s2); }
+.iv-details-body { flex: 1 1 0px; min-height: 0; overflow-y: auto; padding: 0 var(--s4) var(--s4); display: flex; flex-direction: column; gap: var(--s4); }
+.iv-details-section { display: flex; flex-direction: column; gap: var(--s2); }
+.iv-details-title { color: var(--t4); }
+.iv-prop { display: flex; flex-direction: column; gap: 2px; }
+.iv-prop-key { font-size: var(--fs-cap); color: var(--t3); }
+.iv-prop-value { color: var(--t1); overflow-wrap: anywhere; }
+.iv-details-note { font-size: var(--fs-cap); }
+
+/* The status bar: a quiet note while the view is rotated or flipped. */
+.iv-note { color: var(--accent-text); }
+
+/* Full screen and the slideshow: the picture alone. */
+body.iv-fullscreen .toolbar, body.iv-fullscreen .statusbar { display: none; }
