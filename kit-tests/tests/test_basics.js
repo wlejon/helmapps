@@ -80,6 +80,11 @@ eq(formatDate(new Date(2023, 2, 4).getTime(), now), 'Mar 4, 2023', 'another year
 // Icons and h()
 assert(iconNames().length > 120, 'a full icon set');
 assert(hasIcon('folder') && !hasIcon('no-such-icon'), 'hasIcon');
+for (const name of ['repeat-one', 'grip', 'flip-v']) {
+  assert(hasIcon(name), `the kit has ${name}`);
+  const svg = icon(name);
+  assert(svg.children.length > 0 && svg.innerHTML !== icon('no-such-icon').innerHTML, `${name} draws itself, not the fallback`);
+}
 eq(icon('folder').tagName.toLowerCase(), 'svg', 'icon() is an svg');
 const el = h('button.btn.primary#ok', { title: 'OK', dataset: { x: '1' } }, 'Go', null, [h('span', 'a')]);
 eq([el.tagName.toLowerCase(), el.className, el.id, el.title, el.dataset.x, el.textContent], ['button', 'btn primary', 'ok', 'OK', '1', 'Goa'], 'h()');

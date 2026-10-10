@@ -375,6 +375,23 @@
   pointer-events: none;
 }
 
+/* A sideways strip (orientation: 'horizontal') */
+.vlist.horizontal { overflow-x: auto; overflow-y: hidden; }
+
+/* Drag to reorder: where the row would land */
+.vlist-drop {
+  position: absolute;
+  z-index: 2;
+  left: var(--s2);
+  right: var(--s2);
+  height: 2px;
+  border-radius: var(--r-chip);
+  background: var(--accent);
+  pointer-events: none;
+}
+.vlist-drop.vertical { left: auto; right: auto; top: var(--s1); bottom: var(--s1); width: 2px; height: auto; }
+.vlist-wrap.reordering, .vlist-wrap.reordering * { cursor: grabbing; }
+
 /* Cards and settings forms ----------------------------------------------- */
 
 .card {

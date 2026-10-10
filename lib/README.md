@@ -50,7 +50,7 @@ carry one under a second line (`{ sub, meter }`).
 | `commands.js` | `Commands`, `normalizeChord`, `eventChord`, `displayChord` | Every action, its label, icon, shortcuts, enabled/checked state. `commands.item(id)` makes a menu item. |
 | `settings.js` | `Settings`, `shellPref`, `watchShellPrefs` | Persistent per-app settings in bro.conf (`app.settings` when you pass a schema to `startApp`). |
 | `layout.js` | `appFrame`, `Toolbar`, `Sidebar`, `SplitPane`, `Breadcrumbs`, `Tabs`, `emptyState`, `meter` | The window's structure. |
-| `list.js` | `VirtualList` | Any collection: list with columns and sortable headers, or an icon grid; selection, rubber band, keyboard, type-ahead, context menu. Handles 100k items. |
+| `list.js` | `VirtualList` | Any collection: list with columns and sortable headers, an icon grid, or a sideways strip (`orientation: 'horizontal'`); selection, rubber band, keyboard, type-ahead, context menu, drag (and Alt+arrow) to reorder (`reorderable`, `onReorder`). Handles 100k items; a hidden list paints nothing. |
 | `menu.js` | `menu` (the `Menu` instance) | Context menus and drop-downs, with submenus and keyboard navigation. |
 | `dialog.js` | `Dialog`, `confirmDialog`, `alertDialog`, `promptDialog` | Modal questions. Promise-based; never `alert()`/`confirm()`/`prompt()`. |
 | `toast.js` | `toast` | Brief in-app messages with an optional Undo. |
