@@ -35,11 +35,9 @@
 .mu-cell-title { margin-top: var(--s2); color: var(--t1); font-weight: 500; }
 .mu-cell-sub { color: var(--t3); font-size: var(--fs-cap); }
 
-/* The queue: a grip to drag a row by, and where it will land. */
+/* The queue: rows drag to reorder (the kit draws the drop marker); the grip says so. */
 .mu-grip { display: flex; color: var(--t4); cursor: grab; }
 .vlist-row:hover .mu-grip { color: var(--t2); }
-.mu-queue.dragging, .mu-queue.dragging .mu-grip { cursor: grabbing; }
-.mu-drop { position: absolute; left: var(--s2); right: var(--s2); height: 2px; border-radius: var(--r-chip); background: var(--accent); pointer-events: none; }
 
 /* Before the index is in, and an empty library. */
 /* The one list on screen. */

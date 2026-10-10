@@ -161,10 +161,9 @@ export class Views {
 
     this.crumbs = new Breadcrumbs({ onNavigate: (p) => actions.openFolder(p) });
     this.lists = [this.songs, this.tracks, this.albums, this.artists, this.folders];
-    // Only the list on screen is in the document. A hidden list is still
-    // restyled every frame something changes, and a hidden fluid grid
-    // (0 px wide) lays out a cell for every album (GAPS.md): with 500 albums
-    // that made each switch of view cost ~100 ms.
+    // Only the list on screen is in the document: a hidden list paints no
+    // rows, but the rows it kept are still restyled whenever something
+    // changes.
     this.stage = h('div.mu-stage');
   }
 
@@ -259,7 +258,7 @@ export class Views {
     this.shownVersion = this.library.version;
     const q = state.query.trim().toLowerCase();
     // On the stage before it is filled: a list fills only the rows it shows,
-    // and one that is not in the document is 0 px tall (GAPS.md).
+    // and one that is not in the document shows (and fills) none.
     const shows = { songs: this.songs, albums: this.albums, artists: this.artists, album: this.tracks, artist: this.albums, folders: this.folders }[state.view];
     if (shows) this.mount(shows.el);
     const fn = this[`show_${state.view}`];

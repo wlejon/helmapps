@@ -67,6 +67,16 @@ const before = titles();
 drag(grip(before[0]), [rowOf(before[6]).getBoundingClientRect().left + 40, rowOf(before[6]).getBoundingClientRect().bottom + 6]);
 waitFor(() => titles()[6] === before[0], 'the first row dragged to the end');
 
+// Alt+Up / Alt+Down on the list move the selected song.
+const third = titles()[3];
+clickEl(rowOf(third).querySelector('.mu-title'));
+press('alt+up');
+waitFor(() => titles()[2] === third, 'Alt+Up moves the song up one');
+press('alt+down');
+press('alt+down');
+waitFor(() => titles()[4] === third, 'Alt+Down twice moves it down two');
+eq(app.queueView.list.selectedItems().map((r) => r.title), [third], 'it stays selected');
+
 // Remove with Delete, after clicking a row (not the grip).
 clickEl(rowOf('Alpha 4').querySelectorAll('.vlist-cell')[2] || rowOf('Alpha 4'));
 press('delete');

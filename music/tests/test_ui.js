@@ -35,10 +35,11 @@ assert(rows().some((r) => r.includes('Disc 2')) || app.views.tracks.items[2].dis
 // The head's artist link, then Back twice.
 clickEl(document.querySelector('.mu-head .mu-link'));
 waitFor(() => app.state.view === 'artist' && head() === 'Zeta', 'the artist page from the link');
-// (Backspace on the artist page: its album grid takes Alt+Left as a plain
-// Left and stops it, a kit gap in GAPS.md; the album page's list does not.)
-press('backspace');
-waitFor(() => app.state.view === 'album', 'Back to the album');
+// Alt+Left on the artist page, its album grid focused: the grid lets it
+// through to Back.
+app.views.albums.focus();
+press('alt+left');
+waitFor(() => app.state.view === 'album', 'Back to the album (Alt+Left from the album grid)');
 press('alt+left');
 waitFor(() => app.state.view === 'albums', 'Back to the albums');
 

@@ -17,7 +17,7 @@
 
 import { startApp } from '/lib/app.js';
 import { h, api, perFrame } from '/lib/dom.js';
-import { icon, defineIcon } from '/lib/icons.js';
+import { icon } from '/lib/icons.js';
 import { appFrame, Toolbar, Sidebar, emptyState } from '/lib/layout.js';
 import { menu } from '/lib/menu.js';
 import { toast } from '/lib/toast.js';
@@ -34,9 +34,6 @@ import { PLAYABLE, UNKNOWN_ARTIST } from './records.js';
 
 const path = require('path');
 const fs = require('fs');
-
-defineIcon('repeat-one', '<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/><path d="M11 10h1v4"/>');
-defineIcon('grip', '<circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/>');
 
 /** Least time between two redraws of the view while a scan delivers songs. */
 const REFRESH_MS = 400;
