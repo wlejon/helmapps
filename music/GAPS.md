@@ -28,25 +28,6 @@ are in `../GAPS.md`.
   only the list on screen in the document and fills only the rows shown.
 - **Belongs in:** bro
 
-### `stat().mtimeMs` of an untouched file can change by 1 ms
-- **Where:** brokit `fs` (`js_statSync` in `src/api/fs.cpp`, `mtimeMsOf` in
-  `src/api/fs_async.cpp`)
-- **Expected:** stat of a file nobody wrote answers the same `mtimeMs`
-  every time.
-- **Actual:** the file time is converted as
-  `mtime - file_clock::now() + system_clock::now()`, two clocks sampled at
-  slightly different moments, then cut to whole ms. When the gap between the
-  two samples moves (the thread is preempted between them, or the clocks
-  tick at different resolutions), a file time near a ms boundary lands in
-  the neighbouring ms. Measured: of 20 000 untouched files stat'ed 50 times
-  each, one `fs.promises.stat` answered `...856` for a file whose time is
-  `15:28:15.8570016` (statSync: `...857`). A deterministic conversion is
-  `std::chrono::clock_cast<std::chrono::system_clock>(mtime)` (C++20).
-- **Impact:** a rescan now and then reads a file again that did not change
-  (test_perf saw 1 of 1500 once). Music compares `size` and `mtime` exactly
-  and keeps doing so: a tolerance would hide real edits made within a ms.
-- **Belongs in:** brokit
-
 ## Not built
 
 - **MPRIS player:** see `../GAPS.md` ("No MPRIS player side").
