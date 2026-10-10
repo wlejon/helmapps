@@ -1,0 +1,85 @@
+/* Music: only what the kit does not already draw. */
+
+/* Covers: a square picture, or a disc glyph on a well when there is none. */
+.mu-art { position: relative; display: flex; align-items: center; justify-content: center; flex: none; overflow: hidden;
+  border-radius: var(--r-ctl); background: var(--well-2); color: var(--t4); }
+.mu-art img { width: 100%; height: 100%; object-fit: cover; }
+.mu-art.sm { width: 26px; height: 26px; border-radius: var(--r-sm); }
+.mu-art.sm .icon { width: 14px; height: 14px; }
+.mu-art.np { width: 52px; height: 52px; }
+.mu-art.xl { width: 136px; height: 136px; border-radius: var(--r-card); box-shadow: var(--depth-1); }
+.mu-art.xl .icon { width: 40px; height: 40px; }
+.mu-art.cell { width: 100%; flex: 1 1 0px; min-height: 0; border-radius: var(--r-card); }
+.mu-art.cell .icon { width: 36px; height: 36px; }
+
+/* The head of a view: what it is, its counts, Play and Shuffle. */
+.mu-head { display: flex; align-items: flex-end; gap: var(--s5); flex: none; padding: var(--s5) var(--s6) var(--s4);
+  border-bottom: 1px solid var(--hairline); }
+.mu-head-text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.mu-head-title { font-size: var(--fs-display); font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; color: var(--t1); }
+.mu-kind { color: var(--t3); }
+.mu-meta { margin-top: 2px; }
+.mu-head-actions { display: flex; gap: var(--s2); flex: none; }
+.mu-link { align-self: flex-start; max-width: 100%; color: var(--t2); font-size: var(--fs-title); font-weight: 500; text-align: left; }
+.mu-link:hover:not(:disabled) { color: var(--t1); text-decoration: underline; }
+.mu-crumbs { display: flex; min-width: 0; margin-left: calc(-1 * var(--s2)); }
+
+/* The song playing, wherever it is listed. */
+.vlist-row.mu-playing .mu-title, .vlist-row.mu-playing .col:first-child { color: var(--accent-text); }
+.vlist-row.mu-playing .mu-title { font-weight: 600; }
+.vlist-row.mu-folder .col:first-child .icon { color: var(--t3); }
+.vlist-row .mu-art.sm { margin-right: 2px; }
+
+/* The album grid: the cover, then two lines under it. */
+.mu-albums .vgrid-cell { align-items: stretch; gap: 0; padding: var(--s2); text-align: left; }
+.mu-cell-title { margin-top: var(--s2); color: var(--t1); font-weight: 500; }
+.mu-cell-sub { color: var(--t3); font-size: var(--fs-cap); }
+
+/* The queue: a grip to drag a row by, and where it will land. */
+.mu-grip { display: flex; color: var(--t4); cursor: grab; }
+.vlist-row:hover .mu-grip { color: var(--t2); }
+.mu-queue.dragging, .mu-queue.dragging .mu-grip { cursor: grabbing; }
+.mu-drop { position: absolute; left: var(--s2); right: var(--s2); height: 2px; border-radius: var(--r-chip); background: var(--accent); pointer-events: none; }
+
+/* Before the index is in, and an empty library. */
+/* The one list on screen. */
+.mu-stage { display: flex; flex-direction: column; flex: 1 1 0px; min-height: 0; min-width: 0; }
+.mu-stage:empty { display: none; }
+.mu-loading { display: flex; flex: 1 1 0px; align-items: center; justify-content: center; }
+.mu-nomusic { display: flex; flex: 1 1 0px; }
+
+/* The scan, at the foot of the sidebar. */
+.mu-scan { display: flex; flex-direction: column; gap: 6px; flex: none; padding: var(--s3) var(--s2) var(--s1); }
+.mu-scan-row { display: flex; align-items: center; gap: var(--s1); min-width: 0; }
+.mu-scan-row .mu-scan-text { flex: 1 1 0px; min-width: 0; }
+.mu-scan-text {font-size: var(--fs-cap); font-variant-numeric: tabular-nums; }
+.mu-scan-bar { height: 3px; }
+.mu-toolbar-title { flex: 0 1 auto; min-width: 0; margin-left: var(--s1); }
+
+/* The now-playing bar. */
+.mu-np { display: flex; align-items: center; gap: var(--s5); flex: none; height: 80px; padding: 0 var(--s4);
+  background: var(--surface-1); border-top: 1px solid var(--hairline); }
+.mu-np-song { display: flex; align-items: center; gap: var(--s3); flex: 1 1 0px; min-width: 0; }
+.mu-np-text { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
+.mu-np-title { max-width: 100%; color: var(--t1); font-size: var(--fs-title); font-weight: 600; text-align: left; }
+.mu-np-artist { max-width: 100%; color: var(--t3); font-size: var(--fs-cap); text-align: left; }
+.mu-np-title:hover:not(:disabled), .mu-np-artist:hover:not(:disabled) { text-decoration: underline; color: var(--t1); }
+.mu-np-center { display: flex; flex-direction: column; align-items: stretch; gap: 2px; flex: 0 1 560px; min-width: 260px; }
+.mu-np-controls { display: flex; align-items: center; justify-content: center; gap: var(--s2); }
+.mu-np-play { width: 36px; height: 36px; border-radius: var(--r-chip); background: var(--accent); color: var(--on-accent); }
+.mu-np-play:hover:not(:disabled) { background: var(--accent-hover); color: var(--on-accent); }
+.mu-np-play .icon { width: 18px; height: 18px; }
+.mu-np-seek { display: flex; align-items: center; gap: var(--s2); }
+.mu-time { flex: none; width: 48px; color: var(--t3); font-size: var(--fs-cap); }
+.mu-time.right { text-align: right; }
+.mu-np-right { display: flex; align-items: center; justify-content: flex-end; gap: var(--s1); flex: 1 1 0px; min-width: 0; }
+.mu-volume { flex: 0 1 104px; min-width: 64px; margin-right: var(--s2); }
+.mu-volume.muted { opacity: 0.4; }
+
+/* Library Folders. */
+.mu-folders { display: flex; flex-direction: column; gap: 2px; margin: var(--s2) 0 var(--s3); max-height: 260px; overflow-y: auto; }
+.mu-folder-row { display: flex; align-items: center; gap: var(--s3); padding: 6px var(--s2); border-radius: var(--r-ctl); background: var(--well); }
+.mu-folder-row > .icon { flex: none; color: var(--t3); }
+.mu-folder-text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.mu-folder-path { font-size: var(--fs-cap); }
+.mu-folders-empty { padding: var(--s2); }

@@ -1,0 +1,24 @@
+{
+    "id": "helm.music",
+    "name": "Music",
+    "version": "0.1.0",
+    "description": "Play the music in your Music folder: artists, albums, a queue",
+    "icon": "assets/icon.svg",
+    "categories": ["AudioVideo", "Audio", "Player"],
+    "keywords": ["music", "player", "audio", "songs", "albums", "artists", "playlist", "queue", "mp3", "flac"],
+    "singleInstance": true,
+    "fileTypes": [
+        { "name": "Audio",
+          "mimeTypes": ["audio/mpeg", "audio/flac", "audio/x-flac", "audio/ogg", "audio/x-vorbis+ogg", "audio/wav", "audio/x-wav"],
+          "extensions": ["mp3", "flac", "ogg", "oga", "wav"] }
+    ],
+    "permissions": [],
+    "app": ".",
+    "width": 1100,
+    "height": 720,
+    "minWidth": 640,
+    "minHeight": 420,
+    "resizable": true,
+    "splash": false,
+    "watch": false
+}
