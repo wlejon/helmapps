@@ -59,29 +59,6 @@ function loginShell() {
 // never quits the process there: the script that drives it decides.
 const headless = typeof advanceTime === 'function' && typeof flush === 'function';
 
-let notifier;  // the notify-send / osascript path, found once
-function notifyByCommand(title, body) {
-    if (platform === 'win32') return false;
-    try {
-        const cp = require('child_process');
-        if (notifier === undefined) {
-            notifier = null;
-            for (const d of (env('PATH') || '').split(':')) {
-                if (platform === 'darwin' && fs.existsSync(path.join(d, 'osascript'))) { notifier = path.join(d, 'osascript'); break; }
-                if (platform !== 'darwin' && fs.existsSync(path.join(d, 'notify-send'))) { notifier = path.join(d, 'notify-send'); break; }
-            }
-        }
-        if (!notifier) return false;
-        const args = platform === 'darwin'
-            ? ['-e', 'display notification ' + JSON.stringify(body) + ' with title ' + JSON.stringify(title || 'helmterm')]
-            : ['--app-name=helmterm', title || 'helmterm', body];
-        cp.spawn(notifier, args, { detached: true, stdio: 'ignore' });
-        return true;
-    } catch (e) {
-        return false;
-    }
-}
-
 export const host = {
     platform,
     headless,
@@ -164,7 +141,9 @@ export const host = {
 
     // ── the desktop ──
     // Notifications, taskbar attention and progress, the bell sound, window
-    // focus. bro.window provides them natively in the engine. Headless records
+    // focus. bro.window provides them natively in the engine (a notification
+    // is a toast on Windows, the notification center on macOS, D-Bus on
+    // Linux, under the app's own id and name). Headless records
     // what was asked in `desktopLog`, which is what the tests read.
     desktopLog: [],
     desktop(kind, ...args) {
@@ -186,9 +165,6 @@ export const host = {
             } catch (e) {
                 console.error('helmterm: bro.window ' + kind + ': ' + e.message);
             }
-        }
-        if (kind === 'notify') {
-            return notifyByCommand(String(args[0] || ''), String(args[1] || ''));
         }
         return false;
     },

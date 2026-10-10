@@ -5,7 +5,7 @@ import { normalizeChord, Commands } from '/lib/commands.js';
 import { formatBytes, formatCount, formatNumber, formatDuration, formatDate } from '/lib/format.js';
 import { iconNames, hasIcon, icon } from '/lib/icons.js';
 import { h } from '/lib/dom.js';
-import { kindOf, iconFor, userDirs } from '/lib/files.js';
+import { kindOf, iconFor, userDirs, openApp, appsReady } from '/lib/files.js';
 
 // Chords
 const M = process.platform === 'darwin' ? 'Meta' : 'Ctrl';
@@ -89,5 +89,22 @@ eq([kindOf('a.PNG'), kindOf('x.tar.gz'), kindOf('main.cpp'), kindOf('dir', true)
   ['image', 'archive', 'code', 'folder', 'file'], 'kinds');
 eq(iconFor({ name: 'song.flac' }), 'file-audio', 'icon for a kind');
 assert(userDirs().home && userDirs().pictures.startsWith(userDirs().home), 'user dirs under home');
+
+// Opening another app by id: bro.app.open, which headless records
+// (openedApps()) and does not start. helm.music is a sibling in this project.
+let opened = null;
+openApp('helm.music', ['--play', 'x.flac']).then((ok) => { opened = ok; });
+let missing = null;
+openApp('helm.no-such-app').then((ok) => { missing = ok; });
+for (let i = 0; i < 5 && (opened === null || missing === null); i++) advanceTime(16);
+eq([opened, missing], [true, false], 'openApp opens a project sibling, and answers false for an unknown id');
+const rec = openedApps({ clear: true }).find((o) => o.id === 'helm.music');
+assert(rec && rec.from === 'project' && /music$/.test(rec.dir.replace(/[\\/]+$/, '')), 'found beside this app: ' + JSON.stringify(rec));
+eq(rec.args, ['--play', 'x.flac'], 'with its arguments');
+
+let ready = false;
+appsReady().then(() => { ready = true; });
+for (let i = 0; i < 400 && !ready; i++) { advanceTime(16); wallSleep(5); }
+assert(ready, 'appsReady() resolves once the catalog is built');
 
 console.log('test_basics PASSED');

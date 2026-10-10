@@ -24,4 +24,4 @@
   `path.basename('C:\\')` was `'C:'`.
 - **Belongs in:** brokit. **Fixed** (with tests in `tests/js/test_path.js`).
 
-Kit-level gaps (opening another app by id off Linux) are in `../GAPS.md`.
+Kit-level gaps are in `../GAPS.md`.

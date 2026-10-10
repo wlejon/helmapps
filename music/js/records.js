@@ -9,17 +9,20 @@
  */
 
 /**
- * M4A (AAC) plays through the platform's AAC decoder: Media Foundation on
- * Windows, AudioToolbox on macOS. bro has none on Linux (docs/audio-engine-api.js,
- * createStreamFromFile), so there M4A is counted and left out like WMA.
+ * What bro decodes on this machine, as bro.media.canDecode says (on the page
+ * and in the scan worker alike). M4A (AAC) goes through the platform's AAC
+ * decoder (Media Foundation, AudioToolbox), which Linux lacks, so there M4A
+ * is counted and left out like WMA.
  */
-const AAC = typeof require === 'function' && require('os').platform() !== 'linux';
-const M4A = ['m4a', 'm4b'];
+const MUSIC = ['mp3', 'flac', 'ogg', 'oga', 'opus', 'wav', 'm4a', 'm4b'];
+const decodes = (ext) => typeof bro !== 'undefined' && !!bro.media && typeof bro.media.canDecode === 'function' &&
+  bro.media.canDecode(ext) !== '';
 
 /** The formats bro plays (createStreamFromFile). */
-export const PLAYABLE = new Set(['mp3', 'flac', 'ogg', 'oga', 'opus', 'wav', ...(AAC ? M4A : [])]);
+export const PLAYABLE = new Set(MUSIC.filter(decodes));
 /** Music files bro cannot play: counted, so the window can say they were left out. */
-export const UNPLAYABLE = new Set(['aac', 'wma', 'alac', 'aiff', 'aif', 'ape', 'wv', 'mpc', ...(AAC ? [] : M4A)]);
+export const UNPLAYABLE = new Set(['aac', 'wma', 'alac', 'aiff', 'aif', 'ape', 'wv', 'mpc',
+  ...MUSIC.filter((e) => !PLAYABLE.has(e))]);
 
 export const UNKNOWN_ARTIST = 'Unknown Artist';
 export const UNKNOWN_ALBUM = 'Unknown Album';

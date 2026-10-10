@@ -65,10 +65,7 @@ export class Folder {
     }
     if (dir !== this.dir) return;               // another folder took over meanwhile
     names = sortNames(names);
-    // dir is already resolved, so a plain join gives what path.join would
-    // (which costs ~15 µs a name, 6 ms for a folder of 400).
-    const base = dir.endsWith(path.sep) || dir.endsWith('/') ? dir : dir + path.sep;
-    const items = names.map((name) => ({ name, path: base + name }));
+    const items = names.map((name) => ({ name, path: path.join(dir, name) }));
     const same = items.length === this.items.length && items.every((it, i) => it.path === this.items[i].path);
     this.loading = null;
     if (same) return;

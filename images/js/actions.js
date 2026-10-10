@@ -10,7 +10,7 @@ import { promptDialog, alertDialog } from '/lib/dialog.js';
 import { toast } from '/lib/toast.js';
 import { menu } from '/lib/menu.js';
 import { api } from '/lib/dom.js';
-import { appsFor, openFile, openApp } from '/lib/files.js';
+import { appsFor, appsReady, openFile, openApp } from '/lib/files.js';
 import { formatOf, isImage } from './formats.js';
 
 const fs = require('fs');
@@ -120,9 +120,11 @@ export class FileActions {
   }
 
   /** The apps that open this type, as a menu below `anchor` (or at x, y). */
-  openWithMenu(at) {
+  async openWithMenu(at) {
     const p = this.current();
     if (!p) return;
+    await appsReady();   // the catalog builds off the page thread
+    if (this.current() !== p) return;
     const f = formatOf(p);
     const apps = appsFor(f ? f.mime : 'application/octet-stream')
       .filter((a) => a && a.id && !/helm\.images/.test(a.id));

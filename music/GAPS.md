@@ -2,8 +2,8 @@
 
 Engine, platform and kit gaps found building Music. Each was measured with
 `bro-headless`; the app works around none of them beyond saying so in the
-window. Gaps every app shares (opening another app by id, notifications,
-the MPRIS player side) are in `../GAPS.md`.
+window. Gaps every app shares (notification clicks, the MPRIS player side)
+are in `../GAPS.md`.
 
 ## Engine (bro, broaudio)
 
