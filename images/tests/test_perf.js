@@ -14,6 +14,11 @@ const fs = require('fs');
 const path = require('path');
 
 const FRAME_BUDGET_MS = 50;   // generous for a shared test box; a healthy frame is a few ms
+// The full-resolution bitmap's upload copies beside the frames (bro's copy
+// queue) and the canvas keeps the preview until it is in, so no frame of
+// that step waits for it: ~6-12 ms worst. A frame that waits for the copy
+// (60-130 ms on an idle GPU) fails this.
+const FULL_RES_BUDGET_MS = 30;
 
 // ---- startup ---------------------------------------------------------------------
 const s = bro.app.startup;
@@ -86,7 +91,7 @@ const tileFrames = measureFrames((() => {
 eq([app.state.pic.full.width, app.state.pic.full.height], [app.state.pic.width, app.state.pic.height], 'the full-resolution bitmap');
 console.log(`100% and 400% of a 24 MP photo (full resolution in one bitmap): ${tileFrames.frames} frames, ` +
   `worst ${tileFrames.maxMs.toFixed(1)} ms, ${tileFrames.slow} over 16.7 ms`);
-assert(tileFrames.maxMs < FRAME_BUDGET_MS, `fetching full resolution stays under ${FRAME_BUDGET_MS} ms (worst ${tileFrames.maxMs.toFixed(1)})`);
+assert(tileFrames.maxMs < FULL_RES_BUDGET_MS, `fetching full resolution stays under ${FULL_RES_BUDGET_MS} ms (worst ${tileFrames.maxMs.toFixed(1)})`);
 
 // Zooming and turning a 24 MP picture.
 const viewFrames = measureFrames((() => {
