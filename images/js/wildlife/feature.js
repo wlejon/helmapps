@@ -325,7 +325,7 @@ export class WildlifeFeature {
   showMenu() {
     const c = this.counts();
     const pick = (common, label, count) => this.commands.item('animals-filter', {
-      label, keys: formatNumber(count), checked: this.filter === common, icon: undefined,
+      label, count, checked: this.filter === common, icon: undefined,
       action: () => this.commands.run('animals-filter', common),
     });
     const items = [
@@ -333,7 +333,7 @@ export class WildlifeFeature {
       c.species.length ? { separator: true } : null,
       ...c.species.map((s) => pick(s.common, s.common, s.count)),
       { separator: true },
-      this.commands.item('animals-show-empty', { keys: formatNumber(c.empty) }),
+      this.commands.item('animals-show-empty', { count: c.empty }),
     ];
     if (['running', 'loading', 'paused'].includes(this.analysis.state)) items.push(this.commands.item('animals-pause'));
     menu.showBelow(items, this.filterBtn);

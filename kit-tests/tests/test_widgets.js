@@ -214,6 +214,18 @@ menu.showBelow([{ label: 'Alpha' }], anchor);
 press('escape');
 assert(!menu.isOpen, 'Escape closes');
 
+// A count sits at the trailing edge in its own column, apart from the shortcut.
+menu.showBelow([{ label: 'Blue Jay', count: 1234, keys: 'Ctrl+J' }, { label: 'Wren', count: 0 }, { label: 'Plain' }], anchor);
+advanceTime(16);
+const countCells = Array.from(document.querySelectorAll('.menu .menu-count'));
+eq(countCells.map((c) => c.textContent), ['1,234', '0'], 'counts are formatted, zero included, and absent without one');
+assert(countCells[0].classList.contains('num'), 'counts use tabular figures');
+const jayRow = countCells[0].parentNode;
+eq(jayRow.querySelector('.menu-keys').textContent, 'Ctrl+J', 'the shortcut keeps its own slot');
+assert(countCells[0].getBoundingClientRect().right <= jayRow.querySelector('.menu-keys').getBoundingClientRect().left,
+  'the count comes before the shortcut');
+press('escape');
+
 // ---- Dialogs ----------------------------------------------------------------
 let answer = 'pending';
 confirmDialog({ title: 'Sure?', ok: 'Do It', danger: true }).then((v) => { answer = v; });

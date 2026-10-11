@@ -53,7 +53,7 @@ clickEl(btn);
 const labels = menuLabels();
 eq(labels.slice(0, 4).join('|'), 'All photos|Blue Jay|Northern Cardinal|Eastern Gray Squirrel', 'All first, then by photo count');
 assert(labels.includes('Show Photos Without Animals'), 'the toggle is in the menu');
-const counts = Array.from(document.querySelectorAll('.menu .menu-keys')).map((k) => k.textContent);
+const counts = Array.from(document.querySelectorAll('.menu .menu-count')).map((k) => k.textContent);
 eq(counts.slice(0, 4).join(), '7,3,3,1', 'with photo counts');
 chooseMenu('Blue Jay');
 eq(gridNames(), 'b_01.jpg,c_01.jpg,c_02.jpg', 'the grid shows the jays');

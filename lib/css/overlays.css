@@ -57,10 +57,11 @@
 .menu-item .menu-check .icon { width: 15px; height: 15px; stroke-width: 2.5; }
 .menu-item .icon { width: 16px; height: 16px; color: var(--t3); }
 .menu-item .menu-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.menu-item .menu-count { flex: none; margin-left: var(--s4); color: var(--t3); }
 .menu-item .menu-keys { flex: none; margin-left: var(--s4); color: var(--t4); font-size: var(--fs-cap); }
 .menu-item .menu-sub { flex: none; color: var(--t3); }
 .menu-item.active { background: var(--accent); color: var(--on-accent); }
-.menu-item.active .icon, .menu-item.active .menu-keys, .menu-item.active .menu-check, .menu-item.active .menu-sub { color: var(--on-accent); }
+.menu-item.active .icon, .menu-item.active .menu-count, .menu-item.active .menu-keys, .menu-item.active .menu-check, .menu-item.active .menu-sub { color: var(--on-accent); }
 .menu-item.disabled { opacity: 0.4; }
 .menu-item.danger { color: var(--danger-text); }
 .menu-item.danger .icon { color: var(--danger-text); }
