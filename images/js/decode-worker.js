@@ -18,7 +18,8 @@
  * costing the page a frame. The page still asks for a screen-sized one first
  * (that is all a fitted view shows, and the neighbours it keeps stay small);
  * zoomed past it, it asks for maxSide 0, and the last decode is kept here so
- * that does not decode again.
+ * that does not decode again. The screen-sized one and a thumbnail decode at
+ * their own size (bro.image.decodeScaled), which costs less than the whole.
  *
  * bro.image.decodeOriented applies the EXIF orientation, so a phone photo
  * comes out upright. An animated GIF or WebP answers `animated: true` and no
@@ -27,27 +28,34 @@
 
 const fs = require('fs');
 
-/** The last decode: { key, result }. */
+/** The last full-size decode: { key, result }. */
 let last = null;
 
-function decode(path) {
-  let key = path;
-  try { key = `${path}\n${fs.statSync(path).mtimeMs}`; } catch (_) { /* decodeFile reports it */ }
-  if (last && last.key === key) return last.result;
-  last = null;
-  const result = decodeFile(path);
-  last = { key, result };
-  return result;
+function keyOf(path) {
+  try { return `${path}\n${fs.statSync(path).mtimeMs}`; } catch (_) { return path; }   // the decode reports it
 }
 
-function decodeFile(path) {
+/**
+ * The picture at most `maxSide` px on its long side (0: full size). A smaller
+ * one decodes at that size (bro.image.decodeScaled: a JPEG's IDCT at 1/8 ..
+ * 8/8, a CR3's preview) and is not kept; the full size is kept for zoom and copy.
+ */
+function decode(path, maxSide = 0) {
+  const key = keyOf(path);
+  if (last && last.key === key) return last.result;
   const bytes = fs.readFileSync(path);
-  const img = bro.image.decodeOriented(bytes);
+  const frames = frameCount(path, bytes);
+  const scaled = maxSide > 0 && frames === 1;
+  const img = scaled ? bro.image.decodeScaled(bytes, { width: maxSide, height: maxSide })
+    : bro.image.decodeOriented(bytes);
   if (!img || !img.width || !img.height) throw new Error((img && img.error) || 'bro.image cannot decode this file');
   const orientation = bro.image.readExifOrientation(bytes) || 1;
   let exif = null;
   try { exif = bro.image.readExif(bytes); } catch (_) { exif = null; }
-  return { img, orientation, exif, frames: frameCount(path, bytes) };
+  const result = { img, orientation, exif, frames,
+    width: scaled ? img.sourceWidth : img.width, height: scaled ? img.sourceHeight : img.height };
+  if (!scaled) last = { key, result };
+  return result;
 }
 
 /** How many frames a GIF or WebP holds (1 for anything else). */
@@ -77,7 +85,8 @@ const copyBuffer = (u8) => u8.slice().buffer;
 self.onmessage = async (e) => {
   const { id, op, path, size, maxSide } = e.data || {};
   try {
-    const { img, orientation, exif, frames } = decode(path);
+    const { img, orientation, exif, frames, width, height } =
+      decode(path, op === 'thumb' ? (size || 256) : op === 'picture' ? (maxSide || 0) : 0);
     if (op === 'png') {
       const png = bro.image.encodePng(img.pixels, img.width, img.height, 4);
       if (!png) throw new Error('could not encode the image');
@@ -93,7 +102,7 @@ self.onmessage = async (e) => {
       self.postMessage({ id, png: buf }, [buf]);
       return;
     }
-    const meta = { id, width: img.width, height: img.height, orientation, exif };
+    const meta = { id, width, height, orientation, exif };
     if (op === 'picture' && frames > 1) {
       // An animation plays as an <img> on the page (bro plays it): no bitmap.
       self.postMessage({ ...meta, animated: true });
