@@ -163,8 +163,9 @@ export class StabilizeView {
   recompute({ keepCrop = false } = {}) {
     const s = this.session;
     const tracked = s.tracked();
-    if (s.ref < 0 || !tracked[s.ref]) { this.T = []; this.poly = []; this.schedule(); this.changed(); return; }
+    if (s.ref < 0 || !tracked[s.ref]) { this.T = []; this.poly = []; this.extent = null; this.schedule(); this.changed(); return; }
     this.T = transforms(tracked, s.ref, this.lock);
+    this.extent = this.frameExtent();
     this.poly = commonArea(tracked, this.T, this.included());
     const ratio = aspectRatio(this.aspect);
     if (!this.crop || !keepCrop) this.crop = defaultCrop(tracked[s.ref], ratio, this.poly);
@@ -192,6 +193,7 @@ export class StabilizeView {
   framesChanged() {
     this.poly = commonArea(this.session.tracked(), this.T, this.included());
     if (this.crop) this.crop = fitRect(this.crop, this.poly);
+    this.extent = this.frameExtent();
     const f = this.session.frames[this.cur];
     if (!f || !f.included) {
       const kept = this.edits.kept();
@@ -374,12 +376,32 @@ export class StabilizeView {
 
   // ---- the stage ----------------------------------------------------------------------------------
 
-  /** Stabilized -> stage CSS px: the reference frame fitted, or (playing) the crop. */
+  /**
+   * Where the frames lie once held still (stabilized coordinates): the box
+   * around every frame in the animation through its transform, so the stage
+   * centres them all, not the reference alone (with the subject held, the
+   * other frames slide away from it as the camera and the subject moved).
+   */
+  frameExtent() {
+    const frames = this.session.frames;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    frames.forEach((f, k) => {
+      if (!f.included || !this.T[k] || !f.width) return;
+      const Ti = invert(this.T[k]);
+      for (const c of [[0, 0], [f.width, 0], [f.width, f.height], [0, f.height]]) {
+        const [x, y] = apply(Ti, c);
+        x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+      }
+    });
+    return x1 > x0 && y1 > y0 ? [x0, y0, x1 - x0, y1 - y0] : null;
+  }
+
+  /** Stabilized -> stage CSS px: every frame fitted (frameExtent), or (playing) the crop. */
   viewMatrix() {
     const W = this.stage.clientWidth, H = this.stage.clientHeight;
     const ref = this.session.frames[this.session.ref];
     if (!ref || !W || !H) return null;
-    const box = this.playing && this.crop ? this.crop : [0, 0, ref.width, ref.height];
+    const box = this.playing && this.crop ? this.crop : (this.extent || [0, 0, ref.width, ref.height]);
     const pad = this.playing ? 8 : 24;
     const k = Math.min((W - 2 * pad) / box[2], (H - 2 * pad) / box[3]);
     return [k, 0, (W - box[2] * k) / 2 - box[0] * k, 0, k, (H - box[3] * k) / 2 - box[1] * k];

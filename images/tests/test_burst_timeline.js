@@ -33,6 +33,17 @@ eq(cells.filter((c) => c.gap).map((c) => c.index).join(), '3', 'the gap follows 
 assert(!cellEl(3).querySelector('.iv-tl-gap').classList.contains('hidden'), 'the gap shows as a break');
 assert(cells[4].x >= cells[3].x + cells[3].w + 10, 'with room between the bursts');
 
+// The stage centres every frame as held still, not the reference alone (the
+// other frames slide from it, here left and up: the subject flew right).
+{
+  const e = view.extent;
+  const V = view.viewMatrix();
+  const cx = V[0] * (e[0] + e[2] / 2) + V[2], cy = V[4] * (e[1] + e[3] / 2) + V[5];
+  near(cx, view.stage.clientWidth / 2, 'the frames centred across the stage', 0.5);
+  near(cy, view.stage.clientHeight / 2, 'and down it', 0.5);
+  assert(e[0] < -50, `the frames reach left of the reference (${e[0].toFixed(0)})`);
+}
+
 // A click goes to the frame, and the inspector shows it.
 clickEl(cellEl(5).querySelector('.iv-tl-frame'));
 eq(view.cur, 5, 'a click goes to the frame');
