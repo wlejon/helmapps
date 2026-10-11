@@ -27,7 +27,7 @@ export function rememberRecent(host, socket) {
     try {
         fs.writeFileSync(file(), JSON.stringify(list.slice(0, MAX), null, 2), 'utf-8');
     } catch (e) {
-        console.warn('helmremote: cannot save recent hosts: ' + e.message);
+        console.warn('remote: cannot save recent hosts: ' + e.message);
     }
     return list.slice(0, MAX);
 }

@@ -5,7 +5,7 @@
     "description": "Tabs, splits and profiles over bro's native <terminal> element",
     "icon": "assets/icon.svg",
     "categories": ["System", "TerminalEmulator"],
-    "keywords": ["terminal", "shell", "console", "command line", "prompt", "helmterm"],
+    "keywords": ["terminal", "shell", "console", "command line", "prompt", "term"],
     "singleInstance": true,
     "actions": [
         { "id": "new-window", "name": "New Window", "args": ["--new-window"] }

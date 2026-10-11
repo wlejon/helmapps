@@ -62,7 +62,7 @@ function report(session, view, p, opts) {
     };
     const parts = p.parts;
     const text =
-        `helmremote: ${p.count} probes (${p.lost} lost), key press to picture presented ` +
+        `remote: ${p.count} probes (${p.lost} lost), key press to picture presented ` +
         `mean / p90 / max ${fmt(p.presented)} ms, to decoded ${fmt(p.decoded)} ms\n` +
         `  parts (mean): uplink ${parts.uplink.toFixed(2)} queue ${parts.queue.toFixed(2)} ` +
         `encode ${parts.encode.toFixed(2)} wait ${parts.wait.toFixed(2)} net ${parts.net.toFixed(2)} ` +
@@ -75,7 +75,7 @@ function report(session, view, p, opts) {
         try {
             fs.writeFileSync(opts.latencyOut, JSON.stringify(out, null, 2) + '\n' + text + '\n', 'utf-8');
         } catch (e) {
-            console.error('helmremote: cannot write ' + opts.latencyOut + ': ' + e.message);
+            console.error('remote: cannot write ' + opts.latencyOut + ': ' + e.message);
         }
     }
     session.close();

@@ -1,4 +1,4 @@
-// The command line: helmremote [HOST] [options]
+// The command line: remote [HOST] [options]
 //
 //   HOST                 ssh destination ([user@]host); none: the connect screen
 //   -s, --socket NAME    the server's socket (default: the server's default)

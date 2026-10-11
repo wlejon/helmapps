@@ -1,4 +1,4 @@
-// helmremote: another machine's screen in a <remoteview>, over a
+// remote: another machine's screen in a <remoteview>, over a
 // bro.remote.connect() session (ssh HOST broremote proxy, or a socket here).
 //
 // The view takes the keyboard raw while captured (a click on it, or
@@ -13,7 +13,7 @@ import { runLatencyTest } from './latency.js';
 
 const $ = (id) => document.getElementById(id);
 const opts = parseArgs(bro.app.argv || []);
-for (const e of opts.errors) console.error('helmremote: ' + e);
+for (const e of opts.errors) console.error('remote: ' + e);
 
 const state = {
     session: null,
@@ -82,7 +82,7 @@ function connect(target) {
     stopSession();
     state.target = target;
     const options = {
-        name: 'helmremote',
+        name: 'remote',
         audio: opts.audio && $('audio').checked,
         mic: opts.mic && $('mic').checked,
     };
@@ -250,4 +250,4 @@ if (opts.host || opts.local || opts.socket) {
 }
 
 // For tests: the app's state.
-window.helmremote = { opts, state, connect, showConnect, view };
+window.remote = { opts, state, connect, showConnect, view };

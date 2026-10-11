@@ -94,7 +94,7 @@ export class Pane extends Emitter {
         this.server = null;
         if (this.persistent) {
             s.persistent = true;
-            s.name = 'helmterm: ' + this.profile.name;
+            s.name = 'term: ' + this.profile.name;
             const server = this.app.settings.values.persistentServer;
             if (server) { s.server = String(server); this.server = s.server; }
         }
@@ -102,7 +102,7 @@ export class Pane extends Emitter {
     }
 
     /// Whether new processes in this pane run in a bromux session that
-    /// outlives helmterm (settings.persistentSessions, where bro has them).
+    /// outlives term (settings.persistentSessions, where bro has them).
     get persistent() {
         return term.caps.persistent && !!this.app && !!this.app.settings.values.persistentSessions;
     }
@@ -119,7 +119,7 @@ export class Pane extends Emitter {
             this.server = server || null;
             return true;
         } catch (e) {
-            console.error('helmterm: cannot attach to session ' + id + ': ' + e.message);
+            console.error('term: cannot attach to session ' + id + ': ' + e.message);
             return false;
         }
     }
@@ -144,7 +144,7 @@ export class Pane extends Emitter {
         } catch (e) {
             this.startError = (e && e.message) || String(e);
             const cmd = this.launch.spawn.command || 'the default shell';
-            this.el.feed('\x1b[31mhelmterm: could not start ' + cmd + '\x1b[0m\r\n' + this.startError + '\r\n');
+            this.el.feed('\x1b[31mterm: could not start ' + cmd + '\x1b[0m\r\n' + this.startError + '\r\n');
             this._showBanner('Could not start ' + cmd + '. Enter restarts, ' + 'Ctrl+Shift+W closes.');
             this.exited = true;
             return false;
@@ -319,7 +319,7 @@ export class Pane extends Emitter {
         this.emit('exit', this);
     }
 
-    /// The element let go of its session without helmterm asking (the
+    /// The element let go of its session without term asking (the
     /// server went away): the program may still run, but not here.
     _detached() {
         if (this._releasing || this.exited) return;
@@ -370,7 +370,7 @@ export class Pane extends Emitter {
 
     /// Stop the process (if any) and take the pane out of the document.
     /// A persistent session is closed too: closing the pane is the user
-    /// ending it (quitting helmterm uses release() instead).
+    /// ending it (quitting term uses release() instead).
     dispose() {
         const sid = this.sessionId;
         if (sid) { if (!this.released) term.closeSession(sid, this.server); }

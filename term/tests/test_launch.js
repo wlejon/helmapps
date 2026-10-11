@@ -1,4 +1,4 @@
-// The command line (helmterm [-p profile] [-d dir] [-t title] [-- command
+// The command line (term [-p profile] [-d dir] [-t title] [-- command
 // args...]) and closing with something still running (the in-app
 // confirmation, never a native dialog).
 
@@ -21,7 +21,7 @@ eq(parseArgs(['--no-restore']).noRestore, true, '--no-restore');
 eq(parseArgs([]).commandline, null, 'nothing asked');
 
 if (requireApp() && !childAvailable()) {
-    skipTest('helmterm-testchild is not built beside the headless binary');
+    skipTest('term-testchild is not built beside the headless binary');
 } else if (app) {
     const ws = app.workspace;
     eq(app.host.argv, bro.app.argv, 'the UI sees the command line after the app folder');

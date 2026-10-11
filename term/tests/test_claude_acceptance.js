@@ -1,4 +1,4 @@
-// Acceptance test: Claude Code in helmterm
+// Acceptance test: Claude Code in term
 // Exercises command execution, fast output streaming, Unicode/formatting,
 // terminal resize, keyboard interrupts, and clean process exit.
 
@@ -13,7 +13,7 @@ if (requireApp()) {
     const ws = app.workspace;
     writeSettings({ confirmClose: 'never' });
 
-    console.log('test_claude_acceptance: testing Claude Code in helmterm');
+    console.log('test_claude_acceptance: testing Claude Code in term');
 
     if (hasClaude) {
         // ── 1. Fast streaming output & CLI invocation: claude --version ──

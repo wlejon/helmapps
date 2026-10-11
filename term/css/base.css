@@ -1,4 +1,4 @@
-/* helmterm: the frame. Colours are custom properties the application sets
+/* term: the frame. Colours are custom properties the application sets
    from the active colour scheme (core/schemes.js chromeVariables), so the
    chrome always matches the terminals. These are the fallbacks. */
 

@@ -10,9 +10,9 @@
 #
 # Environment:
 #   BRO_HEADLESS       the bro-headless binary (default: ../bro's build tree)
-#   HELMTERM_TESTCHILD helmterm's test child; by default bro's bro_pty_child
+#   BRO_TERM_TESTCHILD term's test child; by default bro's bro_pty_child
 #                      (beside bro-headless) copied under the name
-#                      helmterm-testchild, which selects its reporting mode
+#                      term-testchild, which selects its reporting mode
 #   TEST_TIMEOUT       seconds per test (default 180)
 #   VERBOSE            set: print a passing test's console.log lines too
 #                      (the timings a perf test reports)
@@ -42,13 +42,13 @@ echo "bro-headless: $headless"
 work=$(mktemp -d "${TMPDIR:-/tmp}/helmapps-tests.XXXXXX")
 trap 'rm -rf "$work"' EXIT
 
-# helmterm's test child: bro_pty_child under a name containing "testchild".
-if [ -z "${HELMTERM_TESTCHILD:-}" ]; then
+# term's test child: bro_pty_child under a name containing "testchild".
+if [ -z "${BRO_TERM_TESTCHILD:-}" ]; then
     src="$(dirname "$headless")/bro_pty_child$exe"
     if [ -x "$src" ]; then
         mkdir -p "$work/bin"
-        cp "$src" "$work/bin/helmterm-testchild$exe"
-        export HELMTERM_TESTCHILD="$work/bin/helmterm-testchild$exe"
+        cp "$src" "$work/bin/term-testchild$exe"
+        export BRO_TERM_TESTCHILD="$work/bin/term-testchild$exe"
     else
         echo "run_tests: no bro_pty_child beside bro-headless; tests that need the child skip" >&2
     fi
@@ -69,7 +69,7 @@ for appdir in "$here"/*/; do
         log="$work/$app-$name.log"
         start=$(date +%s)
         # The app's own folder is trusted, so a test may use the privileged
-        # namespaces its bro.json asks for ("permissions": helmremote's remote).
+        # namespaces its bro.json asks for ("permissions": remote's remote).
         trusted=$(cd "$appdir" && (pwd -W 2>/dev/null || pwd))
         BRO_TRUSTED_APP_DIR="$trusted" BRO_APP_HOME="$home" timeout "$timeout_s" "$headless" --width 1280 --height 800 "${appdir%/}" "$t" > "$log" 2>&1
         rc=$?

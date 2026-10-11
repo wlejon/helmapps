@@ -51,7 +51,7 @@ export function renderTerminal(ui) {
     wrap.appendChild(text);
 
     const shell = section('Shell integration',
-        'helmterm loads a small script into PowerShell, bash, zsh and fish at launch (your own startup files still run, untouched), so the terminal knows where each prompt, command and output is.');
+        'Terminal loads a small script into PowerShell, bash, zsh and fish at launch (your own startup files still run, untouched), so the terminal knows where each prompt, command and output is.');
     shell.appendChild(row('Shell integration', checkbox(v.shellIntegration, set('shellIntegration'), 'set-shellIntegration'),
         'For new panes. A profile can turn it off for itself.'));
     shell.appendChild(row('Command marks', checkbox(v.commandMarks, set('commandMarks'), 'set-commandMarks'),
@@ -69,10 +69,10 @@ export function renderTerminal(ui) {
         { value: 'both', label: 'Flash and play the sound' },
         { value: 'none', label: 'Ignore' }], v.bell, set('bell'), 'set-bell')));
     att.appendChild(row('Desktop notifications', select([
-        { value: 'unfocused', label: 'When helmterm or the tab is not in view' },
+        { value: 'unfocused', label: 'When Terminal or the tab is not in view' },
         { value: 'always', label: 'Always' },
         { value: 'never', label: 'Never' }], v.desktopNotifications, set('desktopNotifications'), 'set-desktopNotifications'),
-        'Programs\' notifications (OSC 9, 777, 99) and long commands. They also show in helmterm and on the tab.'));
+        'Programs\' notifications (OSC 9, 777, 99) and long commands. They also show in Terminal and on the tab.'));
     wrap.appendChild(att);
     return wrap;
 }

@@ -38,7 +38,7 @@ Each app keeps its own `GAPS.md` in the same format (see AGENTS.md).
 - `openApp(id, args)` is `bro.app.open`: another app by id on every platform
   (installed, else in this project), single-instance hand-off included.
 - Apps post desktop notifications with the web `Notification` API (toast,
-  notification center, D-Bus); helmterm's notify-send/osascript fallback is
+  notification center, D-Bus); the terminal's notify-send/osascript fallback is
   gone.
 - A notification's `click` (with `event.action` for its `actions` buttons)
   and `close` reach the app; a click raises the window, and one after the

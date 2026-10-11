@@ -1,11 +1,11 @@
-// Shared helpers for helmterm's headless UI tests. Each test runs the real app
+// Shared helpers for term's headless UI tests. Each test runs the real app
 // under the stock bro-headless with fresh per-app directories (BRO_APP_HOME,
 // set by scripts/run_tests.sh), real processes and the real file watcher.
 
 const fs = require('fs');
 const path = require('path');
 
-export const app = window.helmterm;
+export const app = window.term;
 
 /// Pump frames and give real threads (PTYs, the watcher) wall time until
 /// `pred()` holds. Fails the test when it never does.
@@ -35,9 +35,9 @@ export function eq(actual, expected, what) {
     assert(a === e, what + ': got ' + a + ', want ' + e);
 }
 
-/// The test child beside the headless binary (HELMTERM_TESTCHILD overrides).
-export const CHILD = process.env.HELMTERM_TESTCHILD || path.join(path.dirname(process.execPath),
-    process.platform === 'win32' ? 'helmterm-testchild.exe' : 'helmterm-testchild');
+/// The test child beside the headless binary (BRO_TERM_TESTCHILD overrides).
+export const CHILD = process.env.BRO_TERM_TESTCHILD || path.join(path.dirname(process.execPath),
+    process.platform === 'win32' ? 'term-testchild.exe' : 'term-testchild');
 
 export function childAvailable() { return fs.existsSync(CHILD); }
 
@@ -137,7 +137,7 @@ export function childProfile(name, report, extra) {
 }
 
 export function requireApp() {
-    if (!app) { assert(false, 'window.helmterm is missing: the UI did not start'); return false; }
+    if (!app) { assert(false, 'window.term is missing: the UI did not start'); return false; }
     if (!bro.terminal || !bro.terminal.available) {
         skipTest('<terminal> is compiled out of this build');
         return false;

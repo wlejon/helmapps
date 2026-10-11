@@ -210,7 +210,7 @@ export class ProfileSet {
         if (!cwd && !p.wsl) cwd = host.homeDir;
 
         const env = {
-            TERM_PROGRAM: 'helmterm',
+            TERM_PROGRAM: 'bro-term',
             TERM_PROGRAM_VERSION: host.version,
             COLORTERM: 'truecolor',
             ...(host.platform !== 'win32' ? { TERM: 'xterm-256color' } : {}),

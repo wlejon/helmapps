@@ -19,7 +19,7 @@ function into(pane, text) {
 }
 
 if (requireApp() && !childAvailable()) {
-    skipTest('helmterm-testchild is not built beside the headless binary');
+    skipTest('term-testchild is not built beside the headless binary');
 } else if (app) {
     const ws = app.workspace;
     writeSettings({

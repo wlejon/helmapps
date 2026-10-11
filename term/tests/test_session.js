@@ -10,7 +10,7 @@ const win = process.platform === 'win32';
 const norm = (p) => { let r = fs.realpathSync(p); if (win) r = r.toLowerCase(); return r.replace(/[\\/]+$/, ''); };
 
 if (requireApp() && !childAvailable()) {
-    skipTest('helmterm-testchild is not built beside the headless binary');
+    skipTest('term-testchild is not built beside the headless binary');
 } else if (app) {
     const ws = app.workspace;
     const dirA = path.join(configDir, 'proj a');

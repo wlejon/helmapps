@@ -46,8 +46,8 @@ helmapps/
   briefs/            one brief per app: what to build, how it is tested
   docs/performance.md  starting fast and staying responsive, and measuring both
   diskusage/         the reference app: copy its shape
-  helmterm/          the terminal (older, predates the kit; do not copy its CSS)
-  helmremote/        the remote viewer (same)
+  term/              the terminal (older, predates the kit; do not copy its CSS)
+  remote/            the remote viewer (same)
   <your app>/        yours
   scripts/run_tests.sh
 ```

@@ -1,6 +1,6 @@
-// The seam between helmterm and bro's <terminal> element.
+// The seam between term and bro's <terminal> element.
 //
-// Everything helmterm asks of the element goes through this file. It uses the
+// Everything term asks of the element goes through this file. It uses the
 // element's own API where this build has it and degrades where it does not,
 // so a new capability is one place to wire up, not a hunt through the UI.
 //
@@ -217,7 +217,7 @@ export function applyTheme(el, scheme) {
     if (!scheme) return false;
     if (caps.theme) {
         try { el.theme = themeFromScheme(scheme); return true; } catch (e) {
-            console.error('helmterm: theme: ' + e.message);
+            console.error('term: theme: ' + e.message);
         }
     }
     // An element without `theme`: the CSS custom properties it reads.
@@ -273,7 +273,7 @@ export function applyOptions(el, b) {
         // One bad key should not lose the rest.
         for (const k of OPTION_KEYS) {
             if (!(k in o)) continue;
-            try { el.options = { [k]: o[k] }; } catch (_) { console.error('helmterm: option ' + k + ': ' + _.message); }
+            try { el.options = { [k]: o[k] }; } catch (_) { console.error('term: option ' + k + ': ' + _.message); }
         }
         return false;
     }
@@ -289,7 +289,7 @@ export function applyCursor(el, style, blink) {
     if (typeof blink === 'boolean') opts.cursorBlink = blink;
     if (caps.options && Object.keys(opts).length > 0) {
         try { el.options = opts; return true; } catch (e) {
-            console.error('helmterm: applyCursor: ' + e.message);
+            console.error('term: applyCursor: ' + e.message);
         }
     }
     const codes = CURSOR_CODES[style] || CURSOR_CODES.block;
@@ -301,7 +301,7 @@ export function applyScrollback(el, lines) {
     const n = Math.max(0, Math.min(1000000, Math.round(Number(lines) || 0)));
     if (caps.options) {
         try { el.options = { scrollback: n }; return true; } catch (e) {
-            console.error('helmterm: applyScrollback: ' + e.message);
+            console.error('term: applyScrollback: ' + e.message);
         }
     }
     if (has('scrollbackLimit')) { el.scrollbackLimit = n; return true; }

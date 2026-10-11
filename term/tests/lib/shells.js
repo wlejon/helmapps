@@ -31,11 +31,11 @@ export function shellProfiles() {
 export function makeHome(tag) {
     const home = path.join(app.settings.dir, 'home-' + tag);
     fs.mkdirSync(home, { recursive: true });
-    fs.writeFileSync(path.join(home, '.bashrc'), 'export HELMTERM_T_RC=bashrc\n');
-    fs.writeFileSync(path.join(home, '.bash_profile'), 'export HELMTERM_T_LOGIN=bash_profile\n. "$HOME/.bashrc"\n');
-    fs.writeFileSync(path.join(home, '.zshrc'), 'export HELMTERM_T_RC=zshrc\nPS1="zsh> "\n');
+    fs.writeFileSync(path.join(home, '.bashrc'), 'export BRO_TERM_T_RC=bashrc\n');
+    fs.writeFileSync(path.join(home, '.bash_profile'), 'export BRO_TERM_T_LOGIN=bash_profile\n. "$HOME/.bashrc"\n');
+    fs.writeFileSync(path.join(home, '.zshrc'), 'export BRO_TERM_T_RC=zshrc\nPS1="zsh> "\n');
     fs.mkdirSync(path.join(home, '.config', 'fish'), { recursive: true });
-    fs.writeFileSync(path.join(home, '.config', 'fish', 'config.fish'), 'set -gx HELMTERM_T_RC fishrc\n');
+    fs.writeFileSync(path.join(home, '.config', 'fish', 'config.fish'), 'set -gx BRO_TERM_T_RC fishrc\n');
     return home;
 }
 
@@ -48,7 +48,7 @@ export function homeEnv(home) {
 export function script(kind) {
     if (kind === 'powershell') {
         return {
-            ok: 'echo helmterm-one',
+            ok: 'echo term-one',
             fail: WIN ? 'cmd /c exit 3' : "bash -c 'exit 3'",
             failCode: 3,
             show: (v) => 'echo "' + v + '=$env:' + v + '"',
@@ -58,7 +58,7 @@ export function script(kind) {
         };
     }
     const sh = {
-        ok: 'echo helmterm-one',
+        ok: 'echo term-one',
         fail: '(exit 3)',
         failCode: 3,
         show: (v) => 'echo "' + v + '=$' + v + '"',

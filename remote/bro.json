@@ -5,7 +5,7 @@
     "description": "View and drive another machine's helm (or any broremote host) over ssh or a local socket",
     "icon": "assets/icon.svg",
     "categories": ["Network", "RemoteAccess"],
-    "keywords": ["remote", "desktop", "viewer", "broremote", "ssh", "helmremote"],
+    "keywords": ["remote", "desktop", "viewer", "broremote", "ssh", "remote"],
     "permissions": ["remote"],
     "app": ".",
     "width": 1280,

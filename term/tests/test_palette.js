@@ -84,7 +84,7 @@ if (requireApp()) {
     assert(app.overlays.isOpen('menu'), 'the dropdown opens');
     const items = [...document.querySelectorAll('.menu-item .menu-label')].map((e) => e.textContent);
     for (const p of app.profiles.visible()) assert(items.includes(p.name), 'the menu lists ' + p.name);
-    assert(items.includes('Settings') && items.includes('About helmterm'), 'and the app entries');
+    assert(items.includes('Settings') && items.includes('About Terminal'), 'and the app entries');
     const n = ws.tabs.length;
     clickEl(document.querySelectorAll('.menu-item')[0]);
     eq(ws.tabs.length, n + 1, 'choosing a profile opens a tab');

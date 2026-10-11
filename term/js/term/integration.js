@@ -1,18 +1,18 @@
-// Shell integration: helmterm's scripts loaded into a shell at launch, so it
+// Shell integration: term's scripts loaded into a shell at launch, so it
 // marks its prompts, commands and exit codes (OSC 133 A/B/C/D), reports its
 // directory (OSC 7) and the command line (OSC 633;E) where it can. The
 // user's own startup files are never edited; each shell is given ours by a
 // route that still runs theirs:
 //
-//   pwsh, powershell  -NoExit -Command ". '<ui>/shell-integration/powershell/helmterm.ps1'"
+//   pwsh, powershell  -NoExit -Command ". '<ui>/shell-integration/powershell/bro-term.ps1'"
 //                     (the profile loads first, as usual, then ours)
-//   bash              --init-file <ui>/shell-integration/bash/helmterm.bash, which
+//   bash              --init-file <ui>/shell-integration/bash/bro-term.bash, which
 //                     sources ~/.bashrc (or, for a login shell, /etc/profile and
 //                     the first of ~/.bash_profile, ~/.bash_login, ~/.profile)
 //   zsh               ZDOTDIR=<ui>/shell-integration/zsh, whose files source the
 //                     user's real ZDOTDIR files and then hand ZDOTDIR back
 //   fish              <ui>/shell-integration/fish prepended to XDG_DATA_DIRS, so
-//                     fish loads vendor_conf.d/helmterm.fish; it then removes
+//                     fish loads vendor_conf.d/bro-term.fish; it then removes
 //                     itself from XDG_DATA_DIRS
 //
 // A profile turns this off with "shellIntegration": false. Nothing is
@@ -72,14 +72,14 @@ export function applyIntegration(launch, opts) {
     const args = spawn.args.slice();
     if (!interactive(kind, args)) return launch;
     const env = spawn.env;
-    env.HELMTERM_SHELL_INTEGRATION = '1';
+    env.BRO_TERM_SHELL_INTEGRATION = '1';
 
     if (kind === 'powershell') {
-        const script = host.join(dir, 'powershell', 'helmterm.ps1');
+        const script = host.join(dir, 'powershell', 'bro-term.ps1');
         if (!host.isFile(script)) return launch;
         spawn.args = [...args, '-NoExit', '-Command', ". '" + script.replace(/'/g, "''") + "'"];
     } else if (kind === 'bash') {
-        const script = host.join(dir, 'bash', 'helmterm.bash');
+        const script = host.join(dir, 'bash', 'bro-term.bash');
         if (!host.isFile(script)) return launch;
         let login = false;
         const rest = [];
@@ -94,21 +94,21 @@ export function applyIntegration(launch, opts) {
             rest.push(a);
         }
         if (!rest.some((a) => /^-[a-z]*i[a-z]*$/.test(a))) rest.push('-i');
-        if (login) env.HELMTERM_BASH_LOGIN = '1';
+        if (login) env.BRO_TERM_BASH_LOGIN = '1';
         // Long options before single-letter ones: bash insists.
         spawn.args = ['--init-file', fwd(script), ...rest];
     } else if (kind === 'zsh') {
         const zdir = host.join(dir, 'zsh');
         if (!host.isFile(host.join(zdir, '.zshrc'))) return launch;
         const userZ = env.ZDOTDIR || host.env('ZDOTDIR');
-        if (userZ) env.HELMTERM_USER_ZDOTDIR = userZ;
+        if (userZ) env.BRO_TERM_USER_ZDOTDIR = userZ;
         env.ZDOTDIR = zdir;
     } else if (kind === 'fish') {
         const fdir = host.join(dir, 'fish');
-        if (!host.isFile(host.join(fdir, 'fish', 'vendor_conf.d', 'helmterm.fish'))) return launch;
+        if (!host.isFile(host.join(fdir, 'fish', 'vendor_conf.d', 'bro-term.fish'))) return launch;
         const prior = env.XDG_DATA_DIRS || host.env('XDG_DATA_DIRS');
-        if (!prior) env.HELMTERM_XDG_DATA_DIRS_UNSET = '1';
-        env.HELMTERM_FISH_DATA = fdir;
+        if (!prior) env.BRO_TERM_XDG_DATA_DIRS_UNSET = '1';
+        env.BRO_TERM_FISH_DATA = fdir;
         env.XDG_DATA_DIRS = fdir + ':' + (prior || '/usr/local/share:/usr/share');
     }
     launch.integration = kind;

@@ -71,10 +71,10 @@ if (requireApp()) {
         const t = ws.openTab({ commandline: [CHILD], title: null });
         const p = t.focused;
         waitFor(() => p.el.screenText().includes('TESTCHILD READY'), 'the child');
-        p.el.feed('\x1b]2;compiling helmterm\x07');
-        waitFor(() => t.title === 'compiling helmterm', 'the tab to take the program\'s title');
-        waitFor(() => document.querySelector('#tabs .tab.active .tab-title').textContent === 'compiling helmterm', 'the strip to show it');
-        eq(document.title, 'compiling helmterm', 'the window title follows the active tab');
+        p.el.feed('\x1b]2;compiling term\x07');
+        waitFor(() => t.title === 'compiling term', 'the tab to take the program\'s title');
+        waitFor(() => document.querySelector('#tabs .tab.active .tab-title').textContent === 'compiling term', 'the strip to show it');
+        eq(document.title, 'compiling term', 'the window title follows the active tab');
 
         // Activity and bell on a background tab.
         app.commands.run('switchToTab', { index: 0 });

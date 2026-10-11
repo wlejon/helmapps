@@ -13,7 +13,7 @@
 //
 // This is a deliberately small dispatcher. brokeys has the full engine (when
 // clauses, chords, import/export to other applications' formats) as a C++
-// library; helmterm moves to it once it has a JS binding.
+// library; term moves to it once it has a JS binding.
 
 const MOD_ALIASES = { ctrl: 'ctrl', control: 'ctrl', shift: 'shift', alt: 'alt', option: 'alt', opt: 'alt',
     meta: 'meta', cmd: 'meta', command: 'meta', win: 'meta', super: 'meta' };

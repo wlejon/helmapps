@@ -1,5 +1,5 @@
 // The single-instance hand-off: bro.json declares singleInstance, so a second
-// `bro helmterm ...` hands its command line and working directory to the
+// `bro term ...` hands its command line and working directory to the
 // running process (bro.app's 'instance' event) instead of opening a window.
 // Here the event is simulated in-process; bro's own tests/app cover the
 // real two-process hand-off.
@@ -18,7 +18,7 @@ eq(bro.app.manifest.singleInstance, true, 'singleInstance from bro.json');
 eq(norm(app.settings.dir), norm(bro.app.configDir), 'settings live in bro.app.configDir');
 
 if (requireApp() && !childAvailable()) {
-    skipTest('helmterm-testchild is not built beside the headless binary');
+    skipTest('term-testchild is not built beside the headless binary');
 } else if (app) {
     const ws = app.workspace;
     const from = path.join(configDir, 'launched from');

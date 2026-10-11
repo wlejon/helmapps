@@ -19,7 +19,7 @@ function launchAndReport(report, open) {
 }
 
 if (requireApp() && !childAvailable()) {
-    skipTest('helmterm-testchild is not built beside the headless binary');
+    skipTest('term-testchild is not built beside the headless binary');
 } else if (app) {
     const ws = app.workspace;
 
@@ -53,13 +53,13 @@ if (requireApp() && !childAvailable()) {
     const repDefault = reportPath('default');
     const repExit = reportPath('exit');
     writeSettings({
-        environment: { HELMTERM_T_GLOBAL: 'g' },
+        environment: { BRO_TERM_T_GLOBAL: 'g' },
         confirmClose: 'never',
         profiles: {
-            defaults: { env: { HELMTERM_T_DEFAULT: 'yes' } },
+            defaults: { env: { BRO_TERM_T_DEFAULT: 'yes' } },
             list: [
                 childProfile('Child A', repA, { args: ['alpha', 'two words', '--flag=x', ''], cwd: work,
-                    env: { HELMTERM_T_FOO: 'bar baz' } }),
+                    env: { BRO_TERM_T_FOO: 'bar baz' } }),
                 childProfile('Child Hidden', reportPath('hidden'), { hidden: true }),
                 childProfile('Child Exit0', reportPath('exit0'), { env: { TESTCHILD_EXIT: '0' } }),
                 childProfile('Child Exit3', repExit, { env: { TESTCHILD_EXIT: '3' } }),
@@ -75,10 +75,10 @@ if (requireApp() && !childAvailable()) {
     const expectA = (data, what) => {
         eq(data.argv, ['alpha', 'two words', '--flag=x', ''], what + ': argv');
         eq(norm(data.cwd), norm(work), what + ': cwd');
-        eq(data.env.HELMTERM_T_FOO, 'bar baz', what + ': profile env');
-        eq(data.env.HELMTERM_T_DEFAULT, 'yes', what + ': profiles.defaults env');
-        eq(data.env.HELMTERM_T_GLOBAL, 'g', what + ': global environment');
-        eq(data.env.TERM_PROGRAM, 'helmterm', what + ': TERM_PROGRAM');
+        eq(data.env.BRO_TERM_T_FOO, 'bar baz', what + ': profile env');
+        eq(data.env.BRO_TERM_T_DEFAULT, 'yes', what + ': profiles.defaults env');
+        eq(data.env.BRO_TERM_T_GLOBAL, 'g', what + ': global environment');
+        eq(data.env.TERM_PROGRAM, 'bro-term', what + ': TERM_PROGRAM');
         eq(data.env.COLORTERM, 'truecolor', what + ': COLORTERM');
         if (!win) eq(data.env.TERM, 'xterm-256color', what + ': TERM');
     };
@@ -112,7 +112,7 @@ if (requireApp() && !childAvailable()) {
     // A command line in place of the profile's command keeps its environment.
     r = launchAndReport(repA, () => ws.openTab({ profile: 'Child A', commandline: [CHILD, 'x y', 'z'] }));
     eq(r.data.argv, ['x y', 'z'], 'commandline override: argv');
-    eq(r.data.env.HELMTERM_T_FOO, 'bar baz', 'commandline override keeps the profile env');
+    eq(r.data.env.BRO_TERM_T_FOO, 'bar baz', 'commandline override keeps the profile env');
 
     // defaultProfile decides what a plain new tab runs.
     app.settings.set('defaultProfile', 'Child Default');

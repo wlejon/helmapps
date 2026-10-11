@@ -1,6 +1,6 @@
-# helmterm shell integration for PowerShell 7 and Windows PowerShell 5.1.
+# term shell integration for PowerShell 7 and Windows PowerShell 5.1.
 #
-# helmterm runs this with -NoExit -Command after the user's profile has
+# term runs this with -NoExit -Command after the user's profile has
 # loaded. It marks the prompt (OSC 133 A and B), the command's start (C) and
 # end with its exit code (D), reports the command line (OSC 633;E) and the
 # directory (OSC 7). The user's prompt function and PSReadLine stay in

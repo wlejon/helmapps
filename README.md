@@ -8,8 +8,8 @@ library exposed as `bro.<x>`), never into the app.
 
 | App | id | What |
 |-----|----|------|
-| [helmterm](helmterm/) | `helm.term` | Terminal: tabs, splits, profiles and shell integration over bro's `<terminal>` element |
-| [helmremote](helmremote/) | `helm.remote` | Remote desktop viewer: a helm session over broremote, shown in bro's `<remoteview>` (hardware decode, zero-copy on Windows), with keyboard and pointer capture and audio both ways |
+| [term](term/) | `helm.term` | Terminal: tabs, splits, profiles and shell integration over bro's `<terminal>` element |
+| [remote](remote/) | `helm.remote` | Remote desktop viewer: a helm session over broremote, shown in bro's `<remoteview>` (hardware decode, zero-copy on Windows), with keyboard and pointer capture and audio both ways |
 | [diskusage](diskusage/) | `helm.diskusage` | Disk usage analyzer, and the kit's reference app |
 
 ## Building an app
@@ -27,10 +27,10 @@ gaps found so far are in [GAPS.md](GAPS.md).
 ## Running
 
 ```bash
-bro helmterm                     # from this directory
-bro helmterm -- htop             # arguments after the folder go to the app
-bro --install helmterm --link    # install it (Linux: also writes helm.term.desktop)
-bro helm.term                    # run an installed app by its id
+bro term                     # from this directory
+bro term -- htop             # arguments after the folder go to the app
+bro --install term --link    # install it (Linux: also writes helm.term.desktop)
+bro helm.term                # run an installed app by its id
 ```
 
 The manifest keys (`id`, `singleInstance`, `actions`, `fileTypes`,
@@ -42,13 +42,13 @@ the runtime side is `bro.app` ([docs/app-api.js](https://github.com/wlejon/bro/b
 ## Tests
 
 ```bash
-scripts/run_tests.sh               # every app
-scripts/run_tests.sh helmterm      # one app
-scripts/run_tests.sh helmterm tabs # tests whose name contains "tabs"
+scripts/run_tests.sh           # every app
+scripts/run_tests.sh term      # one app
+scripts/run_tests.sh term tabs # tests whose name contains "tabs"
 ```
 
 Each `<app>/tests/test_*.js` runs under `bro-headless` (`BRO_HEADLESS`, else
 `../bro`'s build tree) with its own `BRO_APP_HOME`, so the tests never touch
-your settings. helmterm's tests drive a test child: bro's `bro_pty_child`
-copied as `helmterm-testchild`, the name that selects its reporting mode
-(`HELMTERM_TESTCHILD` overrides). Exit status 77 is a skip.
+your settings. The terminal's tests drive a test child: bro's `bro_pty_child`
+copied as `term-testchild`, the name that selects its reporting mode
+(`BRO_TERM_TESTCHILD` overrides). Exit status 77 is a skip.

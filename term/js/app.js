@@ -1,4 +1,4 @@
-// helmterm: the application. Wires the models (settings, profiles, schemes,
+// term: the application. Wires the models (settings, profiles, schemes,
 // keybindings, the command registry) to the views (tab strip, workspace,
 // overlays) and owns the keyboard.
 
@@ -36,7 +36,7 @@ export class App {
         this.dialog = this.overlays;
         this.attention = new Attention(this);
         this.lastLink = null;      // the last link a Ctrl+click activated
-        this.lastCopied = null;    // the last text helmterm itself copied
+        this.lastCopied = null;    // the last text term itself copied
         this.workspace = new Workspace(this, document.getElementById('workspace'));
         this.tabbar = new TabBar(this, document.getElementById('tabbar'));
         this.palette = new Palette(this);
@@ -61,7 +61,7 @@ export class App {
     /// and the tab the command line asks for.
     start(argv) {
         const opts = parseArgs(argv || []);
-        for (const e of opts.errors) this.toast('helmterm: ' + e, 'error');
+        for (const e of opts.errors) this.toast('term: ' + e, 'error');
         if (!host.terminalAvailable()) {
             this.toast('This build of bro has no <terminal> element (BRO_WITH_TERMINAL is off).', 'error');
         }
@@ -84,7 +84,7 @@ export class App {
         return opts;
     }
 
-    /// Another launch of helmterm handed its command line over (bro.json's
+    /// Another launch of term handed its command line over (bro.json's
     /// singleInstance). `--new-window` gets a window of its own, as a separate
     /// process; anything else opens a tab here, a relative --directory taken
     /// from the directory that launch ran in.
@@ -196,7 +196,7 @@ export class App {
     overlayOpen() { return this.overlays.isOpen(); }
 
     toast(text, kind) {
-        if (kind === 'error') console.error('helmterm: ' + text);
+        if (kind === 'error') console.error('term: ' + text);
         return this.overlays.toast(text, kind);
     }
 
@@ -213,7 +213,7 @@ export class App {
         items.push({ separator: true });
         items.push({ label: 'Settings', hint: this.keymap.keyFor('openSettings'), run: () => this.commands.run('openSettings') });
         items.push({ label: 'Command palette', hint: this.keymap.keyFor('commandPalette'), run: () => this.commands.run('commandPalette') });
-        items.push({ label: 'About helmterm', run: () => this.commands.run('about') });
+        items.push({ label: 'About Terminal', run: () => this.commands.run('about') });
         return this.overlays.menu(items, anchor || document.getElementById('new-tab-menu'));
     }
 
@@ -250,7 +250,7 @@ export class App {
         const keep = this.settings.values.restoreSession;
         const ending = this.workspace.allPanes().filter((p) => !(keep && p.sessionId));
         if (this.workspace.needsConfirm(ending)) {
-            const ok = await this.overlays.confirm({ title: 'Quit helmterm?', message: 'Processes are still running in some panes.', confirm: 'Quit' });
+            const ok = await this.overlays.confirm({ title: 'Quit Terminal?', message: 'Processes are still running in some panes.', confirm: 'Quit' });
             if (!ok) return false;
         }
         this.session.save.flush();

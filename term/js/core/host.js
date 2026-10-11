@@ -1,4 +1,4 @@
-// The host: what bro's runtime gives the UI. helmterm is a folder app run by
+// The host: what bro's runtime gives the UI. term is a folder app run by
 // the stock bro binary, so everything here is a standard bro API: bro.app
 // (identity, argv, per-app directories, the single-instance hand-off,
 // spawning another instance), bro.window (the desktop), bro.terminal, and
@@ -26,7 +26,7 @@ function ensureDir(dir) {
 // The first run brings over settings left by broterm, the native app this
 // one replaced, so nobody's profiles and keybindings vanish.
 function configDir() {
-    const dir = ensureDir(app ? app.configDir : path.join(os.homedir(), '.helmterm'));
+    const dir = ensureDir(app ? app.configDir : path.join(os.homedir(), '.bro-term'));
     try {
         if (env('BRO_APP_HOME') || fs.existsSync(path.join(dir, 'settings.json'))) return dir;
         let old;
@@ -41,7 +41,7 @@ function configDir() {
             if (fs.existsSync(from)) fs.writeFileSync(path.join(dir, name), fs.readFileSync(from, 'utf-8'), 'utf-8');
         }
     } catch (e) {
-        console.error('helmterm: cannot bring over broterm settings: ' + e.message);
+        console.error('term: cannot bring over broterm settings: ' + e.message);
     }
     return dir;
 }
@@ -105,7 +105,7 @@ export const host = {
         if (typeof bro !== 'undefined' && typeof bro.quit === 'function') { bro.quit(); return true; }
         return false;
     },
-    // A second helmterm process (bypassing the single-instance hand-off):
+    // A second term process (bypassing the single-instance hand-off):
     // what "new window" is until bro can open a second top-level window that
     // hosts the same application.
     spawnSelf(args) {
@@ -113,13 +113,13 @@ export const host = {
         try {
             return app.spawn(args || [], { newInstance: true });
         } catch (e) {
-            console.error('helmterm: new window failed: ' + e.message);
+            console.error('term: new window failed: ' + e.message);
             return false;
         }
     },
 
     // ── the clipboard ──
-    // What helmterm itself copies (a command's output, a command line) and
+    // What term itself copies (a command's output, a command line) and
     // reads (answering a program's OSC 52 request). Headless keeps it in the
     // process, as bro's <terminal> does, so a test never touches the user's
     // clipboard.
@@ -129,7 +129,7 @@ export const host = {
             const t = String(text == null ? '' : text);
             if (headless || typeof navigator === 'undefined' || !navigator.clipboard) { this.local = t; return Promise.resolve(true); }
             return navigator.clipboard.writeText(t).then(() => true, (e) => {
-                console.error('helmterm: clipboard write: ' + (e && e.message));
+                console.error('term: clipboard write: ' + (e && e.message));
                 return false;
             });
         },
@@ -163,7 +163,7 @@ export const host = {
                     return bro.window.beep();
                 }
             } catch (e) {
-                console.error('helmterm: bro.window ' + kind + ': ' + e.message);
+                console.error('term: bro.window ' + kind + ': ' + e.message);
             }
         }
         return false;
@@ -198,10 +198,10 @@ export const host = {
     watchDir(dir, onChange) {
         try {
             const w = fs.watch(dir, {}, (event, filename) => onChange(event, filename || ''));
-            if (w && typeof w.on === 'function') w.on('error', (err) => console.error('helmterm: watch: ' + err.message));
+            if (w && typeof w.on === 'function') w.on('error', (err) => console.error('term: watch: ' + err.message));
             return w;
         } catch (e) {
-            console.error('helmterm: cannot watch ' + dir + ': ' + e.message);
+            console.error('term: cannot watch ' + dir + ': ' + e.message);
             return null;
         }
     },

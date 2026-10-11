@@ -1,4 +1,4 @@
-// helmremote end to end in one bro-headless: the process hosts its own screen
+// remote end to end in one bro-headless: the process hosts its own screen
 // (bro.remote.host, raw frames on a socket of its own) and the app connects to
 // it, so the view shows the app itself. Checks the command line, the connect
 // screen, the session coming up in the <remoteview>, the statistics overlay,
@@ -32,7 +32,7 @@ eq(parseArgs(['--latency-test', 'many']).errors, ['--latency-test needs a count'
 eq(parseArgs(['--bogus']).errors, ['unknown option --bogus'], 'an unknown option');
 eq(parseArgs(['a', 'b']).errors, ['unexpected argument b'], 'two hosts');
 
-const app = window.helmremote;
+const app = window.remote;
 assert(app, 'the app is up');
 const $ = (id) => document.getElementById(id);
 
@@ -42,7 +42,7 @@ assert(!$('connect').hidden && $('viewer').hidden, 'no host given: the connect s
 assert($('recent-block').hidden, 'nothing recent yet');
 
 // ── host this window, and view it ──
-const socket = 'helmremote-test-' + Math.floor(Math.random() * 1e6);
+const socket = 'remote-test-' + Math.floor(Math.random() * 1e6);
 const hosted = bro.remote.host({ socket, codecs: 'raw', fps: 30 });
 assert(hosted.hosting, 'hosting on ' + socket);
 

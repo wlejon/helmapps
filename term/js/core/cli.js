@@ -1,7 +1,7 @@
 // The command line (bro.app.argv: everything after the app's folder on bro's
 // command line):
 //
-//   helmterm [-p|--profile NAME] [-d|--directory DIR] [-t|--title TITLE]
+//   term [-p|--profile NAME] [-d|--directory DIR] [-t|--title TITLE]
 //           [--no-restore] [--] [command [args...]]
 //
 // Everything after `--`, or from the first argument that is not an option, is

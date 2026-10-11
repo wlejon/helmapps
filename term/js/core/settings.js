@@ -1,7 +1,7 @@
 // The settings: settings.json and keybindings.json in the configuration
 // directory are the source of truth. They are read at start, watched, and
 // re-read whenever either changes on disk (an editor's save, the settings UI,
-// another helmterm). A file that does not parse keeps the last good settings
+// another term). A file that does not parse keeps the last good settings
 // and reports why.
 //
 // Writes from the settings UI go through update(): the file is re-read, the
@@ -14,7 +14,7 @@ import { parseJsonc } from './jsonc.js';
 import { Emitter, debounce } from './emitter.js';
 import { DEFAULT_SETTINGS, DEFAULT_KEYBINDINGS } from './defaults.js';
 
-const SETTINGS_TEMPLATE = `// helmterm settings. This file is watched: saving it applies the change.
+const SETTINGS_TEMPLATE = `// term settings. This file is watched: saving it applies the change.
 // Every key is optional; anything left out takes its default. The settings
 // UI (Ctrl+,) edits this file too. See README.md for every key.
 {
@@ -29,7 +29,7 @@ const SETTINGS_TEMPLATE = `// helmterm settings. This file is watched: saving it
 }
 `;
 
-const KEYBINDINGS_TEMPLATE = `// helmterm keybindings, in VS Code's format: { "key", "command", "args", "when" }.
+const KEYBINDINGS_TEMPLATE = `// term keybindings, in VS Code's format: { "key", "command", "args", "when" }.
 // These are added on top of the defaults; "-command" removes a default.
 // Example: { "key": "ctrl+shift+e", "command": "splitPane", "args": { "direction": "right" } }
 [

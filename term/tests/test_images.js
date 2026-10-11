@@ -10,7 +10,7 @@ const RED = btoa(String.fromCharCode(...[255, 0, 0, 255, 255, 0, 0, 255, 255, 0,
 const KITTY = '\x1b_Ga=T,f=32,s=2,v=2,c=6,r=3;' + RED + '\x1b\\';
 
 if (requireApp() && !childAvailable()) {
-    skipTest('helmterm-testchild is not built beside the headless binary');
+    skipTest('term-testchild is not built beside the headless binary');
 } else if (app && !term.caps.images) {
     skipTest('this build\'s <terminal> has no inline images');
 } else if (app) {

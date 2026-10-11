@@ -1,4 +1,4 @@
-// The command registry: every action helmterm can take, by id. Keybindings,
+// The command registry: every action term can take, by id. Keybindings,
 // the command palette, menus and the tests all run commands through here.
 
 export class CommandRegistry {
@@ -26,13 +26,13 @@ export class CommandRegistry {
     /// the input handler down.
     run(id, args) {
         const c = this.commands.get(id);
-        if (!c) { console.error('helmterm: unknown command ' + id); return false; }
+        if (!c) { console.error('term: unknown command ' + id); return false; }
         if (typeof c.enabled === 'function' && !c.enabled()) return false;
         try {
             const r = c.run(args || {});
             return r === undefined ? true : r;
         } catch (e) {
-            console.error('helmterm: ' + id + ' failed: ' + (e && e.stack || e));
+            console.error('term: ' + id + ' failed: ' + (e && e.stack || e));
             return false;
         }
     }
