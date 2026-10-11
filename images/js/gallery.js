@@ -41,14 +41,18 @@ export function paintThumb(el, url) {
     box.classList.add('loading');
     return;
   }
-  box.classList.remove('loading');
   // One <img> per cell, its src swapped as the cell is recycled: bro decodes
   // off the page thread and keeps decoded pictures by URL, so a preview seen
-  // before shows at once.
+  // before shows at once. The tile stays a placeholder until the <img> has
+  // pixels, so a decode still on its way is not a hole in the grid.
   let img = el._img;
-  if (!img) img = el._img = h('img', { alt: '' });
+  if (!img) {
+    img = el._img = h('img', { alt: '' });
+    img.addEventListener('load', () => { if (img.parentNode) img.parentNode.classList.remove('loading'); });
+  }
   if (img.getAttribute('src') !== url) img.src = url;
   if (box.firstChild !== img) box.replaceChildren(img);
+  box.classList.toggle('loading', !(img.complete && img.naturalWidth));
 }
 
 /**

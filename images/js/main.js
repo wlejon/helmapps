@@ -25,7 +25,7 @@ import { homeDir } from '/lib/files.js';
 import { Viewer } from './viewer.js';
 import { Decoder } from './decoder.js';
 import { Folder } from './folder.js';
-import { Thumbs } from './thumbs.js';
+import { Thumbs, FAILED } from './thumbs.js';
 import { stripList, cellRenderer, paintThumb, visiblePaths } from './gallery.js';
 import { Details } from './details.js';
 import { FileActions } from './actions.js';
@@ -385,12 +385,18 @@ function folderChanged() {
 
 // ---- opening --------------------------------------------------------------------------
 
-/** Open a file or a folder by path (command line, Open, a drop). */
-async function openPath(p, { quiet = false } = {}) {
-  if (!p) return;
+/**
+ * Open a file or a folder by path (command line, Open, a drop). The newest
+ * request wins; `restore` (the last folder, at launch) gives way to any other.
+ */
+let openSeq = 0;
+async function openPath(p, { quiet = false, restore = false } = {}) {
+  if (!p || (restore && openSeq)) return;
+  const seq = ++openSeq;
   p = path.resolve(p);
   let st = null;
   try { st = await fs.promises.stat(p); } catch (_) { st = null; }
+  if (seq !== openSeq) return;
   if (!st) {
     if (!quiet) toast(`Not found: ${p}`, { error: true });
     return;
@@ -448,8 +454,11 @@ function load(p) {
   state.loading = p;
   if (state.pic && state.pic.path !== p) state.pic = null;
   clearTimeout(spinnerTimer);
-  spinnerTimer = setTimeout(() => loadingEl.classList.toggle('hidden', state.loading !== p), 150);
+  // No spinner over a preview standing in for the photo.
+  const previewing = () => !!(viewer.pic && viewer.pic.placeholder && viewer.pic.path === p);
+  spinnerTimer = setTimeout(() => loadingEl.classList.toggle('hidden', state.loading !== p || previewing()), 150);
   if (settings.get('showDetails')) details.show(p, null);
+  if (!decoder.peek(p)) showPreviewOf(p);
   decoder.get(p).then((pic) => {
     // A picture that just arrived from the decoder thread is drawn on the
     // next frame, so taking delivery and uploading it do not share one.
@@ -471,12 +480,36 @@ function load(p) {
   });
 }
 
+/**
+ * While a photo decodes, show its grid preview stretched to fit: moving
+ * through a folder faster than photos decode (Next held down) then shows
+ * every photo at once, a little soft, sharpening where the user stops. The
+ * preview's own size is a few hundred px, so it stands in at a nominal large
+ * size with its aspect; fitting scales it to the stage like the photo.
+ */
+function showPreviewOf(p) {
+  const url = thumbs.ready.get(p);
+  if (!url || url === FAILED) return;
+  const img = new Image();
+  const place = () => {
+    if (state.loading !== p || state.mode !== 'image' || !img.naturalWidth || !img.naturalHeight) return;
+    const k = 8192 / Math.max(img.naturalWidth, img.naturalHeight);
+    viewer.show({ path: p, kind: 'bitmap', source: img, placeholder: true, partial: false, full: null,
+      width: Math.round(img.naturalWidth * k), height: Math.round(img.naturalHeight * k) });
+    loadingEl.classList.add('hidden');
+  };
+  img.onload = place;
+  img.src = url;
+  if (img.complete) place();
+}
+
 function shown(pic) {
+  const fromPreview = !!(viewer.pic && viewer.pic.placeholder && viewer.pic.path === pic.path);
   if (viewer.pic && viewer.pic !== pic) decoder.release(viewer.pic);
   state.loading = '';
   state.pic = pic;
   loadingEl.classList.add('hidden');
-  viewer.show(pic);
+  viewer.show(pic, { keepView: fromPreview });
   if (settings.get('showDetails')) details.show(pic.path, pic);
   prefetchNeighbours();
   updateStatus();
@@ -564,7 +597,7 @@ updateStatus();
 app.onLaunch(({ argv, cwd, first }) => {
   const target = argv.find((a) => !a.startsWith('--'));
   if (target) openPath(path.resolve(cwd || homeDir(), target));
-  else if (first && settings.get('lastFolder')) openPath(settings.get('lastFolder'), { quiet: true });
+  else if (first && settings.get('lastFolder')) openPath(settings.get('lastFolder'), { quiet: true, restore: true });
 });
 
 // For tests and the inspector.

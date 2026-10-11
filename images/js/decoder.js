@@ -43,6 +43,21 @@ class Channel {
     });
   }
 
+  /**
+   * Drop the queued jobs (not the one running) for paths outside `keep`:
+   * holding Next queues a decode per keypress, and only the photo the user
+   * stops on is worth decoding. Each dropped job rejects as `superseded`.
+   */
+  dropExcept(keep) {
+    this.queue = this.queue.filter((job) => {
+      if (keep.has(job.msg.path)) return true;
+      const err = new Error('superseded');
+      err.superseded = true;
+      job.reject(err);
+      return false;
+    });
+  }
+
   /** Move a queued job for `path` to the front. */
   hurry(path) {
     const i = this.queue.findIndex((j) => j.msg.path === path);
@@ -91,8 +106,9 @@ export class Decoder {
     this.maxSide = previewSide();
   }
 
-  /** The picture for `path`, decoded now (ahead of any prefetch). */
+  /** The picture for `path`, decoded now (ahead of any prefetch, which it cancels). */
   get(path) {
+    this.pictures.dropExcept(new Set([path]));
     const hit = this.cache.get(path);
     if (hit) {
       this.cache.delete(path);
@@ -122,6 +138,11 @@ export class Decoder {
     canvas.getContext('2d').drawImage(pic.source, 0, 0, pic.width, pic.height);
     return new Promise((resolve, reject) => canvas.toBlob(
       (b) => (b ? resolve(b) : reject(new Error('could not encode the image'))), 'image/png'));
+  }
+
+  /** The decoded picture for `path` if it is already here, else null (nothing is started). */
+  peek(path) {
+    return this.cache.get(path) || null;
   }
 
   /** Decode these in the background, if nothing more urgent is waiting. */
@@ -190,7 +211,8 @@ export class Decoder {
         : {
         path, kind: 'bitmap', source: m.bitmap, partial: m.bitmap.width < m.width, full: null,
         width: m.width, height: m.height, orientation: m.orientation || 1, exif: m.exif || null, ms: now() - t0,
-      }, (err) => loadOnPage(path, 'img').catch(() => { throw err; }));  // bro.image refused it: try the page's
+      }, (err) => (err.superseded ? Promise.reject(err)                  // nobody wants it any more
+        : loadOnPage(path, 'img').catch(() => { throw err; })));          // bro.image refused it: try the page's
                                                                           // decoder, else say why bro.image could not
     }
     promise = promise.then((pic) => {

@@ -36,7 +36,8 @@
 .iv-grid .vgrid-cell { padding: 0; border-radius: 0; overflow: hidden; background: var(--surface-0); }
 .iv-grid .vgrid-cell:hover { background: var(--surface-0); }
 .iv-grid .iv-thumb { width: 100%; height: 100%; }
-.iv-grid .iv-thumb.loading { border-radius: 0; background: var(--surface-1); }
+/* A tile still waiting for its preview reads as a tile, not a hole in the grid. */
+.iv-grid .iv-thumb.loading { border-radius: 0; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--surface-0); }
 .iv-grid .iv-thumb img { width: 100%; height: 100%; max-width: none; max-height: none; object-fit: cover; border-radius: 0; }
 .iv-grid .vgrid-cell::after { content: ''; position: absolute; left: 0; top: 0; right: 0; bottom: 0; pointer-events: none; }
 .iv-grid .vgrid-cell:hover::after { box-shadow: inset 0 0 0 2px var(--t3); }
