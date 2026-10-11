@@ -50,9 +50,13 @@ export class BurstFeature {
    * strip     the thumbnail strip (multiSelect); folder the folder's items
    * current() the photo on screen (its path), or ''
    * onMode(mode)  'burst' when the stabilize view opens, 'image' when it closes
+   * burstOf(path) the photo's burst as Find Animals grouped it ({ has(path) }), or
+   *               null: when there is one, Select Subject selects that, so the
+   *               frames agree with the grid's bursts (js/wildlife)
    */
-  constructor({ settings, viewer, viewHost, host, strip, folder, current, onMode, onChange }) {
+  constructor({ settings, viewer, viewHost, host, strip, folder, current, onMode, onChange, burstOf = null }) {
     this.settings = settings;
+    this.burstOf = burstOf;
     this.viewer = viewer;
     this.strip = strip;
     this.folder = folder;
@@ -228,9 +232,17 @@ export class BurstFeature {
     }
   }
 
-  /** Select the photo's own burst in the strip (by EXIF time). */
+  /** Select the photo's own burst in the strip (Find Animals' grouping, else by EXIF time). */
   async selectBurst(p) {
     const seq = ++this.selectSeq;
+    const grouped = this.burstOf ? this.burstOf(p) : null;
+    if (grouped) {
+      // Its photos are record paths (forward slashes); the strip's keys are the folder's.
+      const keys = this.strip.items.filter((it) => it.path !== p && grouped.has(it.path)).map((it) => it.path);
+      this.strip.select([p, ...keys], { scroll: false });
+      this.changed();
+      return;
+    }
     const items = this.folder.items;
     const i = this.folder.indexOf(p);
     if (i < 0) return;

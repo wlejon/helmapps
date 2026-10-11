@@ -12,9 +12,10 @@ import { FAILED } from './thumbs.js';
 /**
  * Fill a cell with an item's preview; its name is the cell's tooltip. Every
  * live cell is in `cells`, so a preview that arrives later can be put into
- * the cell still showing that item.
+ * the cell still showing that item. `decorate(item, el)`, if given, adds
+ * what else the item carries (Find Animals' tag).
  */
-export function cellRenderer(thumbs, cells) {
+export function cellRenderer(thumbs, cells, decorate = null) {
   return (item, el) => {
     cells.add(el);
     el._path = item.path;
@@ -24,6 +25,7 @@ export function cellRenderer(thumbs, cells) {
       el.replaceChildren(el._box);
     }
     paintThumb(el, thumbs.url(item.path));
+    if (decorate) decorate(item, el);
   };
 }
 

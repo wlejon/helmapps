@@ -65,6 +65,60 @@ Drag the picture to pan it when it is larger than the window; double-click
 switches between Fit and 100%. The background (dark, grey, or a
 checkerboard behind transparent pixels) is in the More menu.
 
+## Find Animals
+
+Opening a folder is the import: its photos are analysed in the background
+with `bro.vision.wildlife` (OWLv2 finds the animal, BioCLIP 2 names its
+species from the Upper-Midwest species list, and the sharpness of the
+subject and the frame is measured), and photos shot less than 1.0 s apart
+are grouped into bursts (`groupBursts`), each with a consensus species.
+
+- **Animals** (the toolbar's filter button) lists every species in the
+  folder with its photo count, *All photos* first, and *Show Photos
+  Without Animals*. The choice filters the grid, the strip, Next /
+  Previous and the slideshow.
+- Each grid tile carries a quiet tag: the species and how sure (the burst's
+  mean score), and on a burst's first frame how many frames it has.
+- The details panel (Mod+I) shows the burst's consensus (species, how many
+  frames agree, how long it took, its sharpest frame) and the photo's own
+  top five species with scores, what the detector found, and sharpness.
+- **Bursts stay whole.** Every frame of a burst is a photo of its own in
+  the grid and carries the burst's species, so a frame the bird has just
+  left still shows under that species. Nothing is collapsed or hidden for
+  being a weaker frame.
+- **Photos without animals** (neither the photo nor its burst has a
+  species) are hidden once analysed, until *Show Photos Without Animals*
+  is on; they are never touched otherwise, and one opened directly still
+  shows. Photos not analysed yet always show.
+- Progress shows in the status bar ("Finding animals · 120 of 958") with
+  Pause / Resume. Files that come, go or change in the open folder (the
+  folder watch) are analysed as they appear.
+- Answers are kept per photo in the app's cache dir
+  (`<cache>/wildlife/folders/*.jsonl`), keyed by path, size, mtime and a
+  hash of the settings and models (ai/birds' records, cut down), so a
+  folder opens with its answers at once and only new or changed photos
+  are analysed again.
+- Select Subject (S) selects the photo's Find Animals burst in the strip
+  when it has one, so Stabilize's frames are the bursts the grid shows.
+
+The models come from `bro.models` (`owlv2`, `bioclip-2`, and the `species`
+folder holding `upper-midwest.json`). Where one is missing, the status bar
+offers to download them (about 2.2 GB) with `bro.models.fetch`: a progress
+bar and Cancel while it runs, a reason and Retry when it fails, a toast when
+they are installed, and then the folder is analysed. Settings:
+`findAnimals` (on; also *Find Animals* in the More menu), `showNoAnimals`,
+`animalsModel` (`bioclip-2` or `bioclip`), `animalsSpeciesList` (a file in
+the species folder: `upper-midwest.json`, or the openly licensed
+`upper-midwest-gbif/species.json`). The feature is hidden where this bro has
+no `bro.vision.wildlife`, `bro.lm.loadClip` or GPU.
+
+The work is off the page thread: a store worker reads the cache and stats
+the photos (`js/wildlife/store-worker.js`), two decode workers decode at
+3000 px, measure sharpness and size the detection image to 1280 px
+(`decode-worker.js`), and one model worker runs the models, loaded once
+and freed after two idle minutes (`analyze-worker.js`). The page relays
+images between them and regroups the bursts at most four times a second.
+
 ## Stabilize a burst
 
 A burst of photos of a moving subject (a bird bathing, shot at 10 frames a
@@ -129,7 +183,14 @@ worker (`js/burst/track-worker.js`), previews and export on another
 
 | File | |
 |---|---|
-| `js/main.js` | The window, commands, toolbar, opening and stepping, file action wiring |
+| `js/main.js` | The window, commands, opening and stepping, file action wiring |
+| `js/chrome.js` | The toolbar's buttons, the zoom / More / picture menus, Open and drops |
+| `js/wildlife/feature.js` | Find Animals: its commands, the Animals menu and filter, the status bar, the tile tags |
+| `js/wildlife/analysis.js` | One folder's analysis: cache, queue, the workers, bursts (`groupBursts`) |
+| `js/wildlife/models.js` | Which models, where (`bro.models`), and downloading the missing ones |
+| `js/wildlife/records.js` / `labels.js` | The record, its cache file and settings hash; the tile tag and the details sections |
+| `js/wildlife/store-worker.js` / `decode-worker.js` / `analyze-worker.js` | The cache, decoding and sharpness, the models |
+| `js/wildlife/stub.js` | TEST ONLY: a colour key standing in for the models (`app.wildlife.useStub`) |
 | `js/viewer.js` | The view: fit, zoom, pan, rotate, flip; draws into a canvas (or lays out an SVG or animation) |
 | `js/decoder.js` | Pictures from the decoder thread, the neighbours' prefetch, full resolution, PNG for copying |
 | `js/decode-worker.js` | The decoder thread: bro.image decode (EXIF upright), EXIF, previews, PNG |
@@ -152,4 +213,10 @@ worker (`js/burst/track-worker.js`), previews and export on another
 | `js/burst/frame-row.js` / `panel.js` | Its frame row (masks and badges) and side panel |
 | `js/burst/exporter.js` / `media-worker.js` | Export: the save dialog; rendering and encoding on a worker |
 | `js/burst/affine.js` / `draw.js` / `rpc.js` | 2x3 matrices and polygons, mask drawing, worker calls |
-| `tests/` | Headless acceptance tests and `test_perf.js`; `tests/burst.js` makes synthetic bursts |
+| `tests/` | Headless acceptance tests and `test_perf.js`; `tests/burst.js` makes synthetic bursts, `tests/wildlife.js` synthetic animal photos |
+
+`test_animals.js` and `test_animals_download.js` drive Find Animals with the
+test stub; `test_animals_models.js` runs the real models and skips without
+them (`BRO_MODELS=<folder with owlv2, bioclip-2, species> scripts/run_tests.sh
+images animals`). `IV_PERF_DIR=<photos> IV_PERF_ANIMALS=1` makes `test_perf`
+also time Find Animals over a real folder.

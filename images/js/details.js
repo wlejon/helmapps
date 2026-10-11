@@ -1,7 +1,9 @@
 /**
  * The details panel: what the file is. Name, folder, dimensions, size, type,
  * modified time, and the photo's EXIF (camera, lens, exposure, date taken,
- * location, orientation) when the file carries it.
+ * location, orientation) when the file carries it. `extra(file)` adds what
+ * a feature knows about it below (Find Animals: js/wildlife/labels.js), and
+ * refresh(file) redraws when that changes.
  */
 
 import { h } from '/lib/dom.js';
@@ -12,13 +14,20 @@ const fs = require('fs');
 const path = require('path');
 
 export class Details {
-  constructor() {
+  constructor({ extra = null } = {}) {
     this.body = h('div.iv-details-body');
     this.el = h('aside.iv-details',
       h('div.iv-details-head', h('div.micro', 'Details')),
       this.body);
+    this.extra = extra;
     this.shownFor = null;
     this.stat = null;
+    this.last = null;            // [file, pic, st] as last drawn
+  }
+
+  /** Draw `file` again if it is the one shown (what extra() says about it changed). */
+  refresh(file) {
+    if (this.last && this.last[0] === file && this.shownFor === file) this.render(...this.last);
   }
 
   /**
@@ -61,6 +70,9 @@ export class Details {
     ];
     const parts = [section('File', rows)];
     if (pic && pic.exif) parts.push(section('Camera', exifRows(pic)));
+    const more = this.extra ? this.extra(file) : null;
+    if (more) parts.push(more);
+    this.last = [file, pic, st];
     this.body.replaceChildren(...parts);
   }
 }
@@ -90,7 +102,8 @@ function exifRows(pic) {
 
 const trim = (n) => String(Math.round(n * 10) / 10);
 
-function section(title, rows) {
+/** A titled section of label / value rows; rows whose value is '' are left out. */
+export function section(title, rows) {
   return h('div.iv-details-section',
     h('div.micro.iv-details-title', title),
     ...rows.filter(([, v]) => v !== '').map(([k, v]) =>

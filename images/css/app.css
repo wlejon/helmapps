@@ -109,5 +109,22 @@
 .iv-burst-badge[data-kind="bad"] { background: var(--danger-soft); color: var(--danger-text); }
 .iv-burst-badge[data-kind="wait"], .iv-burst-badge[data-kind="off"] { color: var(--t4); }
 
+/* Find Animals: its progress in the status bar, the Animals menu's button,
+   a quiet tag on a grid tile (the species, how sure; a burst's frame count). */
+.iv-animals { display: flex; align-items: center; gap: var(--s2); flex: 0 1 auto; min-width: 0; color: var(--t3); }
+.iv-animals-text { min-width: 0; max-width: 460px; }
+.iv-animals-progress { flex: none; width: 96px; }
+.iv-animals .btn.small { height: 20px; }
+.iv-animals-filter { max-width: 220px; }
+.iv-tags { position: absolute; left: var(--s1); right: var(--s1); bottom: var(--s1); display: flex; gap: var(--s1); pointer-events: none; }
+.iv-tag {
+  display: inline-flex; align-items: center; gap: var(--s1); min-width: 0; height: 18px; padding: 0 6px;
+  border-radius: var(--r-chip); background: var(--surface-1); color: var(--t2); font-size: var(--fs-micro);
+}
+.iv-tag-name { min-width: 0; }
+.iv-tag-conf { flex: none; color: var(--t4); }
+.iv-tag-burst { flex: none; margin-left: auto; color: var(--t3); }
+.iv-details-group { display: flex; flex-direction: column; gap: var(--s4); }
+
 /* Full screen and the slideshow: the picture alone. */
 body.iv-fullscreen .toolbar, body.iv-fullscreen .statusbar { display: none; }

@@ -47,6 +47,20 @@ beyond saying so in the window. Kit-level gaps shared by every app are in
   pid/time name (`lib/test.js` `fixtureDir`).
 - **Belongs in:** brokit
 
+## Menu items have no count column
+- **Where:** kit (`lib/menu.js`)
+- **Expected:** a menu item can carry a count at its trailing edge, as the
+  Animals filter's "Blue Jay 3" does in a file manager's sidebar.
+- **Actual:** the trailing slot is the shortcut (`keys`). The Animals menu
+  puts each species' photo count there, so it reads like a key hint.
+- **Belongs in:** kit (a `count` field on a menu item, styled apart from `keys`)
+
+## Fixed while building Find Animals
+- `bro.vision.wildlife.locate()` without a species list now names the
+  list as missing when `bro.models` has no `species` folder (bro d35b63cb).
+  It answered available on a machine with owlv2 and bioclip-2 but no list,
+  so the app never offered the list for download.
+
 ## Fixed while building Stabilize
 - `GifEncoder` / `VideoEncoder` work in a Worker (`addFrameRGBA`), so the
   export renders and encodes off the page thread.

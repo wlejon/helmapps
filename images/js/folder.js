@@ -21,8 +21,9 @@ const path = require('path');
 const SETTLE_MS = 150;
 
 export class Folder {
-  constructor({ onChange } = {}) {
+  constructor({ onChange, onWatch } = {}) {
     this.onChange = onChange;
+    this.onWatch = onWatch;     // after a file event's re-read, changed list or not (a file rewritten in place)
     this.dir = '';
     this.items = [];
     this.index = new Map();      // path -> position
@@ -30,7 +31,7 @@ export class Folder {
     this.error = '';
     this.watcher = null;
     this.version = 0;
-    this.relist = debounce(() => this.reload(), SETTLE_MS);
+    this.relist = debounce(() => this.reload().then(() => { if (this.onWatch) this.onWatch(this); }), SETTLE_MS);
   }
 
   /** Read `dir` (and watch it). Resolves when the list is in. */

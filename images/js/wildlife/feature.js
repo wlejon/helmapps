@@ -1,0 +1,341 @@
+/**
+ * Find Animals: which animals and species are in a folder's photos. Opening
+ * a folder is the import: its photos are analysed in the background
+ * (analysis.js) and the answers kept, so the folder opens instantly next
+ * time. This module is the feature's face:
+ *
+ *  - the Animals menu (toolbar): every species with its photo count, "All"
+ *    first, and Show Photos Without Animals; the choice filters the grid,
+ *    the strip and Next / Previous (items());
+ *  - a tag on each grid tile (the burst's species and how sure) and the
+ *    Animals sections of the details panel (labels.js);
+ *  - progress in the status bar ("Finding animals · 120 of 958", Pause),
+ *    and, when the models are missing, the offer to download them
+ *    (models.js: size, progress, Cancel, Retry with the reason).
+ *
+ * Bursts stay whole: every frame of a burst is a photo of its own in the
+ * grid, carrying the burst's consensus species (what the filter and the tag
+ * use; a frame's own top species is in the details). A photo counts as
+ * "without animals" when it and its burst have no species; such photos are
+ * hidden once analysed, unless Show Photos Without Animals is on, and never
+ * otherwise touched. Photos not analysed yet always show.
+ *
+ * Hidden entirely where this bro cannot run it (wildlifeSupported), or with
+ * the findAnimals setting off.
+ */
+
+import { h } from '/lib/dom.js';
+import { icon } from '/lib/icons.js';
+import { menu } from '/lib/menu.js';
+import { toast } from '/lib/toast.js';
+import { Progress } from '/lib/controls.js';
+import { formatBytes, formatNumber } from '/lib/format.js';
+import { Analysis } from './analysis.js';
+import { wildlifeSupported, canFetch, locateModels, bytesOf, ModelDownload } from './models.js';
+import { decorateTile, detailsSection } from './labels.js';
+import { pathKey } from './records.js';
+
+export const WILDLIFE_SETTINGS = {
+  findAnimals: { type: 'bool', default: true },
+  showNoAnimals: { type: 'bool', default: false },
+  animalsModel: { type: 'string', default: 'bioclip-2' },              // bioclip-2 | bioclip
+  animalsSpeciesList: { type: 'string', default: 'upper-midwest.json' }, // in the species folder
+};
+
+export class WildlifeFeature {
+  /**
+   * settings: app.settings; commands: app.commands; folder: js/folder.js;
+   * mode(): the view ('grid', 'image', ...); onItems(): the shown items or
+   * their labels changed; onDetails(): the details panel's photo may have new answers.
+   */
+  constructor({ settings, commands, folder, mode, cacheDir, onItems, onDetails }) {
+    this.settings = settings;
+    this.commands = commands;
+    this.folder = folder;
+    this.mode = mode;
+    this.onItems = onItems;
+    this.onDetails = onDetails;
+    this.supported = wildlifeSupported();
+    this.stub = null;              // TEST ONLY: useStub()
+    this.filter = '';              // a species' common name, '' for all
+    this.located = null;           // models.js locateModels(), when the models are not all there
+    this.download = null;          // a ModelDownload while one is wanted
+    this.seen = { dir: '', version: -1 };
+    this.cache = { key: '', items: null };
+    this.analysis = new Analysis({ cacheDir, onChange: () => this.analysisChanged() });
+
+    this.text = h('span.iv-animals-text.ellipsis');
+    this.progress = new Progress(0);
+    this.progress.el.classList.add('iv-animals-progress');
+    this.actionBtn = h('button.btn.ghost.small.iv-animals-action', { onclick: () => this.runAction() });
+    this.cancelBtn = h('button.btn.ghost.small.iv-animals-cancel', { onclick: () => this.commands.run('animals-cancel') }, 'Cancel');
+    this.statusEl = h('div.iv-animals.hidden', icon('filter', 'sm'), this.text, this.progress.el, this.actionBtn, this.cancelBtn);
+    this.filterLabel = h('span.ellipsis');
+    this.filterBtn = h('button.btn.ghost.small.iv-animals-filter.hidden',
+      { 'data-tip': 'Animals', 'data-command': 'animals-menu', onclick: () => this.commands.run('animals-menu') },
+      icon('filter'), this.filterLabel);
+  }
+
+  /** On: this bro can run it (or a test stub stands in) and the setting is on. */
+  get active() {
+    return (this.supported || !!this.stub) && this.settings.get('findAnimals');
+  }
+
+  // ---- the folder ------------------------------------------------------------------
+
+  /**
+   * The folder's listing changed, or a watched file changed (`force`):
+   * analyse what is new. The models are located first; missing ones are offered.
+   */
+  folderChanged({ force = false } = {}) {
+    const f = this.folder;
+    if (!force && this.seen.dir === f.dir && this.seen.version === f.version) return;
+    if (this.seen.dir !== f.dir) this.filter = '';
+    this.seen = { dir: f.dir, version: f.version };
+    if (!this.active || !f.dir) {
+      this.analysis.stop();
+      this.showStatus();
+      return;
+    }
+    const opts = this.analyzerOpts();
+    if (!opts) {
+      this.analysis.stop();
+      this.showStatus();
+      return;
+    }
+    this.analysis.setFolder(f.dir, f.items.map((it) => it.path), opts);
+  }
+
+  /** The analyzer's options, or null (and `located` says why) when models are missing. */
+  analyzerOpts() {
+    if (this.stub && !this.stub.requireModels) return { stub: this.stub.table };
+    let loc;
+    try {
+      loc = locateModels(this.settings.get('animalsModel'), this.settings.get('animalsSpeciesList'));
+    } catch (err) {
+      loc = { missing: [], listMissing: false, error: err.message };
+    }
+    if (loc.error || loc.missing.length || loc.listMissing) { this.located = loc; return null; }
+    this.located = null;
+    return this.stub ? { stub: this.stub.table } : loc.paths;
+  }
+
+  /** TEST ONLY: answer with js/wildlife/stub.js instead of the models (requireModels: still look for them first). */
+  useStub(table, { requireModels = false } = {}) {
+    this.stub = { table, requireModels };
+    this.folderChanged({ force: true });
+  }
+
+  analysisChanged() {
+    this.cache.key = '';
+    this.showStatus();
+    if (this.onItems) this.onItems();
+    if (this.onDetails) this.onDetails();
+  }
+
+  // ---- what is shown -----------------------------------------------------------------
+
+  /** The burst holding a photo, and its species' common name ('' for none). */
+  tagOf(p) {
+    const b = this.analysis.burstOf(p);
+    return b && b.species ? b.species.common : '';
+  }
+
+  /** The photos of p's burst as { has(path) } (any form of a path), or null: Select Subject's frames. */
+  burstMembers(p) {
+    const b = this.active ? this.analysis.burstOf(p) : null;
+    if (!b) return null;
+    const keys = new Set(b.photos.map(pathKey));
+    return { has: (q) => keys.has(pathKey(q)) };
+  }
+
+  /** Analysed, and neither it nor its burst has an animal. */
+  isEmpty(p) {
+    const rec = this.analysis.record(p);
+    return !!rec && !rec.error && !this.tagOf(p);
+  }
+
+  /**
+   * The folder's items as the grid, the strip and Next / Previous show them:
+   * the filter applied, each with its tag. The folder's own list when there
+   * is nothing to add (same array, so nothing redraws).
+   */
+  items(folderItems) {
+    const a = this.analysis;
+    if (!this.active || (!a.results.size && !this.filter)) return folderItems;
+    const showEmpty = this.settings.get('showNoAnimals');
+    const key = `${a.version}|${this.filter}|${showEmpty}|${this.folder.version}`;
+    if (this.cache.key === key && this.cache.src === folderItems) return this.cache.items;
+    const out = [];
+    for (const it of folderItems) {
+      const b = a.burstOf(it.path);
+      const tag = b && b.species ? b.species.common : '';
+      if (this.filter && tag !== this.filter) continue;
+      if (!this.filter && !showEmpty && !tag && this.isEmpty(it.path)) continue;
+      out.push({
+        name: it.name, path: it.path, tag,
+        conf: tag ? Math.round(b.species.share * 100) : 0,
+        burst: b && b.count > 1 && pathKey(b.first) === pathKey(it.path) ? b.count : 0,
+      });
+    }
+    this.cache = { key, src: folderItems, items: out };
+    return out;
+  }
+
+  /** Species in the folder by photo count, most first: [{ common, count }]; and the photos without animals. */
+  counts() {
+    const by = new Map();
+    let empty = 0;
+    for (const it of this.folder.items) {
+      const tag = this.tagOf(it.path);
+      if (tag) by.set(tag, (by.get(tag) || 0) + 1);
+      else if (this.isEmpty(it.path)) empty++;
+    }
+    const species = [...by].map(([common, count]) => ({ common, count }))
+      .sort((x, y) => y.count - x.count || (x.common < y.common ? -1 : 1));
+    return { species, empty, all: this.folder.items.length - (this.settings.get('showNoAnimals') ? 0 : empty) };
+  }
+
+  decorate(item, el) { decorateTile(item, el); }
+
+  /** The details panel's Animals sections for a photo (null when the feature is off). */
+  details(p) {
+    if (!this.active || !p) return null;
+    const a = this.analysis;
+    const rec = a.record(p);
+    return detailsSection(rec, a.burstOf(p), { pending: !rec && a.dir === this.folder.dir && a.total > 0 });
+  }
+
+  setFilter(common) {
+    this.filter = common || '';
+    this.cache.key = '';
+    this.showStatus();
+    if (this.onItems) this.onItems();
+  }
+
+  // ---- the status bar and the toolbar button ------------------------------------------
+
+  /** The status bar's words and buttons for where the feature is. */
+  showStatus() {
+    const shown = (el, on) => el.classList.toggle('hidden', !on);
+    const on = this.active && !!this.folder.dir;
+    const p = this.analysis.progress();
+    const d = this.download;
+    // bar: a fraction, null for a bar that only says "working", undefined for none.
+    let text = '', action = '', bar, cancel = false;
+    if (!on) { /* nothing */ } else if (d && d.state === 'running') {
+      text = `Downloading animal models · ${formatBytes(d.done)} of ${formatBytes(d.total)}`;
+      bar = d.total > 0 ? d.done / d.total : null;
+      cancel = true;
+    } else if (d && d.state === 'failed') {
+      text = `Could not download the animal models: ${d.error}`;
+      action = 'Retry';
+    } else if (this.located) {
+      const l = this.located;
+      if (l.error) text = `Find Animals: ${l.error}`;
+      else if (l.listMissing) text = `Find Animals: no ${this.settings.get('animalsSpeciesList')} in ${l.speciesDir}`;
+      else if (canFetch()) {
+        text = 'Finding animals needs its models';
+        action = `Download (${formatBytes(bytesOf(l.missing))})`;
+      } else text = `Find Animals: no ${l.missing.join(', ')} in ${bro.models.dirs.join(', ')}`;
+    } else if (p.state === 'loading') {
+      text = 'Loading the animal models…';
+      bar = null;
+    } else if (p.state === 'running' || p.state === 'paused') {
+      text = `${p.state === 'paused' ? 'Paused' : 'Finding animals'} · ${formatNumber(p.done)} of ${formatNumber(p.total)}`;
+      bar = p.total ? p.done / p.total : 0;
+      action = p.state === 'paused' ? 'Resume' : 'Pause';
+    } else if (p.state === 'error') {
+      text = `Cannot find animals: ${p.error}`;
+      action = 'Retry';
+    }
+    shown(this.statusEl, !!text);
+    this.text.textContent = text;
+    this.text.title = text;
+    shown(this.progress.el, bar !== undefined);
+    if (bar !== undefined) this.progress.set(bar);
+    shown(this.actionBtn, !!action);
+    this.actionBtn.textContent = action;
+    shown(this.cancelBtn, cancel);
+    // The Animals menu, once there is anything to filter by.
+    shown(this.filterBtn, on && (this.analysis.results.size > 0 || !!this.filter));
+    this.filterLabel.textContent = this.filter || 'Animals';
+    this.filterBtn.classList.toggle('active', !!this.filter);
+  }
+
+  /** The status bar's button: whatever it offers now. */
+  runAction() {
+    const label = this.actionBtn.textContent;
+    if (label === 'Pause' || label === 'Resume') this.commands.run('animals-pause');
+    else if (label === 'Retry' && !this.download) this.commands.run('animals-retry');
+    else this.commands.run('animals-download');
+  }
+
+  // ---- downloading the models ---------------------------------------------------------
+
+  async downloadModels() {
+    if (!this.located || !this.located.missing.length || (this.download && this.download.state === 'running')) return;
+    const d = new ModelDownload(this.located.missing, { onChange: () => { if (this.download === d) this.showStatus(); } });
+    this.download = d;
+    await d.start();
+    if (this.download !== d) return;
+    if (d.state === 'failed') return;
+    this.download = null;
+    if (d.state === 'done') {
+      this.folderChanged({ force: true });
+      if (!this.located) toast('The animal models are installed', { icon: 'check' });
+    }
+    this.showStatus();
+  }
+
+  // ---- commands --------------------------------------------------------------------------
+
+  commandList() {
+    const browsing = () => this.active && (this.mode() === 'grid' || this.mode() === 'image');
+    const a = this.analysis;
+    return [
+      { id: 'animals-menu', label: 'Animals', icon: 'filter', enabled: () => browsing() && (a.results.size > 0 || !!this.filter),
+        run: () => this.showMenu() },
+      { id: 'animals-filter', label: 'Show Species', enabled: browsing, run: (common) => this.setFilter(common) },
+      { id: 'animals-show-empty', label: 'Show Photos Without Animals', enabled: () => this.active,
+        checked: () => this.settings.get('showNoAnimals'),
+        run: () => { this.settings.set('showNoAnimals', !this.settings.get('showNoAnimals')); this.analysisChanged(); } },
+      { id: 'animals-pause', label: 'Pause Finding Animals', enabled: () => this.active && ['running', 'loading', 'paused'].includes(a.state),
+        checked: () => a.state === 'paused', run: () => (a.state === 'paused' ? a.resume() : a.pause()) },
+      { id: 'animals-retry', label: 'Try Finding Animals Again', enabled: () => this.active && a.state === 'error', run: () => a.resume() },
+      { id: 'animals-download', label: 'Download the Animal Models', icon: 'download',
+        enabled: () => this.active && canFetch() && !!this.located && this.located.missing.length > 0 &&
+          !(this.download && this.download.state === 'running'),
+        run: () => this.downloadModels() },
+      { id: 'animals-cancel', label: 'Cancel the Download', enabled: () => !!(this.download && this.download.state === 'running'),
+        run: () => this.download.cancel() },
+      { id: 'find-animals', label: 'Find Animals', enabled: () => this.supported || !!this.stub,
+        checked: () => this.active, run: () => this.toggle() },
+    ];
+  }
+
+  toggle() {
+    this.settings.set('findAnimals', !this.settings.get('findAnimals'));
+    if (!this.active) this.filter = '';
+    this.folderChanged({ force: true });
+    this.analysisChanged();
+  }
+
+  /** The Animals menu: All, every species with its photo count, the toggle. */
+  showMenu() {
+    const c = this.counts();
+    const pick = (common, label, count) => this.commands.item('animals-filter', {
+      label, keys: formatNumber(count), checked: this.filter === common, icon: undefined,
+      action: () => this.commands.run('animals-filter', common),
+    });
+    const items = [
+      pick('', 'All photos', c.all),
+      c.species.length ? { separator: true } : null,
+      ...c.species.map((s) => pick(s.common, s.common, s.count)),
+      { separator: true },
+      this.commands.item('animals-show-empty', { keys: formatNumber(c.empty) }),
+    ];
+    if (['running', 'loading', 'paused'].includes(this.analysis.state)) items.push(this.commands.item('animals-pause'));
+    menu.showBelow(items, this.filterBtn);
+  }
+}

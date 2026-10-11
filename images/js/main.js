@@ -12,6 +12,8 @@
  *    on screen are decoded while you look, so Next is instant.
  *  - Previews come from bro.thumb on its own threads, only for the cells on
  *    screen, six at a time. A folder listing is one async readdir.
+ *  - Find Animals (js/wildlife) analyses the folder on workers; the grid,
+ *    the strip and Next / Previous show its filtered list (shownItems()).
  */
 
 import { startApp } from '/lib/app.js';
@@ -31,9 +33,12 @@ import { Details } from './details.js';
 import { FileActions } from './actions.js';
 import { Presentation } from './presentation.js';
 import { isImage, dialogFilter, compareNames } from './formats.js';
+import { buildToolbar, zoomMenu, moreMenu, stageMenu, viewNote, chooseImage, acceptDrops } from './chrome.js';
 import { BurstFeature, BURST_SETTINGS } from './burst/burst.js';
+import { WildlifeFeature, WILDLIFE_SETTINGS } from './wildlife/feature.js';
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 const app = startApp({
@@ -45,6 +50,7 @@ const app = startApp({
     background: { type: 'string', default: 'dark' },      // dark | mid | checker
     detailsWidth: { type: 'int', default: 280, min: 200, max: 520 },
     ...BURST_SETTINGS,
+    ...WILDLIFE_SETTINGS,
   },
 });
 const { commands, settings } = app;
@@ -59,6 +65,10 @@ const state = {
   error: '',           // why the image on screen cannot be shown
 };
 let burst = null;      // the stabilize-a-burst feature (js/burst/burst.js), made below
+let wild = null;       // Find Animals (js/wildlife/feature.js), made below
+
+/** The folder's images as the grid, the strip and Next / Previous show them (Find Animals' filter). */
+const shownItems = () => (wild ? wild.items(folder.items) : folder.items);
 
 // ---- the window ---------------------------------------------------------------
 
@@ -74,12 +84,12 @@ const viewer = new Viewer({
   onDraw: () => { if (burst) burst.tool.draw(); },
 });
 viewer.el.dataset.bg = settings.get('background');
-const details = new Details();
+const details = new Details({ extra: (file) => (wild ? wild.details(file) : null) });
 const decoder = new Decoder({
   inUse: (pic) => viewer.pic === pic,
   onFull: (pic) => { if (viewer.pic === pic) viewer.schedule(); },
 });
-const folder = new Folder({ onChange: () => folderChanged() });
+const folder = new Folder({ onChange: () => folderChanged(), onWatch: () => wild.folderChanged({ force: true }) });
 
 const cells = new Set();
 const thumbs = new Thumbs({
@@ -97,7 +107,7 @@ const grid = new VirtualList({
   padding: 0,
   key: (it) => it.path,
   label: (it) => it.name,
-  render: cellRenderer(thumbs, cells),
+  render: cellRenderer(thumbs, cells, (it, el) => wild.decorate(it, el)),
   onActivate: (items) => items[0] && openImage(items[0].path),
   onSelectionChange: (items) => {
     if (state.mode !== 'grid') return;
@@ -128,7 +138,7 @@ const strip = stripList({
     if (syncingStrip) return;
     if (stripModifier) {
       // The photo on screen stays one of the frames.
-      if (state.path && !strip.selection.has(state.path) && folder.indexOf(state.path) >= 0) {
+      if (state.path && !strip.selection.has(state.path) && strip.index.has(state.path)) {
         strip.selection.add(state.path);
         strip.paint();
       }
@@ -148,12 +158,8 @@ const trimThumbs = debounce(() => thumbs.keepOnly([...visiblePaths(grid), ...vis
 grid.scroller.addEventListener('scroll', trimThumbs);
 strip.scroller.addEventListener('scroll', trimThumbs);
 
-const startEmpty = emptyState({
-  icon: 'image',
-  title: 'No image open',
-  hint: 'Open an image or a folder of images, or drop one onto the window.',
-  action: { label: 'Open…', run: () => commands.run('open') },
-});
+const startEmpty = emptyState({ icon: 'image', title: 'No image open',
+  hint: 'Open an image or a folder of images, or drop one onto the window.', action: { label: 'Open…', run: () => commands.run('open') } });
 startEmpty.classList.add('iv-start');
 const loadingEl = h('div.iv-loading.hidden', h('div.spinner'));
 const errorEl = h('div.iv-error.hidden');
@@ -179,21 +185,23 @@ burst = new BurstFeature({
     toolbar.refresh();
   },
   onChange: () => { updateStatus(); toolbar.refresh(); },
+  burstOf: (p) => wild.burstMembers(p),
 });
 
-const status = {
-  dims: h('span.num'),
-  zoom: h('span.num'),
-  pos: h('span.num'),
-  note: h('span.iv-note.hidden'),
-  text: h('span.grow.ellipsis'),
-};
-ui.statusbar.append(status.dims, status.zoom, status.pos, status.note, status.text);
+wild = new WildlifeFeature({
+  settings, commands, folder, mode: () => state.mode,
+  cacheDir: (typeof bro !== 'undefined' && bro.app && bro.app.cacheDir) || path.join(os.tmpdir(), 'helm-images'),
+  onItems: () => itemsChanged(),
+  onDetails: () => { if (settings.get('showDetails')) details.refresh(state.path); },
+});
+
+const status = { dims: h('span.num'), zoom: h('span.num'), pos: h('span.num'), note: h('span.iv-note.hidden'), text: h('span.grow.ellipsis') };
+ui.statusbar.append(status.dims, status.zoom, status.pos, status.note, status.text, wild.statusEl);
 
 const presentation = new Presentation({
   settings,
   next: () => step(1),
-  canRun: () => state.mode === 'image' && folder.items.length > 1,
+  canRun: () => state.mode === 'image' && shownItems().length > 1,
   onChange: () => { layoutChrome(); toolbar.refresh(); },
 });
 
@@ -209,11 +217,12 @@ const actions = new FileActions({
 
 const viewing = () => state.mode === 'image' && !!state.pic;
 const hasFile = () => !!state.path && (state.mode === 'image' || state.mode === 'grid');
-const several = () => state.mode === 'image' && folder.items.length > 1;
+const several = () => state.mode === 'image' && shownItems().length > 1;
 
 // The burst's commands first: in the stabilize view, Space, the arrows and
 // Escape are its own.
 commands.addAll(burst.commands({ imageShown: () => state.mode === 'image' && !!state.path && !state.error }));
+commands.addAll(wild.commandList());
 commands.addAll([
   { id: 'open', label: 'Open…', icon: 'folder-open', keys: ['Mod+O'], run: chooseFile },
   { id: 'next', label: 'Next Image', icon: 'chevron-right', keys: ['ArrowRight', 'PageDown', 'Space'],
@@ -221,14 +230,14 @@ commands.addAll([
   { id: 'prev', label: 'Previous Image', icon: 'chevron-left', keys: ['ArrowLeft', 'PageUp', 'Backspace'],
     enabled: several, run: () => step(-1) },
   { id: 'first', label: 'First Image', keys: ['Home'], enabled: several, run: () => goIndex(0) },
-  { id: 'last', label: 'Last Image', keys: ['End'], enabled: several, run: () => goIndex(folder.items.length - 1) },
+  { id: 'last', label: 'Last Image', keys: ['End'], enabled: several, run: () => goIndex(shownItems().length - 1) },
   { id: 'zoom-in', label: 'Zoom In', icon: 'zoom-in', keys: ['Mod+=', 'Mod+Shift+=', 'Mod++'],
     enabled: viewing, run: () => viewer.zoomIn() },
   { id: 'zoom-out', label: 'Zoom Out', icon: 'zoom-out', keys: ['Mod+-'], enabled: viewing, run: () => viewer.zoomOut() },
   { id: 'fit', label: 'Fit to Window', keys: ['Mod+0'], enabled: viewing, checked: () => viewing() && viewer.v.fit,
     run: () => viewer.fit() },
   { id: 'actual', label: 'Actual Size (100%)', keys: ['Mod+1'], enabled: viewing, run: () => viewer.zoomTo(1) },
-  { id: 'zoom-menu', label: 'Zoom', enabled: viewing, run: () => zoomMenu() },
+  { id: 'zoom-menu', label: 'Zoom', enabled: viewing, run: () => zoomMenu(commands, viewer, zoomButton) },
   { id: 'rotate-cw', label: 'Rotate Right', icon: 'rotate-cw', keys: ['R'], enabled: viewing, run: () => turn(() => viewer.rotate(90)) },
   { id: 'rotate-ccw', label: 'Rotate Left', icon: 'rotate-ccw', keys: ['Shift+R'], enabled: viewing, run: () => turn(() => viewer.rotate(-90)) },
   { id: 'flip-h', label: 'Flip Horizontally', icon: 'flip-h', keys: ['H'], enabled: viewing, run: () => turn(() => viewer.flip('h')) },
@@ -255,46 +264,15 @@ commands.addAll([
   { id: 'show-in-files', label: 'Show in Files', icon: 'folder', keys: ['Mod+Shift+O'], enabled: () => hasFile() && !!api('apps'),
     run: () => actions.showInFiles() },
   { id: 'close', label: 'Close Window', keys: ['Mod+W'], run: () => app.quit() },
-  { id: 'menu', label: 'More', icon: 'more-v', run: () => moreMenu() },
+  { id: 'menu', label: 'More', icon: 'more-v', run: () => moreMenu(commands) },
   ...['dark', 'mid', 'checker'].map((bg) => ({
     id: `bg-${bg}`, label: { dark: 'Dark', mid: 'Grey', checker: 'Checkerboard' }[bg],
     checked: () => settings.get('background') === bg, run: () => setBackground(bg),
   })),
 ]);
 
-// Buttons that act on the image on screen hide in the folder grid.
-const imageOnly = [];
-const only = (el) => { imageOnly.push(el); return el; };
-const burstOnly = [];
-const inBurst = (el) => { burstOnly.push(el); return el; };
-const notBurst = [];
-const outBurst = (el) => { notBurst.push(el); return el; };
-outBurst(toolbar.button('show-folder'));
-inBurst(toolbar.button('burst-close'));
-outBurst(toolbar.sep());
-outBurst(toolbar.button('prev'));
-outBurst(toolbar.button('next'));
-const titleEl = toolbar.add(h('div.iv-title.ellipsis'));
-toolbar.spacer();
-inBurst(toolbar.button('burst-play'));
-inBurst(toolbar.button('burst-correct'));
-inBurst(toolbar.button('burst-exclude'));
-inBurst(toolbar.button('burst-export'));
-only(toolbar.button('subject'));
-only(toolbar.button('stabilize'));
-only(toolbar.sep());
-only(toolbar.button('zoom-out'));
-const zoomButton = only(toolbar.add(h('button.btn.ghost.small.iv-zoom.num', { 'data-tip': 'Zoom', 'data-command': 'zoom-menu',
-  onclick: () => commands.run('zoom-menu') }, '100%')));
-only(toolbar.button('zoom-in'));
-only(toolbar.sep());
-only(toolbar.button('rotate-ccw'));
-only(toolbar.button('rotate-cw'));
-only(toolbar.sep());
-outBurst(toolbar.button('slideshow'));
-outBurst(toolbar.button('details'));
-outBurst(toolbar.button('open'));
-outBurst(toolbar.button('menu'));
+// Buttons that act on the image on screen hide in the folder grid (js/chrome.js).
+const { titleEl, zoomButton, imageOnly, burstOnly, notBurst } = buildToolbar(toolbar, commands, { extra: wild.filterBtn });
 
 function toggleSetting(key) {
   settings.set(key, !settings.get(key));
@@ -317,46 +295,7 @@ function turn(fn) {
   }
 }
 
-function zoomMenu() {
-  const s = viewer.scale();
-  const level = (z, label) => ({ label, checked: !viewer.v.fit && Math.abs(s - z) < 1e-3, action: () => viewer.zoomTo(z) });
-  menu.showBelow([
-    { ...commands.item('fit'), checked: viewer.v.fit },
-    { separator: true },
-    level(0.25, '25%'), level(0.5, '50%'), level(1, '100%'), level(2, '200%'), level(4, '400%'),
-    { separator: true },
-    commands.item('zoom-in'), commands.item('zoom-out'),
-  ], zoomButton);
-}
-
-function moreMenu() {
-  const anchor = document.querySelector('[data-command="menu"]');
-  menu.showBelow([
-    commands.item('flip-h'), commands.item('flip-v'),
-    { separator: true },
-    commands.item('fullscreen'), commands.item('strip'),
-    { label: 'Background', icon: 'palette', submenu: [commands.item('bg-dark'), commands.item('bg-mid'), commands.item('bg-checker')] },
-    { separator: true },
-    commands.item('copy'), commands.item('copy-path'), commands.item('open-with'), commands.item('show-in-files'),
-    { separator: true },
-    commands.item('rename'), commands.item('trash'),
-  ], anchor);
-}
-
-function stageMenu(e) {
-  if (!state.pic) return;
-  e.preventDefault();
-  menu.show([
-    commands.item('fit'), commands.item('actual'), commands.item('zoom-in'), commands.item('zoom-out'),
-    { separator: true },
-    commands.item('rotate-cw'), commands.item('rotate-ccw'), commands.item('flip-h'), commands.item('flip-v'),
-    { separator: true },
-    commands.item('copy'), commands.item('copy-path'), commands.item('open-with'), commands.item('show-in-files'),
-    { separator: true },
-    commands.item('rename'), commands.item('trash'),
-  ], e.clientX, e.clientY);
-}
-viewer.el.addEventListener('contextmenu', stageMenu);
+viewer.el.addEventListener('contextmenu', (e) => { if (state.pic) stageMenu(commands, e); });
 
 // ---- what shows where ---------------------------------------------------------------
 
@@ -383,16 +322,19 @@ function updateStatus() {
   else if (m === 'burst') app.setTitle(burstTitle);
   else app.setTitle('');
   titleEl.textContent = m === 'image' ? name : m === 'grid' ? path.basename(folder.dir) || folder.dir : burstTitle;
-  const n = folder.items.length;
-  const i = folder.indexOf(state.path);
+  const items = shownItems();
+  const n = items.length;
+  const i = items.findIndex((it) => it.path === state.path);
   status.dims.textContent = m === 'image' && pic ? `${formatNumber(pic.width)} × ${formatNumber(pic.height)}` : '';
   status.zoom.textContent = m === 'image' && pic ? `${Math.round(viewer.scale() * 100)}%` : '';
   zoomButton.textContent = m === 'image' && pic ? `${Math.round(viewer.scale() * 100)}%` : '–';
   status.pos.textContent = m === 'image' && n ? `${i >= 0 ? i + 1 : '–'} / ${formatNumber(n)}` : '';
-  const note = m === 'image' ? viewNote() : '';
+  const note = m === 'image' ? viewNote(viewer.v) : '';
   status.note.textContent = note;
   status.note.classList.toggle('hidden', !note);
-  if (m === 'grid') status.text.textContent = folder.error ? `Cannot read this folder: ${folder.error}` : formatCount(n, 'image');
+  const all = folder.items.length;
+  const count = n === all ? formatCount(n, 'image') : `${formatNumber(n)} of ${formatCount(all, 'image')}`;
+  if (m === 'grid') status.text.textContent = folder.error ? `Cannot read this folder: ${folder.error}` : count;
   else if (m === 'image' && state.error) status.text.textContent = state.error;
   else if (m === 'burst') status.text.textContent = burst.statusText();
   else status.text.textContent = '';
@@ -400,43 +342,38 @@ function updateStatus() {
   for (const el of imageOnly) el.classList.toggle('hidden', m !== 'image');
   for (const el of burstOnly) el.classList.toggle('hidden', m !== 'burst');
   for (const el of notBurst) el.classList.toggle('hidden', m === 'burst');
-}
-
-/** "Rotated 90°, flipped · view only" while the view differs from the file. */
-function viewNote() {
-  const v = viewer.v;
-  const parts = [];
-  if (v.rotation) parts.push(`Rotated ${v.rotation}°`);
-  if (v.flipH) parts.push('flipped horizontally');
-  if (v.flipV) parts.push('flipped vertically');
-  if (!parts.length) return '';
-  const s = parts.join(', ');
-  return `${s[0].toUpperCase()}${s.slice(1)} · view only`;
+  wild.showStatus();
 }
 
 function syncStrip() {
   syncingStrip = true;
-  if (strip.items !== folder.items) strip.setItems(folder.items);
+  const items = shownItems();
+  if (strip.items !== items) strip.setItems(items);
   // A burst's frames selected around the photo stay selected.
-  if (state.path && folder.indexOf(state.path) >= 0) {
+  if (state.path && strip.index.has(state.path)) {
     if (!strip.selection.has(state.path)) strip.select([state.path]);
-    else strip.cursor = folder.indexOf(state.path);
+    else strip.cursor = strip.index.get(state.path);
   } else strip.clearSelection();
   syncingStrip = false;
 }
 
 /** The folder's list changed (loaded, or a file came or went). */
 function folderChanged() {
-  if (grid.items !== folder.items) {
+  wild.folderChanged();
+  itemsChanged();
+  if (state.mode === 'image') prefetchNeighbours();
+}
+
+/** What the grid and the strip show changed: the folder, or Find Animals' answers or filter. */
+function itemsChanged() {
+  const items = shownItems();
+  if (grid.items !== items) {
     const keep = grid.selectedItems().map((it) => it.path);
-    grid.setItems(folder.items);
+    grid.setItems(items);
     if (keep.length) grid.select(keep, { scroll: false });
   }
-  if (state.mode === 'grid' && state.path && !grid.selection.size && folder.indexOf(state.path) >= 0) grid.select([state.path]);
-  if (state.mode === 'image') {
-    syncStrip();
-    prefetchNeighbours();
-  }
+  if (state.mode === 'grid' && state.path && !grid.selection.size && grid.index.has(state.path)) grid.select([state.path]);
+  if (state.mode === 'image') syncStrip();
   updateStatus();
   toolbar.refresh();
 }
@@ -575,20 +512,22 @@ function shown(pic) {
   toolbar.refresh();
 }
 
+const indexIn = (items, p) => items.findIndex((it) => it.path === p);
+
 function prefetchNeighbours() {
-  const items = folder.items;
-  const i = folder.indexOf(state.path);
+  const items = shownItems();
+  const i = indexIn(items, state.path);
   if (i < 0 || items.length < 2 || state.loading) return;
   decoder.prefetch([items[(i + 1) % items.length].path, items[(i - 1 + items.length) % items.length].path]);
 }
 
 // ---- moving through the folder ----------------------------------------------------------
 
-/** The next (+1) or previous (-1) image in name order, wrapping at the ends. */
+/** The next (+1) or previous (-1) image shown, in name order, wrapping at the ends. */
 function step(dir) {
-  const items = folder.items;
+  const items = shownItems();
   if (!items.length) return;
-  let i = folder.indexOf(state.path);
+  let i = indexIn(items, state.path);
   if (i < 0) {
     // The image is not in the list (yet, or any more): go from where its name would be.
     const name = path.basename(state.path);
@@ -599,7 +538,7 @@ function step(dir) {
 }
 
 function goIndex(i) {
-  const it = folder.items[i];
+  const it = shownItems()[i];
   if (it && it.path !== state.path) openImage(it.path);
 }
 
@@ -618,8 +557,8 @@ function renamed(from, to) {
 }
 
 function trashed(p) {
-  const items = folder.items;
-  const i = folder.indexOf(p);
+  const items = shownItems();
+  const i = indexIn(items, p);
   const rest = items.filter((it) => it.path !== p);
   decoder.drop(p);
   thumbs.forget(p);
@@ -632,20 +571,12 @@ function trashed(p) {
   openImage(rest[Math.min(Math.max(i, 0), rest.length - 1)].path);
 }
 
-async function chooseFile() {
-  if (typeof showOpenFileDialog !== 'function') return;
-  const picked = showOpenFileDialog(dialogFilter(), false);
-  if (picked && picked.length) openPath(picked[0]);
+function chooseFile() {
+  const picked = chooseImage(dialogFilter());
+  if (picked) openPath(picked);
 }
 
-// Drop an image (or a folder) onto the window.
-ui.frame.addEventListener('dragover', (e) => e.preventDefault());
-ui.frame.addEventListener('drop', (e) => {
-  e.preventDefault();
-  const files = e.dataTransfer ? Array.from(e.dataTransfer.files || []) : [];
-  const first = files.find((f) => f.path);
-  if (first) openPath(first.path);
-});
+acceptDrops(ui.frame, openPath);
 
 // ---- launch -------------------------------------------------------------------------------
 // The window above is all the first frame needs. The disk is touched from here on.
@@ -660,4 +591,5 @@ app.onLaunch(({ argv, cwd, first }) => {
 });
 
 // For tests and the inspector.
-app.expose({ state, viewer, folder, grid, strip, decoder, thumbs, details, presentation, burst, openPath, openImage, openFolder });
+app.expose({ state, viewer, folder, grid, strip, decoder, thumbs, details, presentation, burst, wildlife: wild,
+  shownItems, openPath, openImage, openFolder });
