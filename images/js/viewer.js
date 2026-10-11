@@ -38,10 +38,14 @@ const MAX_VECTOR_PX = 8192;
 const WHEEL_STEP = 1.2;
 
 export class Viewer {
-  /** onNeedFull(pic): the zoom shows more pixels than a partial picture holds. */
-  constructor({ onChange, onNeedFull } = {}) {
+  /**
+   * onNeedFull(pic): the zoom shows more pixels than a partial picture holds.
+   * onDraw(): the view was drawn (an overlay drawn over it follows).
+   */
+  constructor({ onChange, onNeedFull, onDraw } = {}) {
     this.onChange = onChange;
     this.onNeedFull = onNeedFull;
+    this.onDraw = onDraw;
     this.waitingFull = false;
     this.pic = null;
     this.v = { fit: true, scale: 1, rotation: 0, flipH: false, flipV: false, panX: 0, panY: 0 };
@@ -207,7 +211,30 @@ export class Viewer {
     this.draw();
   }
 
+  /**
+   * The 2x3 matrix [a, b, c, d, e, f] taking the picture's own pixels (upright,
+   * full size) to stage CSS px as drawn now, or null with nothing shown.
+   */
+  pictureMatrix() {
+    const pic = this.pic;
+    if (!pic || !this.size.w || !this.size.h) return null;
+    const s = this.scale();
+    const r = (this.v.rotation * Math.PI) / 180;
+    const fx = this.v.flipH ? -1 : 1, fy = this.v.flipV ? -1 : 1;
+    const cos = Math.cos(r), sin = Math.sin(r);
+    // stage = c + F * R * (s * (p - size / 2)), as draw() sets up the canvas.
+    const a = fx * cos * s, b = -fx * sin * s, d = fy * sin * s, e = fy * cos * s;
+    const cx = this.size.w / 2 + this.v.panX, cy = this.size.h / 2 + this.v.panY;
+    const ox = pic.width / 2, oy = pic.height / 2;
+    return [a, b, cx - a * ox - b * oy, d, e, cy - d * ox - e * oy];
+  }
+
   draw() {
+    this.drawPicture();
+    if (this.onDraw) this.onDraw();
+  }
+
+  drawPicture() {
     // Read first: one layout for the whole draw.
     this.measure();
     const dpr = (typeof devicePixelRatio === 'number' && devicePixelRatio > 0) ? devicePixelRatio : 1;

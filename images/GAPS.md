@@ -17,3 +17,42 @@ beyond saying so in the window. Kit-level gaps shared by every app are in
   tile and opening it shows `bro.image.decodeSupport`'s reason; the Open
   dialog leaves it out.
 - **Belongs in:** broimage (an HEVC backend, if one with a usable licence is chosen)
+
+## No SAM 2.1 tracker yet
+- **Where:** brovisionml / bro (`bro.vision`)
+- **Expected:** Stabilize tracks the subject with SAM 2.1's video memory
+  (`bro.vision.loadSam2`, weights `sam2.1-hiera-*`).
+- **Actual:** only SAM 1 (ViT-B) is in `bro.vision`. Each frame is prompted
+  afresh with the box and point predicted from the last frame's mask and
+  the alignment, and the proposal nearest the expected area is kept. On the
+  real 14-photo robin sequence that held through all five bursts, but a
+  splashing frame scores ~0.5.
+- **Impact:** none to work around: `js/burst/model.js` has the SAM 2.1
+  backend behind the same interface and `findModelSpec` prefers it once
+  `loadSam2` exists.
+- **Belongs in:** brovisionml (the Hiera encoder, memory attention and
+  memory encoder), bro (`bro.vision.loadSam2`)
+
+## bro.media.tags does not read WebM
+- **Where:** bro (`bro.media.tags`, docs/video-api.js)
+- **Expected:** a WebM's length (and any tags) like the other containers.
+- **Actual:** `bro.media.tags(file.webm)` answers null. The tests read the
+  exported WebM back through `<video>` (duration, `stepFrame`) instead.
+- **Belongs in:** bro (a Matroska/WebM reader in the tags code)
+
+## fs.mkdtempSync is missing
+- **Where:** brokit (`fs`)
+- **Expected:** Node's `fs.mkdtempSync(prefix)`.
+- **Actual:** undefined; tests make their folders with `mkdirSync` and a
+  pid/time name (`lib/test.js` `fixtureDir`).
+- **Belongs in:** brokit
+
+## Fixed while building Stabilize
+- `GifEncoder` / `VideoEncoder` work in a Worker (`addFrameRGBA`), so the
+  export renders and encodes off the page thread.
+- `bro.models.find(name)` / `bro.models.dirs`: where model weights live
+  (`BRO_MODELS`, the `models.dirs` setting, the per-user models folder), so
+  the app asks for `sam-vit-base` instead of carrying a path.
+- The kit's `VirtualList` takes `typeAhead: false`: with the thumbnail strip
+  focused, letters were jumping through the strip instead of reaching the
+  app's shortcuts (R, H, V, and now S, B).

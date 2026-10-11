@@ -31,6 +31,7 @@ import { Details } from './details.js';
 import { FileActions } from './actions.js';
 import { Presentation } from './presentation.js';
 import { isImage, dialogFilter, compareNames } from './formats.js';
+import { BurstFeature, BURST_SETTINGS } from './burst/burst.js';
 
 const fs = require('fs');
 const path = require('path');
@@ -43,6 +44,7 @@ const app = startApp({
     lastFolder: { type: 'string', default: '' },
     background: { type: 'string', default: 'dark' },      // dark | mid | checker
     detailsWidth: { type: 'int', default: 280, min: 200, max: 520 },
+    ...BURST_SETTINGS,
   },
 });
 const { commands, settings } = app;
@@ -50,12 +52,13 @@ const { commands, settings } = app;
 // ---- state ------------------------------------------------------------------
 
 const state = {
-  mode: 'empty',       // 'empty' | 'image' | 'grid'
+  mode: 'empty',       // 'empty' | 'image' | 'grid' | 'burst' (the stabilize view)
   path: '',            // the image on screen, or the one selected in the grid
   pic: null,           // its decoded picture, once it is in
   loading: '',         // the path being decoded
   error: '',           // why the image on screen cannot be shown
 };
+let burst = null;      // the stabilize-a-burst feature (js/burst/burst.js), made below
 
 // ---- the window ---------------------------------------------------------------
 
@@ -67,6 +70,8 @@ const viewer = new Viewer({
   onChange: () => { updateStatus(); toolbar.refresh(); },
   // Zoomed past the screen-sized preview: the picture at full resolution.
   onNeedFull: (pic) => decoder.wantFull(pic),
+  // The subject tool's mask follows the view.
+  onDraw: () => { if (burst) burst.tool.draw(); },
 });
 viewer.el.dataset.bg = settings.get('background');
 const details = new Details();
@@ -108,7 +113,10 @@ const grid = new VirtualList({
 });
 grid.el.classList.add('iv-grid');
 
+// The strip selects the frames of a burst: a plain click opens a photo,
+// Shift+click and Ctrl+click change the selection and leave the photo on screen.
 let syncingStrip = false;
+let stripModifier = false;
 const strip = stripList({
   cellWidth: 88,
   cellHeight: 76,
@@ -116,11 +124,24 @@ const strip = stripList({
   key: (it) => it.path,
   label: (it) => it.name,
   render: cellRenderer(thumbs, cells),
-  onSelectionChange: (items) => {
-    if (syncingStrip || !items[0] || items[0].path === state.path) return;
-    openImage(items[0].path);
+  onSelectionChange: () => {
+    if (syncingStrip) return;
+    if (stripModifier) {
+      // The photo on screen stays one of the frames.
+      if (state.path && !strip.selection.has(state.path) && folder.indexOf(state.path) >= 0) {
+        strip.selection.add(state.path);
+        strip.paint();
+      }
+      if (burst) burst.changed();
+      return;
+    }
+    const it = strip.items[strip.cursor];
+    if (it && it.path !== state.path) openImage(it.path);
   },
 });
+const noteModifier = (e) => { stripModifier = !!(e.shiftKey || e.ctrlKey || e.metaKey); };
+strip.el.addEventListener('pointerdown', noteModifier, true);
+strip.el.addEventListener('keydown', noteModifier, true);
 
 // Requests for cells scrolled away are dropped.
 const trimThumbs = debounce(() => thumbs.keepOnly([...visiblePaths(grid), ...visiblePaths(strip)]), 100);
@@ -145,6 +166,20 @@ const split = new SplitPane({
 split.first.append(viewArea, grid.el, startEmpty, strip.el);
 split.second.append(details.el);
 ui.content.append(split.el);
+
+burst = new BurstFeature({
+  settings, viewer, viewHost: viewArea, host: split.first, strip, folder,
+  current: () => (state.mode === 'image' || state.mode === 'burst' ? state.path : ''),
+  onMode: (mode) => {
+    presentation.stopSlideshow();
+    state.mode = mode;
+    layoutChrome();
+    if (mode === 'image') viewer.el.focus();
+    updateStatus();
+    toolbar.refresh();
+  },
+  onChange: () => { updateStatus(); toolbar.refresh(); },
+});
 
 const status = {
   dims: h('span.num'),
@@ -173,9 +208,12 @@ const actions = new FileActions({
 // ---- commands -------------------------------------------------------------------
 
 const viewing = () => state.mode === 'image' && !!state.pic;
-const hasFile = () => !!state.path && state.mode !== 'empty';
+const hasFile = () => !!state.path && (state.mode === 'image' || state.mode === 'grid');
 const several = () => state.mode === 'image' && folder.items.length > 1;
 
+// The burst's commands first: in the stabilize view, Space, the arrows and
+// Escape are its own.
+commands.addAll(burst.commands({ imageShown: () => state.mode === 'image' && !!state.path && !state.error }));
 commands.addAll([
   { id: 'open', label: 'Open…', icon: 'folder-open', keys: ['Mod+O'], run: chooseFile },
   { id: 'next', label: 'Next Image', icon: 'chevron-right', keys: ['ArrowRight', 'PageDown', 'Space'],
@@ -227,12 +265,24 @@ commands.addAll([
 // Buttons that act on the image on screen hide in the folder grid.
 const imageOnly = [];
 const only = (el) => { imageOnly.push(el); return el; };
-toolbar.button('show-folder');
-toolbar.sep();
-toolbar.button('prev');
-toolbar.button('next');
+const burstOnly = [];
+const inBurst = (el) => { burstOnly.push(el); return el; };
+const notBurst = [];
+const outBurst = (el) => { notBurst.push(el); return el; };
+outBurst(toolbar.button('show-folder'));
+inBurst(toolbar.button('burst-close'));
+outBurst(toolbar.sep());
+outBurst(toolbar.button('prev'));
+outBurst(toolbar.button('next'));
 const titleEl = toolbar.add(h('div.iv-title.ellipsis'));
 toolbar.spacer();
+inBurst(toolbar.button('burst-play'));
+inBurst(toolbar.button('burst-correct'));
+inBurst(toolbar.button('burst-exclude'));
+inBurst(toolbar.button('burst-export'));
+only(toolbar.button('subject'));
+only(toolbar.button('stabilize'));
+only(toolbar.sep());
 only(toolbar.button('zoom-out'));
 const zoomButton = only(toolbar.add(h('button.btn.ghost.small.iv-zoom.num', { 'data-tip': 'Zoom', 'data-command': 'zoom-menu',
   onclick: () => commands.run('zoom-menu') }, '100%')));
@@ -241,10 +291,10 @@ only(toolbar.sep());
 only(toolbar.button('rotate-ccw'));
 only(toolbar.button('rotate-cw'));
 only(toolbar.sep());
-toolbar.button('slideshow');
-toolbar.button('details');
-toolbar.button('open');
-toolbar.button('menu');
+outBurst(toolbar.button('slideshow'));
+outBurst(toolbar.button('details'));
+outBurst(toolbar.button('open'));
+outBurst(toolbar.button('menu'));
 
 function toggleSetting(key) {
   settings.set(key, !settings.get(key));
@@ -319,7 +369,7 @@ function layoutChrome() {
   grid.el.classList.toggle('hidden', m !== 'grid');
   startEmpty.classList.toggle('hidden', m !== 'empty');
   strip.el.classList.toggle('hidden', m !== 'image' || !settings.get('showStrip') || full);
-  split.setCollapsed(!settings.get('showDetails') || m === 'empty' || full);
+  split.setCollapsed(!settings.get('showDetails') || m === 'empty' || m === 'burst' || full);
   if (m === 'image') syncStrip();
 }
 
@@ -327,10 +377,12 @@ function updateStatus() {
   const m = state.mode;
   const pic = state.pic;
   const name = state.path ? path.basename(state.path) : '';
+  const burstTitle = m === 'burst' ? `Stabilize · ${burst.session.frames.length} frames from ${name}` : '';
   if (m === 'image') app.setTitle(name);
   else if (m === 'grid') app.setTitle(path.basename(folder.dir) || folder.dir);
+  else if (m === 'burst') app.setTitle(burstTitle);
   else app.setTitle('');
-  titleEl.textContent = m === 'image' ? name : m === 'grid' ? path.basename(folder.dir) || folder.dir : '';
+  titleEl.textContent = m === 'image' ? name : m === 'grid' ? path.basename(folder.dir) || folder.dir : burstTitle;
   const n = folder.items.length;
   const i = folder.indexOf(state.path);
   status.dims.textContent = m === 'image' && pic ? `${formatNumber(pic.width)} × ${formatNumber(pic.height)}` : '';
@@ -342,9 +394,12 @@ function updateStatus() {
   status.note.classList.toggle('hidden', !note);
   if (m === 'grid') status.text.textContent = folder.error ? `Cannot read this folder: ${folder.error}` : formatCount(n, 'image');
   else if (m === 'image' && state.error) status.text.textContent = state.error;
+  else if (m === 'burst') status.text.textContent = burst.statusText();
   else status.text.textContent = '';
   for (const k of ['dims', 'zoom', 'pos']) status[k].classList.toggle('hidden', !status[k].textContent);
   for (const el of imageOnly) el.classList.toggle('hidden', m !== 'image');
+  for (const el of burstOnly) el.classList.toggle('hidden', m !== 'burst');
+  for (const el of notBurst) el.classList.toggle('hidden', m === 'burst');
 }
 
 /** "Rotated 90°, flipped · view only" while the view differs from the file. */
@@ -362,8 +417,11 @@ function viewNote() {
 function syncStrip() {
   syncingStrip = true;
   if (strip.items !== folder.items) strip.setItems(folder.items);
-  if (state.path && folder.indexOf(state.path) >= 0) strip.select([state.path]);
-  else strip.clearSelection();
+  // A burst's frames selected around the photo stay selected.
+  if (state.path && folder.indexOf(state.path) >= 0) {
+    if (!strip.selection.has(state.path)) strip.select([state.path]);
+    else strip.cursor = folder.indexOf(state.path);
+  } else strip.clearSelection();
   syncingStrip = false;
 }
 
@@ -445,6 +503,7 @@ function openImage(p) {
   if (!strip.el.contains(document.activeElement)) viewer.el.focus();
   errorEl.classList.add('hidden');
   load(p);
+  burst.photoChanged(p);
   updateStatus();
   toolbar.refresh();
 }
@@ -601,4 +660,4 @@ app.onLaunch(({ argv, cwd, first }) => {
 });
 
 // For tests and the inspector.
-app.expose({ state, viewer, folder, grid, strip, decoder, thumbs, details, presentation, openPath, openImage, openFolder });
+app.expose({ state, viewer, folder, grid, strip, decoder, thumbs, details, presentation, burst, openPath, openImage, openFolder });

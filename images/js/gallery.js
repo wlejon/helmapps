@@ -57,11 +57,12 @@ export function paintThumb(el, url) {
 
 /**
  * The strip: one row of cells that scrolls sideways (a plain wheel too), one
- * picture selected, the current one brought to the middle so its neighbours
- * show on both sides.
+ * the current picture brought to the middle so its neighbours show on both
+ * sides. Shift+click and Ctrl+click select several (a burst's frames).
  */
 export function stripList(o) {
-  const list = new VirtualList({ ...o, orientation: 'horizontal', multiSelect: false, scrollAlign: 'center' });
+  // No type-ahead: with the strip focused, letters are still the app's keys (R rotates, S selects the subject).
+  const list = new VirtualList({ ...o, orientation: 'horizontal', multiSelect: true, scrollAlign: 'center', typeAhead: false });
   list.el.classList.add('iv-strip');
   return list;
 }

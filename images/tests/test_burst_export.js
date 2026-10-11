@@ -1,0 +1,90 @@
+// Export a stabilized burst: the timing controls (the gap trimmed to the
+// hold, the speed, a frame's own hold, a frame left out) reach the file; the
+// save dialog suggests the photos' folder and a name from the first and last
+// photo; the GIF carries one frame per photo with the scheduled delays; the
+// WebM is at 30 fps with frames repeated to the same timing.
+
+import { app, waitFor, eq, press, mod } from '/lib/test.js';
+import { openBurst } from '/app/tests/burst.js';
+import { gifDelays, repeatCounts } from '/app/js/burst/timing.js';
+
+const fs = require('fs');
+const path = require('path');
+
+const { dir, frames, names } = openBurst();
+const view = app.burst.view;
+const near = (a, b, what, tol = 1e-6) => assert(Math.abs(a - b) <= tol, `${what}: ${a} vs ${b}`);
+
+// As shot: 0.1 s steps; the 1.2 s gap between the bursts trimmed to the 0.1 s hold.
+let t = view.timeline();
+eq(t.frames.length, 8, 'every frame in the animation');
+near(t.realElapsed, 1.8, 'shot over 1.8 s', 0.011);
+near(t.total, 0.8, 'plays 0.8 s (gap trimmed)', 0.011);
+eq(t.frames.filter((f) => f.gap).map((f) => f.index).join(), '3', 'the gap is after the fourth frame');
+const times = document.querySelector('.iv-burst-times').textContent;
+assert(/8 of 8 frames/.test(times) && /1\.80 s/.test(times) && /0\.80 s/.test(times), `the panel says so: ${times}`);
+
+// Hold 0.3 s and 2x speed: steps 0.05 s, the gap 0.15 s.
+view.panel.on.hold(0.3);
+view.panel.on.speed(2);
+eq(app.settings.get('burstHoldMs'), 300, 'the hold is a setting');
+eq(app.settings.get('burstSpeedPct'), 200, 'the speed is a setting');
+t = view.timeline();
+near(t.frames[3].duration, 0.15, 'the gap at hold / speed', 1e-9);
+near(t.frames[1].duration, 0.05, 'a step at half its time', 1e-3);
+// Frame 2 held 0.5 s, as is (not sped up); frame 6 left out with X.
+view.go(1);
+view.panel.on.frameHold(0.5);
+view.go(5);
+press('x');
+assert(!app.burst.session.frames[5].included, 'X leaves the frame out');
+assert(document.querySelector('.iv-burst-row .vgrid-cell[data-index="5"]').classList.contains('dimmed'), 'shown dimmed in the row');
+t = view.timeline();
+eq(t.frames.map((f) => f.index).join(), '0,1,2,3,4,6,7', 'the frame left out is not in the timeline');
+near(t.frames[1].duration, 0.5, 'the frame\'s own hold');
+near(t.total, 0.05 + 0.5 + 0.05 + 0.15 + 0.1 + 0.05 + 0.05, 'the total', 2e-3);
+const delays = gifDelays(t);
+const repeats = repeatCounts(t, 30);
+console.log(`delays ${delays.join(' ')} cs; repeats at 30 fps ${repeats.join(' ')}`);
+eq(delays.join(), '5,50,5,15,10,5,5', 'GIF delays');
+
+// The save dialog suggests the photos' folder and a name from the first and
+// last photo; with nothing queued, headless accepts the suggestion.
+const gifOut = path.join(dir, 'burst_01-08.gif');
+press(`${mod}+e`);
+waitFor(() => view.exporting, 'the export starts');
+assert(!document.querySelector('.iv-burst-progress').classList.contains('hidden'), 'progress shows');
+waitFor(() => !view.exporting, 'the GIF is written', 120000);
+assert(fs.existsSync(gifOut), `written where the dialog suggested: ${gifOut}`);
+assert(document.querySelector('.iv-burst-progress').classList.contains('hidden'), 'progress hides');
+
+const dec = bro.image.openFrames(gifOut);
+assert(dec, 'the GIF decodes');
+eq(dec.frameCount, 7, 'one GIF frame per included photo');
+eq(dec.width + 'x' + dec.height, `${view.outputSize().width}x${view.outputSize().height}`, 'at the output size');
+eq(dec.delays.map((ms) => Math.round(ms / 10)).join(), delays.join(), 'the GIF\'s delays are the schedule\'s');
+dec.close();
+
+// WebM through the real dialog path (headless answers with the queued path).
+view.panel.on.format('webm');
+eq(app.settings.get('burstFormat'), 'webm', 'the format is a setting');
+const webmOut = path.join(dir, 'out.webm');
+setPickedFiles([webmOut]);
+press(`${mod}+e`);
+waitFor(() => view.exporting, 'the WebM export starts');
+waitFor(() => !view.exporting, 'the WebM is written', 120000);
+assert(fs.existsSync(webmOut) && fs.statSync(webmOut).size > 1000, 'the WebM has content');
+const v = document.createElement('video');
+v.muted = true;
+document.body.appendChild(v);
+v.src = webmOut;
+flush();
+assert(v.readyState >= 1, `the WebM loads (readyState ${v.readyState})`);
+const total = repeats.reduce((a, b) => a + b, 0);
+near(v.duration, total / 30, 'WebM duration: the repeated frames at 30 fps', 0.034);
+let pictures = 1;
+while (pictures < 200 && v.stepFrame(1) > 0) pictures++;
+eq(pictures, total, 'WebM pictures');
+v.remove();
+
+console.log('test_burst_export PASSED');

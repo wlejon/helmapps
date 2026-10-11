@@ -65,6 +65,61 @@ Drag the picture to pan it when it is larger than the window; double-click
 switches between Fit and 100%. The background (dark, grey, or a
 checkerboard behind transparent pixels) is in the More menu.
 
+## Stabilize a burst
+
+A burst of photos of a moving subject (a bird bathing, shot at 10 frames a
+second) becomes a short animation with the subject, or the scene, held
+still:
+
+1. **Select Subject** (S, the sparkles button) and click the subject; more
+   clicks add to it, Alt+click removes an area. The mask shows over the
+   photo. The strip selects the photo's own burst (photos whose EXIF times
+   are close together); Shift+click in the strip extends the range from the
+   photo, Ctrl+click adds or leaves out one frame.
+2. **Stabilize Burst** (B) opens the frames. The subject is tracked frame to
+   frame on a crop that follows it; across a gap between bursts it jumps.
+   Each frame in the row along the bottom shows its mask and a badge: the
+   tracker's confidence, *Check* when it is low, *Click subject* when it lost
+   it. Go to such a frame and click the subject (C turns that on for any
+   frame); tracking carries on from there. X leaves a frame out.
+3. **Lock** (L): *Subject* holds the subject's position and size (its own
+   alignment, pulled onto the mask and smoothed); *Scene* holds the
+   surroundings (aligned with the subject left out) so the subject moves
+   naturally through a steady scene. The last lock used is remembered.
+4. **Crop**: drag the frame to move it, a corner to size it, in the shape
+   chosen (Free, 1:1, 4:5, 3:2, 16:9). It stays inside what every included
+   frame covers; what not every frame covers is shaded.
+5. **Timing** comes from the EXIF times (to the hundredth of a second). A
+   step longer than 0.4 s, or than 3x the typical step, is a gap between
+   bursts and is trimmed to the hold (0.1 s by default). Speed scales it
+   all; a frame's own hold overrides its time. The panel shows how long the
+   photos took and how long the animation plays. Space plays and pauses,
+   Left / Right step.
+6. **Export** (Mod+E) a GIF (each frame its own delay) or a WebM (30 fps,
+   frames repeated to keep the timing), at the size chosen (long side), to a
+   file named for the first and last photo beside them. Frames are rendered
+   from the full-resolution photos (the crop plus a margin, area-resized,
+   then warped bicubic) and encoded on a worker.
+
+The subject model comes from `bro.models`: SAM 2.1 (`sam2.1-hiera-*`) when
+this bro has `bro.vision.loadSam2`, else SAM (`sam-vit-base`). Put the
+weights folder in one of `bro.models.dirs` (the `BRO_MODELS` path list, the
+`models.dirs` setting, or the per-user models folder); without one, Select
+Subject says where it looked. Tracking, decoding and alignment run on a
+worker (`js/burst/track-worker.js`), previews and export on another
+(`js/burst/media-worker.js`); the page only draws.
+
+| Keys | Stabilize |
+|---|---|
+| S | Select Subject (on a photo) |
+| B | Stabilize Burst |
+| Space / Left / Right | Play or pause / previous / next frame |
+| C | Correct the frame's subject (click it) |
+| X | Leave the frame out (or back in) |
+| L | Hold the scene still / the subject |
+| Mod+E | Export |
+| Escape | Back to the photo |
+
 ## Files
 
 | File | |
@@ -80,4 +135,16 @@ checkerboard behind transparent pixels) is in the More menu.
 | `js/actions.js` | Rename, Move to Trash, Copy Image, Copy Path, Open With, Show in Files |
 | `js/presentation.js` | Full screen and the slideshow |
 | `js/formats.js` | Which formats open and how, name order |
-| `tests/` | Headless acceptance tests and `test_perf.js` |
+| `js/burst/burst.js` | Stabilize a burst: the feature's commands, the subject tool and the strip's burst selection |
+| `js/burst/subject-tool.js` | Select Subject: clicks on the photo, the mask over it |
+| `js/burst/session.js` | The burst: frames, EXIF times, seeds, tracking out from the reference |
+| `js/burst/track-worker.js` | The tracking thread: crops at the model's size, subject and scene alignment, the model |
+| `js/burst/model.js` | The subject model behind one interface: SAM 2.1, SAM, or a colour key (tests) |
+| `js/burst/frames.js` | Decoding, crops, mask resampling and measuring (worker side) |
+| `js/burst/stabilize.js` | Transforms for the subject and scene locks, the common area, the crop |
+| `js/burst/timing.js` | EXIF times, bursts and gaps, the schedule, GIF delays and WebM repeats |
+| `js/burst/view.js` | The stabilize view: the held-still frame, the crop, playback, corrections |
+| `js/burst/frame-row.js` / `panel.js` | Its frame row (masks and badges) and side panel |
+| `js/burst/exporter.js` / `media-worker.js` | Export: the save dialog; rendering and encoding on a worker |
+| `js/burst/affine.js` / `draw.js` / `rpc.js` | 2x3 matrices and polygons, mask drawing, worker calls |
+| `tests/` | Headless acceptance tests and `test_perf.js`; `tests/burst.js` makes synthetic bursts |
