@@ -23,7 +23,14 @@ if (requireApp()) {
         skipTest('no shell that term integrates is installed');
     } else {
         writeSettings({ confirmClose: 'never', notifyOnLongCommand: 1, desktopNotifications: 'unfocused' });
+        // zsh's history is the user's, never kept in the integration's own
+        // directory (macOS's /etc/zshrc derives HISTFILE from ZDOTDIR while
+        // it still points there; shell-integration/zsh/.zshrc puts it back).
+        const strayHistory = path.join(process.env.BRO_APP_DIR, 'shell-integration', 'zsh', '.zsh_history');
+        try { fs.rmSync(strayHistory, { force: true }); } catch (e) { /* left by an older integration */ }
         for (const kind of kinds) check(found[kind][0], kind);
+        if (kinds.includes('zsh'))
+            assert(!fs.existsSync(strayHistory), 'zsh kept no history in the integration directory: ' + strayHistory);
     }
 }
 
