@@ -5,8 +5,9 @@
  * time. This module is the feature's face:
  *
  *  - the Animals menu (toolbar): every species with its photo count, "All"
- *    first, and Show Photos Without Animals; the choice filters the grid,
- *    the strip and Next / Previous (items());
+ *    first, "Unidentified" (an animal found, no name sure enough), and Show
+ *    Photos Without Animals; the choice filters the grid, the strip and
+ *    Next / Previous (items());
  *  - a tag on each grid tile (the burst's species and how sure) and the
  *    Animals sections of the details panel (labels.js);
  *  - progress in the status bar ("Finding animals · 120 of 958", Pause),
@@ -15,10 +16,13 @@
  *
  * Bursts stay whole: every frame of a burst is a photo of its own in the
  * grid, carrying the burst's consensus species (what the filter and the tag
- * use; a frame's own top species is in the details). A photo counts as
- * "without animals" when it and its burst have no species; such photos are
- * hidden once analysed, unless Show Photos Without Animals is on, and never
- * otherwise touched. Photos not analysed yet always show.
+ * use; a frame's own top species is in the details). A species is named
+ * only where bro.vision.wildlife.label() names it, at a score of 0.85 or
+ * more (the burst's consensus share, else a lone photo's top-1); under it
+ * the photo is Unidentified: no tag, counted and filtered as such. A photo
+ * counts as "without animals" when it and its burst have no animal; such
+ * photos are hidden once analysed, unless Show Photos Without Animals is
+ * on, and never otherwise touched. Photos not analysed yet always show.
  *
  * Hidden entirely where this bro cannot run it (wildlifeSupported), or with
  * the findAnimals setting off.
@@ -38,9 +42,13 @@ import { pathKey } from './records.js';
 export const WILDLIFE_SETTINGS = {
   findAnimals: { type: 'bool', default: true },
   showNoAnimals: { type: 'bool', default: false },
-  animalsModel: { type: 'string', default: 'bioclip-2' },              // bioclip-2 | bioclip
-  animalsSpeciesList: { type: 'string', default: 'upper-midwest.json' }, // in the species folder
+  animalsModel: { type: 'string', default: 'bioclip-2' },  // bioclip-2 | bioclip
+  // A list file in the species folder, or '' for bro.vision.wildlife's default lists.
+  animalsSpeciesList: { type: 'string', default: '' },
 };
+
+/** The Animals filter that shows the photos with an animal but no name (filter is otherwise a species). */
+export const UNIDENTIFIED = ':unidentified';
 
 export class WildlifeFeature {
   /**
@@ -57,7 +65,7 @@ export class WildlifeFeature {
     this.onDetails = onDetails;
     this.supported = wildlifeSupported();
     this.stub = null;              // TEST ONLY: useStub()
-    this.filter = '';              // a species' common name, '' for all
+    this.filter = '';              // a species' common name, UNIDENTIFIED, '' for all
     this.located = null;           // models.js locateModels(), when the models are not all there
     this.download = null;          // a ModelDownload while one is wanted
     this.seen = { dir: '', version: -1 };
@@ -135,10 +143,27 @@ export class WildlifeFeature {
 
   // ---- what is shown -----------------------------------------------------------------
 
-  /** The burst holding a photo, and its species' common name ('' for none). */
+  /**
+   * What is known of a photo: `label` (bro.vision.wildlife.label: the
+   * burst's consensus, or its own top-1, named at 0.85 or more; else null),
+   * `animal` (it or its burst has one), `empty` (analysed, no animal).
+   */
+  answerOf(p) {
+    const a = this.analysis;
+    const rec = a.record(p), b = a.burstOf(p);
+    const animal = !!(b && b.species) || !!(rec && !rec.error && rec.animal);
+    return { burst: b, label: bro.vision.wildlife.label(rec, b), animal, empty: !!rec && !rec.error && !animal };
+  }
+
+  /** A photo's species name ('' for none, or none sure enough). */
   tagOf(p) {
-    const b = this.analysis.burstOf(p);
-    return b && b.species ? b.species.common : '';
+    const l = this.answerOf(p).label;
+    return l ? l.common : '';
+  }
+
+  /** The filter's name on the button and in the status bar. */
+  filterName() {
+    return this.filter === UNIDENTIFIED ? 'Unidentified' : this.filter;
   }
 
   /** The photos of p's burst as { has(path) } (any form of a path), or null: Select Subject's frames. */
@@ -151,8 +176,7 @@ export class WildlifeFeature {
 
   /** Analysed, and neither it nor its burst has an animal. */
   isEmpty(p) {
-    const rec = this.analysis.record(p);
-    return !!rec && !rec.error && !this.tagOf(p);
+    return this.answerOf(p).empty;
   }
 
   /**
@@ -168,13 +192,13 @@ export class WildlifeFeature {
     if (this.cache.key === key && this.cache.src === folderItems) return this.cache.items;
     const out = [];
     for (const it of folderItems) {
-      const b = a.burstOf(it.path);
-      const tag = b && b.species ? b.species.common : '';
-      if (this.filter && tag !== this.filter) continue;
-      if (!this.filter && !showEmpty && !tag && this.isEmpty(it.path)) continue;
+      const { burst: b, label, animal, empty } = this.answerOf(it.path);
+      const tag = label ? label.common : '';
+      if (this.filter === UNIDENTIFIED ? !(animal && !label) : this.filter && tag !== this.filter) continue;
+      if (!this.filter && !showEmpty && empty) continue;
       out.push({
         name: it.name, path: it.path, tag,
-        conf: tag ? Math.round(b.species.share * 100) : 0,
+        conf: label ? Math.round(label.score * 100) : 0,
         burst: b && b.count > 1 && pathKey(b.first) === pathKey(it.path) ? b.count : 0,
       });
     }
@@ -182,18 +206,22 @@ export class WildlifeFeature {
     return out;
   }
 
-  /** Species in the folder by photo count, most first: [{ common, count }]; and the photos without animals. */
+  /**
+   * Species named in the folder by photo count, most first: [{ common, count }];
+   * the photos with an animal but no name (unidentified), and those without animals.
+   */
   counts() {
     const by = new Map();
-    let empty = 0;
+    let empty = 0, unidentified = 0;
     for (const it of this.folder.items) {
-      const tag = this.tagOf(it.path);
-      if (tag) by.set(tag, (by.get(tag) || 0) + 1);
-      else if (this.isEmpty(it.path)) empty++;
+      const { label, animal, empty: none } = this.answerOf(it.path);
+      if (label) by.set(label.common, (by.get(label.common) || 0) + 1);
+      else if (animal) unidentified++;
+      else if (none) empty++;
     }
     const species = [...by].map(([common, count]) => ({ common, count }))
       .sort((x, y) => y.count - x.count || (x.common < y.common ? -1 : 1));
-    return { species, empty, all: this.folder.items.length - (this.settings.get('showNoAnimals') ? 0 : empty) };
+    return { species, unidentified, empty, all: this.folder.items.length - (this.settings.get('showNoAnimals') ? 0 : empty) };
   }
 
   decorate(item, el) { decorateTile(item, el); }
@@ -233,7 +261,7 @@ export class WildlifeFeature {
     } else if (this.located) {
       const l = this.located;
       if (l.error) text = `Find Animals: ${l.error}`;
-      else if (l.listMissing) text = `Find Animals: no ${this.settings.get('animalsSpeciesList')} in ${l.speciesDir}`;
+      else if (l.listMissing) text = `Find Animals: no ${this.settings.get('animalsSpeciesList') || 'species list'} in ${l.speciesDir}`;
       else if (canFetch()) {
         text = 'Finding animals needs its models';
         action = `Download (${formatBytes(bytesOf(l.missing))})`;
@@ -259,7 +287,7 @@ export class WildlifeFeature {
     shown(this.cancelBtn, cancel);
     // The Animals menu, once there is anything to filter by.
     shown(this.filterBtn, on && (this.analysis.results.size > 0 || !!this.filter));
-    this.filterLabel.textContent = this.filter || 'Animals';
+    this.filterLabel.textContent = this.filterName() || 'Animals';
     this.filterBtn.classList.toggle('active', !!this.filter);
   }
 
@@ -321,7 +349,7 @@ export class WildlifeFeature {
     this.analysisChanged();
   }
 
-  /** The Animals menu: All, every species with its photo count, the toggle. */
+  /** The Animals menu: All, every species with its photo count, Unidentified, the toggle. */
   showMenu() {
     const c = this.counts();
     const pick = (common, label, count) => this.commands.item('animals-filter', {
@@ -330,8 +358,9 @@ export class WildlifeFeature {
     });
     const items = [
       pick('', 'All photos', c.all),
-      c.species.length ? { separator: true } : null,
+      c.species.length || c.unidentified ? { separator: true } : null,
       ...c.species.map((s) => pick(s.common, s.common, s.count)),
+      c.unidentified || this.filter === UNIDENTIFIED ? pick(UNIDENTIFIED, 'Unidentified', c.unidentified) : null,
       { separator: true },
       this.commands.item('animals-show-empty', { count: c.empty }),
     ];

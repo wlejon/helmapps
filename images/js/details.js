@@ -102,10 +102,13 @@ function exifRows(pic) {
 
 const trim = (n) => String(Math.round(n * 10) / 10);
 
-/** A titled section of label / value rows; rows whose value is '' are left out. */
+/**
+ * A titled section of label / value rows; rows whose value is '' are left
+ * out. A row's third element { dim: true } shows its value muted (a guess).
+ */
 export function section(title, rows) {
   return h('div.iv-details-section',
     h('div.micro.iv-details-title', title),
-    ...rows.filter(([, v]) => v !== '').map(([k, v]) =>
-      h('div.iv-prop', h('div.iv-prop-key', k), h('div.iv-prop-value.num', { title: v }, v))));
+    ...rows.filter(([, v]) => v !== '').map(([k, v, o]) =>
+      h('div.iv-prop', h('div.iv-prop-key', k), h(o && o.dim ? 'div.iv-prop-value.num.dim' : 'div.iv-prop-value.num', { title: v }, v))));
 }

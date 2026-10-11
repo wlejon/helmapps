@@ -69,19 +69,27 @@ checkerboard behind transparent pixels) is in the More menu.
 
 Opening a folder is the import: its photos are analysed in the background
 with `bro.vision.wildlife` (OWLv2 finds the animal, BioCLIP 2 names its
-species from the Upper-Midwest species list, and the sharpness of the
-subject and the frame is measured), and photos shot less than 1.0 s apart
-are grouped into bursts (`groupBursts`), each with a consensus species.
+species from the Upper-Midwest species lists: birds, yard mammals,
+reptiles and amphibians; and the sharpness of the subject and the frame is
+measured), and photos shot less than 1.0 s apart are grouped into bursts
+(`groupBursts`), each with a consensus species.
 
-- **Animals** (the toolbar's filter button) lists every species in the
-  folder with its photo count, *All photos* first, and *Show Photos
-  Without Animals*. The choice filters the grid, the strip, Next /
-  Previous and the slideshow.
+- **Only sure names.** A species is named only at a score of 85% or more
+  (`bro.vision.wildlife.label`: the burst's consensus share, else a lone
+  photo's top-1). Under it the photo is *Unidentified*: an animal was
+  found, but no name is shown.
+- **Animals** (the toolbar's filter button) lists every named species in
+  the folder with its photo count, *All photos* first, then *Unidentified*
+  with its count, and *Show Photos Without Animals*. The choice filters the
+  grid, the strip, Next / Previous and the slideshow.
 - Each grid tile carries a quiet tag: the species and how sure (the burst's
-  mean score), and on a burst's first frame how many frames it has.
+  mean score), and on a burst's first frame how many frames it has. An
+  unidentified photo has no species tag.
 - The details panel (Mod+I) shows the burst's consensus (species, how many
   frames agree, how long it took, its sharpest frame) and the photo's own
   top five species with scores, what the detector found, and sharpness.
+  Under 85% a species reads "Not identified", with the guesses muted under
+  "Possibly".
 - **Bursts stay whole.** Every frame of a burst is a photo of its own in
   the grid and carries the burst's species, so a frame the bird has just
   left still shows under that species. Nothing is collapsed or hidden for
@@ -102,13 +110,15 @@ are grouped into bursts (`groupBursts`), each with a consensus species.
   when it has one, so Stabilize's frames are the bursts the grid shows.
 
 The models come from `bro.models` (`owlv2`, `bioclip-2`, and the `species`
-folder holding `upper-midwest.json`). Where one is missing, the status bar
-offers to download them (about 2.2 GB) with `bro.models.fetch`: a progress
-bar and Cancel while it runs, a reason and Retry when it fails, a toast when
-they are installed, and then the folder is analysed. Settings:
-`findAnimals` (on; also *Find Animals* in the More menu), `showNoAnimals`,
-`animalsModel` (`bioclip-2` or `bioclip`), `animalsSpeciesList` (a file in
-the species folder: `upper-midwest.json`, or the openly licensed
+folder holding `upper-midwest.json` and `upper-midwest-herps/`). Where one
+is missing, the status bar offers to download them (about 2.2 GB; a species
+folder from before the herps is offered just `species/upper-midwest-herps`,
+83 KB) with `bro.models.fetch`: a progress bar and Cancel while it runs, a
+reason and Retry when it fails, a toast when they are installed, and then
+the folder is analysed. Settings: `findAnimals` (on; also *Find Animals* in
+the More menu), `showNoAnimals`, `animalsModel` (`bioclip-2` or `bioclip`),
+`animalsSpeciesList` ('' for `bro.vision.wildlife`'s default lists, or one
+file in the species folder, e.g. the openly licensed
 `upper-midwest-gbif/species.json`). The feature is hidden where this bro has
 no `bro.vision.wildlife`, `bro.lm.loadClip` or GPU.
 

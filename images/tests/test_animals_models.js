@@ -3,7 +3,8 @@
 // photo gets a record of analyze()'s shape, the window keeps drawing while
 // the models load and run, and opening the folder again answers from the
 // cache without the models. Skips where this machine has no weights (set
-// BRO_MODELS to a folder holding owlv2, bioclip-2 and species/), or this bro
+// BRO_MODELS to a folder holding owlv2, bioclip-2 and species/ with
+// upper-midwest.json and upper-midwest-herps/), or this bro
 // cannot find animals.
 
 import { app, waitFor, measureFrames, eq, fixtureDir } from '/lib/test.js';
@@ -12,7 +13,7 @@ import { wildlifeSupported, locateModels } from '/app/js/wildlife/models.js';
 
 const reason = !wildlifeSupported() ? 'this bro cannot find animals (bro.vision.wildlife, bro.lm.loadClip or a GPU missing)'
   : (() => {
-    const loc = locateModels('bioclip-2', 'upper-midwest.json');
+    const loc = locateModels('bioclip-2', '');
     return loc.missing.length || loc.listMissing
       ? `no animal models in bro.models (${loc.missing.join(', ') || 'species list'}; dirs ${bro.models.dirs.join(', ')})` : '';
   })();

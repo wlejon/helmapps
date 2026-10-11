@@ -4,10 +4,14 @@
 // a burst stays a photo of its own and carries the burst's species, photos
 // without animals hide until asked for, the Animals menu filters the grid,
 // the strip and Next / Previous with counts, tiles and the details panel
-// carry the labels, and Select Subject selects the same bursts.
+// carry the labels, and Select Subject selects the same bursts. A frog the
+// stub names at 0.6 (under the 0.85 label threshold) has no tag, reads
+// "Not identified" in the details and is counted and filtered as
+// Unidentified.
 
 import { app, waitFor, eq, press, clickEl, menuLabels, chooseMenu, fixtureDir } from '/lib/test.js';
-import { shotsTree, stubTable, analysed, names, photo, SQUIRREL, CARDINAL } from '/app/tests/wildlife.js';
+import { shotsTree, stubTable, analysed, names, photo, SQUIRREL, CARDINAL, FROG, TABLE } from '/app/tests/wildlife.js';
+import { UNIDENTIFIED } from '/app/js/wildlife/feature.js';
 import { shown } from '/app/tests/images.js';
 
 const path = require('path');
@@ -17,15 +21,16 @@ if (typeof bro === 'undefined' || !bro.vision || !bro.vision.wildlife) skipTest(
 else run();
 
 function run() {
-const dir = fixtureDir(shotsTree());
-app.wildlife.useStub(stubTable());
+// u_01: the frog, alone at 25 s.
+const dir = fixtureDir({ ...shotsTree(), 'u_01.jpg': photo({ time: 25, animal: FROG }) });
+app.wildlife.useStub(stubTable([...TABLE, FROG]));
 app.openPath(dir);
-waitFor(() => app.state.mode === 'grid' && app.folder.items.length === 9, 'the folder');
+waitFor(() => app.state.mode === 'grid' && app.folder.items.length === 10, 'the folder');
 analysed(app, waitFor);
 
 const a = app.wildlife.analysis;
-eq(a.analysed, 9, 'every photo went through the analyzer once');
-eq(a.bursts.length, 6, 'six bursts: a, b, c (0.5 s apart is one), d, and the two empty shots');
+eq(a.analysed, 10, 'every photo went through the analyzer once');
+eq(a.bursts.length, 7, 'seven bursts: a, b, c (0.5 s apart is one), d, the frog, and the two empty shots');
 const burstA = a.burstOf(path.join(dir, 'a_01.jpg'));
 eq(names(burstA.photos.map((p) => ({ path: p }))).join(), 'a_01.jpg,a_02.jpg,a_03.jpg', 'the cardinal burst');
 eq(burstA.species.common, 'Northern Cardinal', 'its consensus');
@@ -33,32 +38,44 @@ eq(a.burstOf(path.join(dir, 'c_02.jpg')).photos.length, 2, 'the jays 0.5 s apart
 
 // Photos without animals hide; every frame of a burst stays.
 const gridNames = () => names(app.grid.items).join();
-eq(gridNames(), 'a_01.jpg,a_02.jpg,a_03.jpg,b_01.jpg,c_01.jpg,c_02.jpg,d_01.jpg', 'the empty shots hide, the bursts stay whole');
+eq(gridNames(), 'a_01.jpg,a_02.jpg,a_03.jpg,b_01.jpg,c_01.jpg,c_02.jpg,d_01.jpg,u_01.jpg',
+  'the empty shots hide, the bursts stay whole, the unidentified frog shows');
 const item = (n) => app.grid.items.find((it) => it.path.endsWith(n));
 eq(item('a_02.jpg').tag, 'Northern Cardinal', 'the frame the bird left carries the burst\'s species');
 eq(item('a_01.jpg').burst, 3, 'the burst\'s first frame counts its frames');
 eq(item('a_03.jpg').burst, 0, 'the others do not');
-assert(document.querySelector('.statusbar').textContent.includes('7 of 9 images'), 'the status bar says how many show');
+eq([item('u_01.jpg').tag, item('u_01.jpg').conf], ['', 0], 'a species under 85% is no tag');
+assert(document.querySelector('.statusbar').textContent.includes('8 of 10 images'), 'the status bar says how many show');
 
 // Tiles carry the tag.
 waitFor(() => document.querySelectorAll('.iv-grid .iv-tag-name').length >= 7, 'the tiles\' tags');
-const tile = Array.from(document.querySelectorAll('.iv-grid .vgrid-cell')).find((c) => c.title === 'b_01.jpg');
+const cell = (n) => Array.from(document.querySelectorAll('.iv-grid .vgrid-cell')).find((c) => c.title === n);
+const tile = cell('b_01.jpg');
 eq(tile.querySelector('.iv-tag-name').textContent, 'Blue Jay', 'a tile names its species');
-eq(tile.querySelector('.iv-tag-conf').textContent, '80%', 'and how sure');
+eq(tile.querySelector('.iv-tag-conf').textContent, '92%', 'and how sure');
+const frogTile = cell('u_01.jpg');
+assert(frogTile && (!frogTile.querySelector('.iv-tags') || frogTile.querySelector('.iv-tags').classList.contains('hidden')),
+  'the unidentified frog\'s tile has no tag');
 
-// The Animals menu: All, the species by photo count, the toggle.
+// The Animals menu: All, the species by photo count, Unidentified, the toggle.
 const btn = document.querySelector('.iv-animals-filter');
 assert(btn && !btn.classList.contains('hidden'), 'the Animals button shows');
 clickEl(btn);
 const labels = menuLabels();
-eq(labels.slice(0, 4).join('|'), 'All photos|Blue Jay|Northern Cardinal|Eastern Gray Squirrel', 'All first, then by photo count');
+eq(labels.slice(0, 5).join('|'), 'All photos|Blue Jay|Northern Cardinal|Eastern Gray Squirrel|Unidentified',
+  'All first, then the named species by photo count, then the unidentified');
+assert(!labels.includes('Green Frog'), 'a species under 85% is not in the menu');
 assert(labels.includes('Show Photos Without Animals'), 'the toggle is in the menu');
 const counts = Array.from(document.querySelectorAll('.menu .menu-count')).map((k) => k.textContent);
-eq(counts.slice(0, 4).join(), '7,3,3,1', 'with photo counts');
+eq(counts.slice(0, 5).join(), '8,3,3,1,1', 'with photo counts');
+chooseMenu('Unidentified');
+eq(gridNames(), 'u_01.jpg', 'Unidentified filters like a species');
+eq(btn.textContent, 'Unidentified', 'the button says so');
+clickEl(btn);
 chooseMenu('Blue Jay');
 eq(gridNames(), 'b_01.jpg,c_01.jpg,c_02.jpg', 'the grid shows the jays');
 eq(btn.textContent, 'Blue Jay', 'the button says the filter');
-assert(document.querySelector('.statusbar').textContent.includes('3 of 9 images'), 'and the status bar');
+assert(document.querySelector('.statusbar').textContent.includes('3 of 10 images'), 'and the status bar');
 
 // The strip and Next / Previous follow the filter.
 app.openImage(path.join(dir, 'b_01.jpg'));
@@ -80,7 +97,26 @@ const det = document.querySelector('.iv-details').textContent;
 assert(/Burst/.test(det) && /2 over 0\.5 s/.test(det), `the burst's frames and time: ${det}`);
 assert(/This photo/.test(det) && /Eastern Bluebird/.test(det), 'the frame\'s own top species');
 assert(/bird 0\.50/.test(det), 'what the detector found');
+assert(!/Not identified/.test(det), 'named at 92%');
 press('mod+i');
+
+// Under 85%: "Not identified", the guesses muted under Possibly.
+app.commands.run('animals-filter', UNIDENTIFIED);
+app.openImage(path.join(dir, 'u_01.jpg'));
+shown(app, waitFor, 'u_01.jpg');
+press('mod+i');
+waitFor(() => /Not identified/.test(document.querySelector('.iv-details').textContent), 'the details say it is not identified');
+const props = Array.from(document.querySelectorAll('.iv-details .iv-prop')).map((p) =>
+  [p.querySelector('.iv-prop-key').textContent, p.querySelector('.iv-prop-value').textContent, p.querySelector('.iv-prop-value').classList.contains('dim')]);
+const prop = (k) => props.filter(([key]) => key === k);
+eq(prop('Species').map(([, v]) => v), ['Not identified', 'Not identified'], 'the burst of one and the photo: no name');
+assert(prop('Possibly').length === 2 && prop('Possibly').every(([, , dim]) => dim), 'the guesses are muted');
+assert(/Green Frog 60%/.test(prop('Possibly')[1][1]) && /Mink Frog 30%/.test(prop('Possibly')[1][1]), `the top 5 as a guess: ${prop('Possibly')[1][1]}`);
+eq(prop('Scientific name').length, 0, 'no scientific name for a guess');
+press('mod+i');
+app.commands.run('animals-filter', '');
+app.openImage(path.join(dir, 'c_02.jpg'));
+shown(app, waitFor, 'c_02.jpg');
 
 // Select Subject selects Find Animals' burst: c_01 + c_02 (0.5 s apart; the EXIF-step rule alone would split them).
 app.commands.run('animals-filter', '');
@@ -91,15 +127,17 @@ press('s');
 
 // Show Photos Without Animals: every photo again.
 app.commands.run('animals-show-empty');
-eq(names(app.shownItems()).length, 9, 'all nine show');
+eq(names(app.shownItems()).length, 10, 'all ten show');
 app.commands.run('animals-show-empty');
-eq(names(app.shownItems()).length, 7, 'and hide again');
+eq(names(app.shownItems()).length, 8, 'and hide again');
 
 // A no-animal photo on screen stays on screen; Next steps among the shown ones.
 app.openImage(path.join(dir, 'e_01.jpg'));
 shown(app, waitFor, 'e_01.jpg', 'a hidden photo still opens');
 press('right');
-shown(app, waitFor, 'a_01.jpg', 'Next from it goes on (wrapping) among the shown photos');
+shown(app, waitFor, 'u_01.jpg', 'Next from it goes on among the shown photos (the unidentified frog shows)');
+press('right');
+shown(app, waitFor, 'a_01.jpg', 'and wraps');
 
 // Find Animals off: no tags, no filter, every photo.
 app.commands.run('find-animals');
@@ -107,18 +145,18 @@ eq(app.shownItems(), app.folder.items, 'off: the folder as it is');
 assert(btn.classList.contains('hidden'), 'and no Animals button');
 app.commands.run('find-animals');
 analysed(app, waitFor, 'on again: answered from the cache');
-eq(a.analysed, 9, 'nothing analysed again');
-eq(app.shownItems().length, 7, 'the filter is back');
+eq(a.analysed, 10, 'nothing analysed again');
+eq(app.shownItems().length, 8, 'the filter is back');
 
 // The folder watch: a new photo and one rewritten in place are analysed, nothing else.
 if (app.folder.watching) {
   const fs = require('fs');
   fs.writeFileSync(path.join(dir, 'f_01.jpg'), photo({ time: 40, animal: SQUIRREL }));
   fs.writeFileSync(path.join(dir, 'e_02.jpg'), photo({ time: 30, animal: CARDINAL }));
-  waitFor(() => a.analysed === 11 && a.state === 'done' && !a.groupTimer, 'the new and the changed photo analysed', 20000);
+  waitFor(() => a.analysed === 12 && a.state === 'done' && !a.groupTimer, 'the new and the changed photo analysed', 20000);
   eq(app.shownItems().find((it) => it.path.endsWith('f_01.jpg')).tag, 'Eastern Gray Squirrel', 'the new photo is tagged');
   eq(app.shownItems().find((it) => it.path.endsWith('e_02.jpg')).tag, 'Northern Cardinal', 'the rewritten one too, and it shows now');
-  eq(app.shownItems().length, 9, 'nine with animals of ten');
+  eq(app.shownItems().length, 10, 'ten with animals of eleven');
 } else console.log('no folder watch here (bro.vfs): the watch part is not checked');
 
 console.log('test_animals PASSED');

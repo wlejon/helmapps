@@ -18,7 +18,7 @@ const fs = require('fs');
 if (!wildlifeSupported()) skipTest('this bro cannot find animals (bro.vision.wildlife, bro.lm.loadClip or a GPU missing)');
 else if (!canFetch()) skipTest('this bro cannot fetch models');
 else if (!process.env.BRO_APP_HOME) skipTest('needs a scratch BRO_APP_HOME (scripts/run_tests.sh sets one): the download installs models');
-else if (!locateModels('bioclip-2', 'upper-midwest.json').missing.length) skipTest('this machine already has the animal models in bro.models');
+else if (!locateModels('bioclip-2', '').missing.length) skipTest('this machine already has the animal models in bro.models');
 else await run();
 
 async function run() {
@@ -34,15 +34,20 @@ const gitBlobSha1 = async (bytes) => {
 const weights = (n, k) => new Uint8Array(n).map((_, i) => (i * k) & 255);
 const speciesList = enc(JSON.stringify({ species: [
   { common: 'Blue Jay', scientific: 'Cyanocitta cristata', class: 'Aves', order: 'Passeriformes', family: 'Corvidae' }] }));
+const herpsList = enc(JSON.stringify({ species: [
+  { common: 'Common Garter Snake', scientific: 'Thamnophis sirtalis', class: 'Squamata', family: 'Colubridae' }] }));
+// The species folder holds the herps in a folder of its own, as the dataset does.
+const HERPS = 'species/upper-midwest-herps';
 const folders = {
   owlv2: { 'model.safetensors': weights(64 * 1024, 7), 'config.json': enc('{"model_type":"owlv2"}\n') },
   'bioclip-2': { 'model.safetensors': weights(96 * 1024, 11), 'config.json': enc('{"model_type":"clip"}\n') },
   species: { 'upper-midwest.json': speciesList },
+  [HERPS]: { 'species.json': herpsList },
 };
 const files = {};
 const listings = {};
 for (const [name, fl] of Object.entries(folders)) {
-  const list = [];
+  const list = name === 'species' ? [{ type: 'directory', path: HERPS, size: 0, oid: '0' }] : [];
   for (const [f, bytes] of Object.entries(fl)) {
     files[`${name}/${f}`] = bytes;
     if (f.endsWith('.safetensors')) {
@@ -131,6 +136,22 @@ analysed(app, waitFor, 'the folder analysed after the install');
 eq(app.grid.items.length, 7, 'the photos without animals now hide');
 assert(shown(document.querySelector('.iv-animals-filter')), 'the Animals menu shows');
 assert(!shown(bar()), 'the status bar is quiet once it is done');
+
+// A species folder from before the herps: only their folder is offered, and fetched.
+const herpsDir = bro.models.find(HERPS);
+fs.rmSync(herpsDir, { recursive: true, force: true });
+eq(bro.models.find(HERPS), null, 'the herps folder is gone');
+assert(bro.models.find('species') !== null, 'the species folder stays');
+app.wildlife.folderChanged({ force: true });
+waitFor(() => shown(bar()) && shown(action()), 'the herps are offered');
+eq(app.wildlife.located.missing, [HERPS], 'only the herps folder is missing');
+eq(action().textContent, 'Download (82.7 KB)', 'offered with its size');
+clickEl(action());
+waitFor(() => !app.wildlife.download, 'the herps download', 30000);
+eq(path.resolve(bro.models.find(HERPS)), path.resolve(process.env.BRO_APP_HOME, 'models', HERPS), 'installed below the species folder');
+eq(fs.readFileSync(path.join(bro.models.find(HERPS), 'species.json')).length, herpsList.length, 'the list is on disk');
+waitFor(() => !shown(bar()), 'the status bar is quiet again');
+eq(app.wildlife.located, null, 'nothing missing');
 
 tcp.close();
 console.log('test_animals_download PASSED');

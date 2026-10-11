@@ -10,11 +10,15 @@ export const CARDINAL = { color: [220, 30, 40], label: 'a bird',
   species: [{ common: 'Northern Cardinal', scientific: 'Cardinalis cardinalis', score: 0.9 },
     { common: 'Scarlet Tanager', scientific: 'Piranga olivacea', score: 0.05 }] };
 export const JAY = { color: [40, 90, 230], label: 'a bird',
-  species: [{ common: 'Blue Jay', scientific: 'Cyanocitta cristata', score: 0.8 },
-    { common: 'Eastern Bluebird', scientific: 'Sialia sialis', score: 0.1 }] };
+  species: [{ common: 'Blue Jay', scientific: 'Cyanocitta cristata', score: 0.92 },
+    { common: 'Eastern Bluebird', scientific: 'Sialia sialis', score: 0.05 }] };
 export const SQUIRREL = { color: [150, 100, 40], label: 'a squirrel',
-  species: [{ common: 'Eastern Gray Squirrel', scientific: 'Sciurus carolinensis', score: 0.7 }] };
+  species: [{ common: 'Eastern Gray Squirrel', scientific: 'Sciurus carolinensis', score: 0.88 }] };
 export const TABLE = [CARDINAL, JAY, SQUIRREL];
+/** An animal named under the label threshold (0.85): found, not identified. Not in TABLE. */
+export const FROG = { color: [235, 215, 30], label: 'a frog',
+  species: [{ common: 'Green Frog', scientific: 'Lithobates clamitans', score: 0.6 },
+    { common: 'Mink Frog', scientific: 'Lithobates septentrionalis', score: 0.3 }] };
 
 /** A w x h scene (a soft green-grey gradient) with a disc of `color` at (cx, cy), or none. */
 export function scene(w, h, color = null, cx = w / 2, cy = h / 2, r = Math.min(w, h) / 6) {

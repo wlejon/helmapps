@@ -59,6 +59,7 @@
 .iv-prop { display: flex; flex-direction: column; gap: 2px; }
 .iv-prop-key { font-size: var(--fs-cap); color: var(--t3); }
 .iv-prop-value { color: var(--t1); overflow-wrap: anywhere; }
+.iv-prop-value.dim { color: var(--t3); }
 .iv-details-note { font-size: var(--fs-cap); }
 
 /* The status bar: a quiet note while the view is rotated or flipped. */

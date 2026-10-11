@@ -7,6 +7,9 @@
  *
  *   wildlifeSupported()       this bro can run it at all (else the feature is hidden)
  *   locateModels(model, list) { paths, missing: ['owlv2', ...] } by folder name
+ *                             (bro.vision.wildlife.locate's `fetch`: 'species', or
+ *                             'species/upper-midwest-herps' for a species folder
+ *                             from before the herps)
  *   const d = new ModelDownload(['owlv2', 'species'], { onChange });
  *   d.start(); d.cancel();    d.state 'running' | 'failed' | 'done' | 'cancelled', d.done, d.total, d.error
  *
@@ -21,7 +24,8 @@ export const FOLDERS = {
   owlv2: { name: 'owlv2', label: 'OWLv2', bytes: 621519089 },
   'bioclip-2': { name: 'bioclip-2', label: 'BioCLIP 2', bytes: 1711929390 },
   bioclip: { name: 'bioclip', label: 'BioCLIP', bytes: 599921912 },
-  species: { name: 'species', label: 'species lists', bytes: 450113 },
+  species: { name: 'species', label: 'species lists', bytes: 534767 },
+  'species/upper-midwest-herps': { name: 'species/upper-midwest-herps', label: 'reptiles and amphibians', bytes: 84654 },
 };
 
 /**
@@ -45,22 +49,21 @@ export function canFetch() {
 
 /**
  * Where the models are: `paths` for the analyzer ({ detector, classifier,
- * species, model }), and `missing`, the folder names to fetch. `listFile` is
- * the species list inside the species folder; `listMissing` says the folder
- * is there without that list (a fetch would not help).
+ * species, model }), and `missing`, the folder names to fetch. `listFile`
+ * is a species list inside the species folder, or '' for
+ * bro.vision.wildlife's default lists (the birds and mammals, and the
+ * reptiles and amphibians in a folder of their own); `listMissing` says a
+ * list is not there and a fetch would not bring it (the folder is there
+ * without that file).
  */
 export function locateModels(model, listFile) {
   const speciesDir = bro.models.find('species');
   const opts = { model };
-  if (speciesDir) opts.species = path.join(speciesDir, listFile);
+  if (listFile && speciesDir) opts.species = path.join(speciesDir, listFile);
   const loc = bro.vision.wildlife.locate(opts);
-  const missing = [];
-  let listMissing = false;
-  for (const k of loc.missing) {
-    if (k === 'detector') missing.push('owlv2');
-    else if (k === 'classifier') missing.push(model);
-    else if (k === 'species') { if (speciesDir) listMissing = true; else missing.push('species'); }
-  }
+  const missing = loc.fetch.slice();
+  const isList = (n) => n === 'species' || n.startsWith('species/');
+  const listMissing = loc.missing.includes('species') && !missing.some(isList);
   return {
     paths: { detector: loc.detector, classifier: loc.classifier, species: loc.species, model },
     missing, listMissing, speciesDir,

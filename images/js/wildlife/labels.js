@@ -5,6 +5,10 @@
  * consensus, this frame's own top species with scores, what the detector
  * found, sharpness).
  *
+ * A species is named only where bro.vision.wildlife.label() names it (a
+ * score of 0.85 or more): under it a tile has no tag and the details say
+ * "Not identified", with the guesses muted under "Possibly".
+ *
  * A tile shows only its item's fields (lib/list.js): feature.js puts
  * `tag`, `conf` and `burst` on the item.
  */
@@ -49,11 +53,14 @@ export function detailsSection(rec, burst, { pending = false } = {}) {
   if (!rec) return pending ? section('Animals', [['Status', 'Not looked at yet']]) : null;
   if (rec.error) return section('Animals', [['Status', `Could not be read (${rec.error})`]]);
   const parts = [];
+  const label = bro.vision.wildlife.label;
   if (burst && (burst.count > 1 || burst.species)) {
     const s = burst.species;
+    const named = s ? label(null, burst) : null;
     parts.push(section(burst.count > 1 ? 'Burst' : 'Animal', [
-      ['Species', s ? `${s.common} · ${pct(s.share)}` : 'No animal'],
-      ['Scientific name', s ? s.scientific : ''],
+      ['Species', !s ? 'No animal' : named ? `${s.common} · ${pct(s.share)}` : 'Not identified'],
+      ['Possibly', s && !named ? `${s.common} · ${pct(s.share)}` : '', { dim: true }],
+      ['Scientific name', named ? s.scientific : ''],
       ['Agreement', s && burst.count > 1 ? `${s.agree} of ${burst.animalCount} frames with an animal name it first` : ''],
       ['Photos', burst.count > 1 ? `${burst.count} over ${burst.durationS.toFixed(1)} s` : ''],
       ['Sharpest frame', burst.count > 1 ? (burst.keeper === rec.path ? 'This one' : path.basename(burst.keeper)) : ''],
@@ -61,7 +68,13 @@ export function detailsSection(rec, burst, { pending = false } = {}) {
   }
   const own = [];
   if (!rec.animal) own.push(['Animal', 'None found']);
-  rec.species.forEach((s, i) => own.push([i === 0 ? 'Species' : `${i + 1}.`, `${s.common} · ${pct(s.score)}`]));
+  if (rec.animal && rec.species.length && !label(rec, null)) {
+    // Under the threshold: no name, the top 5 as a muted guess.
+    own.push(['Species', 'Not identified']);
+    own.push(['Possibly', rec.species.map((s) => `${s.common} ${pct(s.score)}`).join(', '), { dim: true }]);
+  } else {
+    rec.species.forEach((s, i) => own.push([i === 0 ? 'Species' : `${i + 1}.`, `${s.common} · ${pct(s.score)}`]));
+  }
   if (rec.detections.length) {
     own.push(['Found', rec.detections.map((d) => `${d.label.replace(/^an? /, '')} ${d.score.toFixed(2)}`).join(', ')]);
   }
