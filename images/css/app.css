@@ -73,6 +73,7 @@
   background: var(--surface-1); border: 1px solid var(--hairline); color: var(--t2); font-size: var(--fs-cap);
 }
 .iv-subject-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.iv-subject-progress { flex: 0 0 auto; width: 160px; }
 .iv-stage.picking, .iv-stage.picking.pannable { cursor: crosshair; }
 
 /* Stabilize: the held-still frame and its crop, the panel beside it, the frames below. */

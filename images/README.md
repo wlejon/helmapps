@@ -104,8 +104,13 @@ still:
 The subject model comes from `bro.models`: SAM 2.1 (`sam2.1-hiera-*`) when
 this bro has `bro.vision.loadSam2`, else SAM (`sam-vit-base`). Put the
 weights folder in one of `bro.models.dirs` (the `BRO_MODELS` path list, the
-`models.dirs` setting, or the per-user models folder); without one, Select
-Subject says where it looked. Tracking, decoding and alignment run on a
+`models.dirs` setting, or the per-user models folder). Without one, Select
+Subject (S, or B) offers to download SAM 2.1 (309 MB) with
+`bro.models.fetch`: a click starts it, a progress bar shows in the subject
+bar (Cancel stops it, and the next try resumes), and once it is installed
+the tool carries on; a failure (offline, the server) says why and offers a
+retry. Nothing is remembered beyond the installed folder, which
+`bro.models.find` answers from then on. Tracking, decoding and alignment run on a
 worker (`js/burst/track-worker.js`), previews and export on another
 (`js/burst/media-worker.js`); the page only draws.
 

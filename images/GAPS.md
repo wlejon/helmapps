@@ -53,6 +53,10 @@ beyond saying so in the window. Kit-level gaps shared by every app are in
 - `bro.models.find(name)` / `bro.models.dirs`: where model weights live
   (`BRO_MODELS`, the `models.dirs` setting, the per-user models folder), so
   the app asks for `sam-vit-base` instead of carrying a path.
+- `bro.models.fetch(name, {onProgress, signal})`: a machine without weights
+  installs SAM 2.1 from the bro model datasets (verified, resumable, renamed
+  into place), so Select Subject downloads it on a click instead of telling
+  the user where to put a folder.
 - The kit's `VirtualList` takes `typeAhead: false`: with the thumbnail strip
   focused, letters were jumping through the strip instead of reaching the
   app's shortcuts (R, H, V, and now S, B).

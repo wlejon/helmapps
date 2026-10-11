@@ -39,6 +39,12 @@ export const MODEL_NAMES = [
   { kind: 'sam', name: 'sam-vit-base' },
 ];
 
+/**
+ * What Select Subject offers to download (bro.models.fetch) when the machine
+ * has none of the above: SAM 2.1 base-plus, its size as the dataset lists it.
+ */
+export const DOWNLOAD_MODEL = { kind: 'sam2', name: 'sam2.1-hiera-base-plus', label: 'SAM 2.1', bytes: 323497339 };
+
 /** The square side a crop is made at for the model. */
 export const INPUT_SIZE = 1024;
 

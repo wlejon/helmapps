@@ -20,7 +20,7 @@
  */
 
 import { WorkerClient } from './rpc.js';
-import { MODEL_NAMES } from './model.js';
+import { MODEL_NAMES, DOWNLOAD_MODEL } from './model.js';
 import { exifSeconds, fillTimes, gapThreshold } from './timing.js';
 
 const path = require('path');
@@ -41,6 +41,16 @@ export function findModelSpec() {
     if (dir) return { kind: m.kind, dir, name: m.name };
   }
   return null;
+}
+
+/**
+ * The model Select Subject can download when findModelSpec() has none (this
+ * bro can fetch models and run SAM 2.1), or null.
+ */
+export function downloadableModel() {
+  if (typeof bro === 'undefined' || !bro.models || typeof bro.models.fetch !== 'function') return null;
+  if (typeof bro.vision === 'undefined' || bro.vision.available === false || typeof bro.vision.loadSam2 !== 'function') return null;
+  return DOWNLOAD_MODEL;
 }
 
 export function statusOf(track) {
