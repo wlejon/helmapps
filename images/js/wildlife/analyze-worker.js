@@ -5,12 +5,13 @@
  * dispose. bro.models is main-realm only, so the page finds the paths and
  * sends them.
  *
- *   { id, op: 'config', opts }   -> { id, config, hash }   reads files only, never weights
+ *   { id, op: 'config', opts }   -> { id, config, hash, taxa }   reads files only, never weights;
+ *                                   taxa: the lists' names of genera and up (readTaxa), for labels()
  *   { id, op: 'open', opts }     -> { id, device, cached }  loads the models (once per opts)
  *   { id, op: 'analyze', image, source } -> { id, result }  analyze()'s answer, in source pixels
  *   { id, op: 'dispose' }        -> { id }                  frees the models
  *   opts: { detector, classifier, species, model, cacheDir }
- *     or, in a test only, { stub: table } (js/wildlife/stub.js)
+ *     or, in a test only, { stub: table, taxa, maxClassify } (js/wildlife/stub.js)
  *
  * Any request may answer { id, error } (a missing file answers it with `code`).
  */
@@ -25,8 +26,13 @@ function wildlifeOpts(o) {
 }
 
 function config(o) {
-  if (o.stub) return { stub: o.stub };
+  if (o.stub) return { stub: o.stub, maxClassify: o.maxClassify || 8 };
   return bro.vision.wildlife.config(wildlifeOpts(o));
+}
+
+function taxa(o) {
+  if (o.stub && (o.taxa || !o.species)) return o.taxa || {};
+  try { return bro.vision.wildlife.readTaxa(o.species || []); } catch (_) { return {}; }
 }
 
 function open(o) {
@@ -35,7 +41,8 @@ function open(o) {
   if (analyzer) analyzer.dispose();
   analyzer = null;
   if (o.stub) {
-    analyzer = { key, device: 'stub', cached: true, analyze: (img, opts) => stubAnalyze(o.stub, img, opts), dispose() {} };
+    analyzer = { key, device: 'stub', cached: true, dispose() {},
+      analyze: (img, opts) => stubAnalyze(o.stub, img, { ...opts, maxClassify: o.maxClassify || 8 }) };
     return analyzer;
   }
   const an = bro.vision.wildlife.open({ ...wildlifeOpts(o), cacheDir: o.cacheDir || false });
@@ -49,7 +56,7 @@ self.onmessage = (e) => {
   try {
     if (m.op === 'config') {
       const c = config(m.opts);
-      reply = { id: m.id, config: c, hash: configHash(c) };
+      reply = { id: m.id, config: c, hash: configHash(c), taxa: taxa(m.opts) };
     } else if (m.op === 'open') {
       const a = open(m.opts);
       reply = { id: m.id, device: a.device, cached: !!a.cached };

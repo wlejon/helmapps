@@ -6,6 +6,7 @@
  *   a.setFolder(dir, paths, opts);   // opts: the analyzer's (models.js paths, or a test stub)
  *   a.results   Map pathKey -> record (records.js; a.record(path) finds one)
  *   a.burstOf(path)   bro.vision.wildlife.groupBursts' burst holding it, or null
+ *   a.taxa            the species lists' common names of genera and up (labels()' taxa)
  *   a.progress()      { state, done, total, error }
  *   a.pause(); a.resume(); a.stop();
  *
@@ -55,6 +56,7 @@ export class Analysis {
     this.opts = null;
     this.optsKey = '';
     this.hash = '';
+    this.taxa = {};          // the species lists' names of genera and up (labels())
     this.opened = '';        // the opts key the models were loaded with
     this.results = new Map();
     this.bursts = [];
@@ -107,7 +109,12 @@ export class Analysis {
     }
     const gen = this.gen;
     try {
-      if (!this.hash) this.hash = (await this.models.call({ op: 'config', opts })).hash;
+      if (!this.hash) {
+        const c = await this.models.call({ op: 'config', opts });
+        if (gen !== this.gen) return;
+        this.hash = c.hash;
+        this.taxa = c.taxa || {};
+      }
       if (gen !== this.gen) return;
       // Records not written yet go first: the store worker takes requests in order.
       if (this.saves.length) this.flush();

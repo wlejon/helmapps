@@ -1,36 +1,58 @@
 // Synthetic photos for the Find Animals tests: a plain scene with, or
-// without, a coloured disc standing in for an animal, each JPEG dated in its
+// without, coloured discs standing in for animals, each JPEG dated in its
 // EXIF to the hundredth of a second like a camera's. The test stub
-// (js/wildlife/stub.js) finds the discs by colour; no personal photos, no
-// binary fixtures.
+// (js/wildlife/stub.js) finds the discs by colour, every disc an animal;
+// no personal photos, no binary fixtures. Species rows carry their lineage
+// (class, order, family; the genus is the scientific name's first word) so
+// the names fall back to a genus, family, order or class as with the models.
 
 import { datedJpeg } from '/app/tests/burst.js';
 
-export const CARDINAL = { color: [220, 30, 40], label: 'a bird',
-  species: [{ common: 'Northern Cardinal', scientific: 'Cardinalis cardinalis', score: 0.9 },
-    { common: 'Scarlet Tanager', scientific: 'Piranga olivacea', score: 0.05 }] };
-export const JAY = { color: [40, 90, 230], label: 'a bird',
-  species: [{ common: 'Blue Jay', scientific: 'Cyanocitta cristata', score: 0.92 },
-    { common: 'Eastern Bluebird', scientific: 'Sialia sialis', score: 0.05 }] };
-export const SQUIRREL = { color: [150, 100, 40], label: 'a squirrel',
-  species: [{ common: 'Eastern Gray Squirrel', scientific: 'Sciurus carolinensis', score: 0.88 }] };
-export const TABLE = [CARDINAL, JAY, SQUIRREL];
-/** An animal named under the label threshold (0.85): found, not identified. Not in TABLE. */
-export const FROG = { color: [235, 215, 30], label: 'a frog',
-  species: [{ common: 'Green Frog', scientific: 'Lithobates clamitans', score: 0.6 },
-    { common: 'Mink Frog', scientific: 'Lithobates septentrionalis', score: 0.3 }] };
+const bird = (order, family) => ({ class: 'Aves', order, family });
 
-/** A w x h scene (a soft green-grey gradient) with a disc of `color` at (cx, cy), or none. */
-export function scene(w, h, color = null, cx = w / 2, cy = h / 2, r = Math.min(w, h) / 6) {
+export const CARDINAL = { color: [220, 30, 40], label: 'a bird',
+  species: [{ common: 'Northern Cardinal', scientific: 'Cardinalis cardinalis', score: 0.9, ...bird('Passeriformes', 'Cardinalidae') },
+    { common: 'Scarlet Tanager', scientific: 'Piranga olivacea', score: 0.05, ...bird('Passeriformes', 'Cardinalidae') }] };
+export const JAY = { color: [40, 90, 230], label: 'a bird',
+  species: [{ common: 'Blue Jay', scientific: 'Cyanocitta cristata', score: 0.92, ...bird('Passeriformes', 'Corvidae') },
+    { common: 'Eastern Bluebird', scientific: 'Sialia sialis', score: 0.05, ...bird('Passeriformes', 'Turdidae') }] };
+export const SQUIRREL = { color: [150, 100, 40], label: 'a squirrel',
+  species: [{ common: 'Eastern Gray Squirrel', scientific: 'Sciurus carolinensis', score: 0.88,
+    class: 'Mammalia', order: 'Rodentia', family: 'Sciuridae' }] };
+export const TABLE = [CARDINAL, JAY, SQUIRREL];
+/** An animal no rank is sure of (0.5 + 0.3: under 0.85 even for its class): found, not identified. Not in TABLE. */
+export const FROG = { color: [235, 215, 30], label: 'a frog',
+  species: [{ common: 'Green Frog', scientific: 'Lithobates clamitans', score: 0.5, class: 'Amphibia', order: 'Anura', family: 'Ranidae' },
+    { common: 'American Toad', scientific: 'Anaxyrus americanus', score: 0.3, class: 'Amphibia', order: 'Anura', family: 'Bufonidae' }] };
+
+// Several animals a photo, and a name above species.
+export const EGRET = { color: [245, 245, 245], label: 'a bird',
+  species: [{ common: 'Great Egret', scientific: 'Ardea alba', score: 0.95, ...bird('Pelecaniformes', 'Ardeidae') }] };
+export const MALLARD = { color: [20, 60, 20], label: 'a bird',
+  species: [{ common: 'Mallard', scientific: 'Anas platyrhynchos', score: 0.9, ...bird('Anseriformes', 'Anatidae') },
+    { common: 'American Black Duck', scientific: 'Anas rubripes', score: 0.06, ...bird('Anseriformes', 'Anatidae') }] };
+/** Three darners, none sure, their family sure: "Darners (Aeshnidae)" (TAXA names it). */
+export const DARNER = { color: [40, 200, 200], label: 'a dragonfly',
+  species: [{ common: 'Common Green Darner', scientific: 'Anax junius', score: 0.45, class: 'Insecta', order: 'Odonata', family: 'Aeshnidae' },
+    { common: 'Shadow Darner', scientific: 'Aeshna umbrosa', score: 0.3, class: 'Insecta', order: 'Odonata', family: 'Aeshnidae' },
+    { common: 'Lance-tipped Darner', scientific: 'Aeshna constricta', score: 0.2, class: 'Insecta', order: 'Odonata', family: 'Aeshnidae' }] };
+export const SPARROW = { color: [200, 160, 110], label: 'a bird',
+  species: [{ common: 'House Sparrow', scientific: 'Passer domesticus', score: 0.93, ...bird('Passeriformes', 'Passeridae') }] };
+/** The names of genera and up, as a species list's taxa map. */
+export const TAXA = { Aeshnidae: { rank: 'family', common: 'Darners' }, Anatidae: { rank: 'family', common: 'Ducks' } };
+
+/** A w x h scene (a soft green-grey gradient) with discs [{ color, at: [cx, cy], r }]. */
+export function scene(w, h, discs = []) {
   const px = new Uint8Array(w * h * 4);
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4;
       const t = (x + y) / (w + h);
       let R = 90 + 40 * t, G = 120 + 30 * t, B = 90 + 20 * t;
-      if (color) {
-        const a = Math.max(0, Math.min(1, r - Math.hypot(x + 0.5 - cx, y + 0.5 - cy) + 0.5));
-        R += (color[0] - R) * a; G += (color[1] - G) * a; B += (color[2] - B) * a;
+      for (const d of discs) {
+        const a = Math.max(0, Math.min(1, d.r - Math.hypot(x + 0.5 - d.at[0], y + 0.5 - d.at[1]) + 0.5));
+        if (!a) continue;
+        R += (d.color[0] - R) * a; G += (d.color[1] - G) * a; B += (d.color[2] - B) * a;
       }
       px[i] = R; px[i + 1] = G; px[i + 2] = B; px[i + 3] = 255;
     }
@@ -38,10 +60,15 @@ export function scene(w, h, color = null, cx = w / 2, cy = h / 2, r = Math.min(w
   return px;
 }
 
-/** A photo: { name, time (s), animal (a TABLE entry or null) } -> a dated JPEG. */
-export function photo({ time, animal, w = 320, h = 240, at = null }) {
-  const [cx, cy] = at || [w / 2, h / 2];
-  return datedJpeg(scene(w, h, animal ? animal.color : null, cx, cy), w, h, time, 92);
+/**
+ * A photo -> a dated JPEG: { time (s), animal (a table entry or null), at } for
+ * one disc in the middle, or { time, discs: [{ animal, at: [x, y], r? }] } for several.
+ */
+export function photo({ time, animal = null, discs = null, w = 320, h = 240, at = null }) {
+  const list = discs
+    ? discs.map((d) => ({ color: d.animal.color, at: d.at, r: d.r || 20 }))
+    : animal ? [{ color: animal.color, at: at || [w / 2, h / 2], r: Math.min(w, h) / 6 }] : [];
+  return datedJpeg(scene(w, h, list), w, h, time, 92);
 }
 
 /**
@@ -82,3 +109,12 @@ export function analysed(app, waitFor, what = 'every photo analysed', ms = 30000
 }
 
 export const names = (items) => items.map((it) => require('path').basename(it.path));
+
+/** The details panel's animals: [{ name, score, meta, guess, hit, el }]. */
+export function detailAnimals() {
+  const text = (el, sel) => { const e = el.querySelector(sel); return e ? e.textContent : ''; };
+  return Array.from(document.querySelectorAll('.iv-details .iv-animal')).map((el) => ({
+    name: text(el, '.iv-animal-name'), score: text(el, '.iv-animal-score'), meta: text(el, '.iv-animal-meta'),
+    guess: text(el, '.iv-animal-guess'), hit: el.classList.contains('iv-animal-hit'), dim: el.classList.contains('dim'), el,
+  }));
+}

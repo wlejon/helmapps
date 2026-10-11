@@ -4,8 +4,8 @@
 // the models load and run, and opening the folder again answers from the
 // cache without the models. Skips where this machine has no weights (set
 // BRO_MODELS to a folder holding owlv2, bioclip-2 and species/ with
-// upper-midwest.json and upper-midwest-herps/), or this bro
-// cannot find animals.
+// upper-midwest.json, upper-midwest-herps/, upper-midwest-arthropods/ and
+// pets/), or this bro cannot find animals.
 
 import { app, waitFor, measureFrames, eq, fixtureDir } from '/lib/test.js';
 import { shotsTree, analysed } from '/app/tests/wildlife.js';
@@ -35,6 +35,8 @@ eq(a.analysed, 9, 'every photo went through the models');
 for (const rec of a.results.values()) {
   assert(!rec.error, `${rec.path}: ${rec.error}`);
   assert(typeof rec.animal === 'boolean' && Array.isArray(rec.detections) && Array.isArray(rec.species), `${rec.path}: analyze()'s shape`);
+  assert(Array.isArray(rec.animals) && typeof rec.animalsDropped === 'number', `${rec.path}: every animal of the photo`);
+  if (rec.animal) assert(rec.animals.length > 0 && rec.animals[0].taxa && rec.animals[0].taxa.class, 'its crops with their taxa');
   eq([rec.width, rec.height], [320, 240], 'the photo\'s size');
   eq(rec.timeSource, 'exif', 'its EXIF time');
   assert(rec.sharpness.frame && rec.sharpness.frame.tenengrad > 0, 'the frame\'s sharpness');
@@ -43,6 +45,7 @@ for (const rec of a.results.values()) {
 console.log(`animals: ${[...a.results.values()].filter((r) => r.animal).map((r) => `${r.path.split('/').pop()} ` +
   `${r.detections[0].label} ${r.detections[0].score} -> ${r.species[0].common}`).join('; ') || 'none'}`);
 eq(a.bursts.length, 6, 'the bursts by EXIF time');
+assert(Object.keys(a.taxa).length > 0, 'the lists\' names of genera and up are read');
 
 // Another folder and back: answered from the cache, nothing analysed again.
 app.openPath(other);

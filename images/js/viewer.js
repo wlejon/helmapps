@@ -6,6 +6,7 @@
  *   parent.appendChild(viewer.el);
  *   viewer.show(picture);              // from Decoder.get(); fitted, upright
  *   viewer.zoomIn(); viewer.fit(); viewer.zoomTo(1); viewer.rotate(90); viewer.flip('h');
+ *   viewer.frame({ x, y, w, h })       // zoom to a region of the picture (an animal's box)
  *   viewer.model()                     // { scale, fit, fitScale, rotation, flipH, flipV, panX, panY, ... }
  *
  * Raster pictures draw into a <canvas>: they arrive from the decoder thread
@@ -36,6 +37,8 @@ const PIXELATED_ABOVE = 2;
 /** The largest an SVG is laid out, in CSS px on its long side. */
 const MAX_VECTOR_PX = 8192;
 const WHEEL_STEP = 1.2;
+/** frame() zooms no further than this: a small subject large, not a few pixels as squares. */
+const FRAME_MAX = 4;
 
 export class Viewer {
   /**
@@ -157,6 +160,32 @@ export class Viewer {
     const s = this.scale();
     const lower = ZOOM_STEPS.filter((z) => z < s - 1e-6);
     this.zoomTo(lower.length ? lower[lower.length - 1] : MIN_ZOOM);
+  }
+
+  /**
+   * Zoom and pan so `rect` ({ x, y, w, h } in the picture's own pixels,
+   * upright) fills the stage with `margin` (a fraction of its size) on each
+   * side, at most `maxScale`; a rect that would need less than fitting is
+   * fitted.
+   */
+  frame(rect, { margin = 0.25, maxScale = FRAME_MAX } = {}) {
+    if (!this.pic || !(rect.w > 0 && rect.h > 0)) return;
+    this.measure();
+    if (!this.size.w || !this.size.h) return;
+    const quarter = this.v.rotation % 180 !== 0;
+    const w = (quarter ? rect.h : rect.w) * (1 + 2 * margin);
+    const ht = (quarter ? rect.w : rect.h) * (1 + 2 * margin);
+    const s = Math.min(this.size.w / w, this.size.h / ht, maxScale, this.maxScale());
+    if (s <= this.fitScale() + 1e-6) { this.fit(); return; }
+    this.v.fit = false;
+    this.v.scale = s;
+    this.v.panX = 0;
+    this.v.panY = 0;
+    const M = this.pictureMatrix();
+    const cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2;
+    this.v.panX = this.size.w / 2 - (M[0] * cx + M[1] * cy + M[2]);
+    this.v.panY = this.size.h / 2 - (M[3] * cx + M[4] * cy + M[5]);
+    this.changed();
   }
 
   fit() {

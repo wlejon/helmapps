@@ -5,12 +5,12 @@
 // without animals hide until asked for, the Animals menu filters the grid,
 // the strip and Next / Previous with counts, tiles and the details panel
 // carry the labels, and Select Subject selects the same bursts. A frog the
-// stub names at 0.6 (under the 0.85 label threshold) has no tag, reads
-// "Not identified" in the details and is counted and filtered as
-// Unidentified.
+// stub is not sure of at any rank (0.5 and 0.3, under the 0.85 label
+// threshold) has no tag, reads "Not identified" with its guesses in the
+// details and is counted and filtered as Unidentified.
 
 import { app, waitFor, eq, press, clickEl, menuLabels, chooseMenu, fixtureDir } from '/lib/test.js';
-import { shotsTree, stubTable, analysed, names, photo, SQUIRREL, CARDINAL, FROG, TABLE } from '/app/tests/wildlife.js';
+import { shotsTree, stubTable, analysed, names, photo, detailAnimals, SQUIRREL, CARDINAL, FROG, TABLE } from '/app/tests/wildlife.js';
 import { UNIDENTIFIED } from '/app/js/wildlife/feature.js';
 import { shown } from '/app/tests/images.js';
 
@@ -45,6 +45,7 @@ eq(item('a_02.jpg').tag, 'Northern Cardinal', 'the frame the bird left carries t
 eq(item('a_01.jpg').burst, 3, 'the burst\'s first frame counts its frames');
 eq(item('a_03.jpg').burst, 0, 'the others do not');
 eq([item('u_01.jpg').tag, item('u_01.jpg').conf], ['', 0], 'a species under 85% is no tag');
+eq(item('b_01.jpg').more, 0, 'one name, nothing more');
 assert(document.querySelector('.statusbar').textContent.includes('8 of 10 images'), 'the status bar says how many show');
 
 // Tiles carry the tag.
@@ -53,6 +54,7 @@ const cell = (n) => Array.from(document.querySelectorAll('.iv-grid .vgrid-cell')
 const tile = cell('b_01.jpg');
 eq(tile.querySelector('.iv-tag-name').textContent, 'Blue Jay', 'a tile names its species');
 eq(tile.querySelector('.iv-tag-conf').textContent, '92%', 'and how sure');
+assert(!tile.querySelector('.iv-tag-more'), 'no "+N" for one name');
 const frogTile = cell('u_01.jpg');
 assert(frogTile && (!frogTile.querySelector('.iv-tags') || frogTile.querySelector('.iv-tags').classList.contains('hidden')),
   'the unidentified frog\'s tile has no tag');
@@ -88,31 +90,33 @@ press('right');
 shown(app, waitFor, 'b_01.jpg', 'and wraps among the jays');
 assert(document.querySelector('.statusbar').textContent.includes('1 / 3'), 'the position counts the jays');
 
-// The details panel: the burst's consensus and the frame's own answer.
+// The details panel: the burst's names and the frame's own.
 app.openImage(path.join(dir, 'c_02.jpg'));
 shown(app, waitFor, 'c_02.jpg');
 press('mod+i');
-waitFor(() => /Blue Jay/.test(document.querySelector('.iv-details').textContent), 'the details name the species');
+waitFor(() => detailAnimals().length === 2, 'the details list the burst\'s jay and the photo\'s');
 const det = document.querySelector('.iv-details').textContent;
 assert(/Burst/.test(det) && /2 over 0\.5 s/.test(det), `the burst's frames and time: ${det}`);
-assert(/This photo/.test(det) && /Eastern Bluebird/.test(det), 'the frame\'s own top species');
-assert(/bird 0\.50/.test(det), 'what the detector found');
+const [inBurst, inPhoto] = detailAnimals();
+eq([inBurst.name, inBurst.score, inBurst.meta], ['Blue Jay', '92%', 'Cyanocitta cristata · 2 of 2 frames'], 'the burst\'s jay');
+eq([inPhoto.name, inPhoto.score, inPhoto.meta], ['Blue Jay', '92%', 'Cyanocitta cristata'], 'this photo\'s jay');
+assert(inBurst.hit && inPhoto.hit, 'both are in this photo: they isolate and zoom');
+assert(/This photo/.test(det) && /bird 0\.50/.test(det), 'what the detector found');
 assert(!/Not identified/.test(det), 'named at 92%');
 press('mod+i');
 
-// Under 85%: "Not identified", the guesses muted under Possibly.
+// Not sure at any rank: "Not identified", the guesses muted under it.
 app.commands.run('animals-filter', UNIDENTIFIED);
 app.openImage(path.join(dir, 'u_01.jpg'));
 shown(app, waitFor, 'u_01.jpg');
 press('mod+i');
 waitFor(() => /Not identified/.test(document.querySelector('.iv-details').textContent), 'the details say it is not identified');
-const props = Array.from(document.querySelectorAll('.iv-details .iv-prop')).map((p) =>
-  [p.querySelector('.iv-prop-key').textContent, p.querySelector('.iv-prop-value').textContent, p.querySelector('.iv-prop-value').classList.contains('dim')]);
-const prop = (k) => props.filter(([key]) => key === k);
-eq(prop('Species').map(([, v]) => v), ['Not identified', 'Not identified'], 'the burst of one and the photo: no name');
-assert(prop('Possibly').length === 2 && prop('Possibly').every(([, , dim]) => dim), 'the guesses are muted');
-assert(/Green Frog 60%/.test(prop('Possibly')[1][1]) && /Mink Frog 30%/.test(prop('Possibly')[1][1]), `the top 5 as a guess: ${prop('Possibly')[1][1]}`);
-eq(prop('Scientific name').length, 0, 'no scientific name for a guess');
+const frog = detailAnimals();
+eq(frog.length, 1, 'one animal, a burst of one has no burst section');
+eq([frog[0].name, frog[0].score, frog[0].meta], ['Not identified', '', 'frog'], 'no name, what the detector called it');
+eq(frog[0].guess, 'Possibly Green Frog 50%, American Toad 30%', 'the guesses');
+assert(frog[0].hit, 'it isolates like a named one');
+assert(!/Lithobates clamitans/.test(document.querySelector('.iv-details').textContent), 'no scientific name for a guess');
 press('mod+i');
 app.commands.run('animals-filter', '');
 app.openImage(path.join(dir, 'c_02.jpg'));

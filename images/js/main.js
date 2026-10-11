@@ -80,8 +80,8 @@ const viewer = new Viewer({
   onChange: () => { updateStatus(); toolbar.refresh(); },
   // Zoomed past the screen-sized preview: the picture at full resolution.
   onNeedFull: (pic) => decoder.wantFull(pic),
-  // The subject tool's mask follows the view.
-  onDraw: () => { if (burst) burst.tool.draw(); },
+  // The subject tool's mask and an isolated animal's darkening follow the view.
+  onDraw: () => { if (burst) burst.tool.draw(); if (wild && wild.isolate) wild.isolate.draw(); },
 });
 viewer.el.dataset.bg = settings.get('background');
 const details = new Details({ extra: (file) => (wild ? wild.details(file) : null) });
@@ -193,7 +193,7 @@ burst = new BurstFeature({
 });
 
 wild = new WildlifeFeature({
-  settings, commands, folder, mode: () => state.mode,
+  settings, commands, folder, viewer, viewHost: viewArea, mode: () => state.mode,
   cacheDir: (typeof bro !== 'undefined' && bro.app && bro.app.cacheDir) || path.join(os.tmpdir(), 'helm-images'),
   onItems: () => itemsChanged(),
   onDetails: () => { if (settings.get('showDetails')) details.refresh(state.path); },

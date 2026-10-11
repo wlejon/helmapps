@@ -8,8 +8,11 @@
  * (recordPath), and paths are matched by pathKey (no case on Windows):
  *   { path, key ("<size>:<mtime ms>"), config (the settings hash), time (ms:
  *     EXIF capture time, else the file's mtime), timeSource, width, height,
- *     exif: { dateTaken } | null, animal, detections (best first, at most 5),
- *     subject, species (top 5), sharpness: { frame, subject } }
+ *     exif: { dateTaken } | null, animal, detections (best first, every box
+ *     over the threshold), subject, species (top 5; the best box's),
+ *     animals (every box classified: { box, score, label, subject, species,
+ *     taxa, candidates }), animalsDropped (boxes not classified),
+ *     sharpness: { frame, subject } }
  *   or, for a photo that could not be read: { path, key, config, error }
  *
  * The config hash covers everything a record depends on: the record schema,
@@ -18,7 +21,7 @@
  * record is reused only when the photo's key and the hash both match.
  */
 
-export const SCHEMA = 1;
+export const SCHEMA = 2;
 /** The detection / classification image, long side (docs/vision-api.js, Wildlife). */
 export const DETECT_SIZE = 1280;
 /** The sharpness image, long side: focus lives in the finest detail. */
@@ -74,9 +77,11 @@ export function makeRecord(job, config, decoded, result, subject) {
     width: decoded.source.width, height: decoded.source.height,
     exif: decoded.exif || null,
     animal: !!result.animal,
-    detections: (result.detections || []).slice(0, 5),
+    detections: result.detections || [],
     subject: result.subject || null,
     species: result.species || [],
+    animals: result.animals || [],
+    animalsDropped: result.animalsDropped || 0,
     sharpness: { frame: sharp(decoded.frame), subject: sharp(subject) },
   };
 }

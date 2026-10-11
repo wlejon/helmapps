@@ -9,7 +9,8 @@
 
 import { app, waitFor, eq, clickEl, fixtureDir } from '/lib/test.js';
 import { shotsTree, stubTable, analysed } from '/app/tests/wildlife.js';
-import { wildlifeSupported, canFetch, locateModels } from '/app/js/wildlife/models.js';
+import { wildlifeSupported, canFetch, locateModels, bytesOf } from '/app/js/wildlife/models.js';
+import { formatBytes } from '/lib/format.js';
 
 const net = require('net');
 const path = require('path');
@@ -36,18 +37,27 @@ const speciesList = enc(JSON.stringify({ species: [
   { common: 'Blue Jay', scientific: 'Cyanocitta cristata', class: 'Aves', order: 'Passeriformes', family: 'Corvidae' }] }));
 const herpsList = enc(JSON.stringify({ species: [
   { common: 'Common Garter Snake', scientific: 'Thamnophis sirtalis', class: 'Squamata', family: 'Colubridae' }] }));
-// The species folder holds the herps in a folder of its own, as the dataset does.
+const arthList = enc(JSON.stringify({ species: [
+  { common: 'Common Green Darner', scientific: 'Anax junius', class: 'Insecta', order: 'Odonata', family: 'Aeshnidae' }],
+taxa: { Aeshnidae: { rank: 'family', common: 'Darners' } } }));
+const petsList = enc(JSON.stringify({ species: [
+  { common: 'Domestic Cat', scientific: 'Felis catus', class: 'Mammalia', order: 'Carnivora', family: 'Felidae' }] }));
+// The species folder holds the herps, the arthropods and the pets in folders of their own, as the dataset does.
 const HERPS = 'species/upper-midwest-herps';
+const ARTH = 'species/upper-midwest-arthropods';
+const PETS = 'species/pets';
 const folders = {
   owlv2: { 'model.safetensors': weights(64 * 1024, 7), 'config.json': enc('{"model_type":"owlv2"}\n') },
   'bioclip-2': { 'model.safetensors': weights(96 * 1024, 11), 'config.json': enc('{"model_type":"clip"}\n') },
   species: { 'upper-midwest.json': speciesList },
   [HERPS]: { 'species.json': herpsList },
+  [ARTH]: { 'species.json': arthList },
+  [PETS]: { 'species.json': petsList },
 };
 const files = {};
 const listings = {};
 for (const [name, fl] of Object.entries(folders)) {
-  const list = name === 'species' ? [{ type: 'directory', path: HERPS, size: 0, oid: '0' }] : [];
+  const list = name === 'species' ? [HERPS, ARTH, PETS].map((p) => ({ type: 'directory', path: p, size: 0, oid: '0' })) : [];
   for (const [f, bytes] of Object.entries(fl)) {
     files[`${name}/${f}`] = bytes;
     if (f.endsWith('.safetensors')) {
@@ -137,6 +147,9 @@ eq(app.grid.items.length, 7, 'the photos without animals now hide');
 assert(shown(document.querySelector('.iv-animals-filter')), 'the Animals menu shows');
 assert(!shown(bar()), 'the status bar is quiet once it is done');
 
+// The lists' taxa maps name genera and up for the labels.
+eq(app.wildlife.analysis.taxa, { Aeshnidae: { rank: 'family', common: 'Darners' } }, 'the arthropods\' taxa map is read');
+
 // A species folder from before the herps: only their folder is offered, and fetched.
 const herpsDir = bro.models.find(HERPS);
 fs.rmSync(herpsDir, { recursive: true, force: true });
@@ -152,6 +165,21 @@ eq(path.resolve(bro.models.find(HERPS)), path.resolve(process.env.BRO_APP_HOME, 
 eq(fs.readFileSync(path.join(bro.models.find(HERPS), 'species.json')).length, herpsList.length, 'the list is on disk');
 waitFor(() => !shown(bar()), 'the status bar is quiet again');
 eq(app.wildlife.located, null, 'nothing missing');
+
+// One from before the arthropods and the pets: both offered at once, fetched one after the other.
+for (const f of [ARTH, PETS]) fs.rmSync(bro.models.find(f), { recursive: true, force: true });
+app.wildlife.folderChanged({ force: true });
+waitFor(() => shown(bar()) && shown(action()), 'the two lists are offered');
+eq(app.wildlife.located.missing, [ARTH, PETS], 'both list folders are missing');
+eq(action().textContent, `Download (${formatBytes(bytesOf([ARTH, PETS]))})`, 'offered with their sizes together');
+clickEl(action());
+waitFor(() => !app.wildlife.download, 'the lists download', 30000);
+for (const [f, list] of [[ARTH, arthList], [PETS, petsList]]) {
+  eq(path.resolve(bro.models.find(f)), path.resolve(process.env.BRO_APP_HOME, 'models', f), `${f} installed below the species folder`);
+  eq(fs.readFileSync(path.join(bro.models.find(f), 'species.json')).length, list.length, `${f}: the list is on disk`);
+}
+waitFor(() => !shown(bar()), 'the status bar is quiet once more');
+eq(app.wildlife.located, null, 'nothing missing any more');
 
 tcp.close();
 console.log('test_animals_download PASSED');

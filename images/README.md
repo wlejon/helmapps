@@ -68,32 +68,43 @@ checkerboard behind transparent pixels) is in the More menu.
 ## Find Animals
 
 Opening a folder is the import: its photos are analysed in the background
-with `bro.vision.wildlife` (OWLv2 finds the animal, BioCLIP 2 names its
-species from the Upper-Midwest species lists: birds, yard mammals,
-reptiles and amphibians; and the sharpness of the subject and the frame is
-measured), and photos shot less than 1.0 s apart are grouped into bursts
-(`groupBursts`), each with a consensus species.
+with `bro.vision.wildlife` (OWLv2 finds every animal, BioCLIP 2 names each
+one from the Upper-Midwest species lists: birds, yard mammals, reptiles
+and amphibians, insects and spiders, and pets; and the sharpness of the
+subject and the frame is measured), and photos shot less than 1.0 s apart
+are grouped into bursts (`groupBursts`).
 
-- **Only sure names.** A species is named only at a score of 85% or more
-  (`bro.vision.wildlife.label`: the burst's consensus share, else a lone
-  photo's top-1). Under it the photo is *Unidentified*: an animal was
-  found, but no name is shown.
-- **Animals** (the toolbar's filter button) lists every named species in
-  the folder with its photo count, *All photos* first, then *Unidentified*
-  with its count, and *Show Photos Without Animals*. The choice filters the
-  grid, the strip, Next / Previous and the slideshow.
-- Each grid tile carries a quiet tag: the species and how sure (the burst's
-  mean score), and on a burst's first frame how many frames it has. An
-  unidentified photo has no species tag.
-- The details panel (Mod+I) shows the burst's consensus (species, how many
-  frames agree, how long it took, its sharpest frame) and the photo's own
-  top five species with scores, what the detector found, and sharpness.
-  Under 85% a species reads "Not identified", with the guesses muted under
-  "Possibly".
+- **Every animal, only sure names.** The names are
+  `bro.vision.wildlife.labels()`: every animal of a photo (up to eight a
+  photo are classified; the rest are counted), each named at the narrowest
+  rank it is sure of at 85% or more: its species, else its genus, family,
+  order or class ("Darners (Aeshnidae)"). A photo with an animal that no
+  rank names is *Unidentified*.
+- **Animals** (the toolbar's filter button) lists every name in the folder
+  with its photo count (a photo counts once per name), *All photos* first,
+  then *Unidentified* with its count, and *Show Photos Without Animals*.
+  The choice filters the grid, the strip, Next / Previous and the
+  slideshow: a photo shows when any of its names is the one chosen.
+- Each grid tile carries a quiet tag: its top name and how sure, "+N" when
+  it has more (all of them in the tag's tooltip), and on a burst's first
+  frame how many frames it has.
+- The details panel (Mod+I) lists the burst's animals (score, rank and
+  scientific name, in how many frames, how many in this photo), how long
+  it took and its sharpest frame, then this photo's own animals, each
+  animal not identified with its guesses muted under it, "+3 more birds"
+  for boxes not classified, what the detector found, and sharpness.
+- **On request, one animal at a time.** With the photo on screen, holding
+  the pointer on an animal in the details darkens everything else in the
+  photo: a soft-edged box at once, then the animal's own outline once
+  SAM 2.1 has segmented it (when `sam2.1-hiera-*` is in `bro.models`; on a
+  worker of its own, kept per photo and box for the session). It follows
+  zoom and pan and goes when the pointer leaves. A click on the animal
+  zooms the view to it (`viewer.frame()`).
 - **Bursts stay whole.** Every frame of a burst is a photo of its own in
-  the grid and carries the burst's species, so a frame the bird has just
-  left still shows under that species. Nothing is collapsed or hidden for
-  being a weaker frame.
+  the grid and carries all the burst's names: an egret in two frames and
+  mallards in the third are on all three, so a frame the bird has just
+  left still shows under it. Nothing is collapsed or hidden for being a
+  weaker frame.
 - **Photos without animals** (neither the photo nor its burst has a
   species) are hidden once analysed, until *Show Photos Without Animals*
   is on; they are never touched otherwise, and one opened directly still
@@ -116,10 +127,12 @@ measured), and photos shot less than 1.0 s apart are grouped into bursts
   when it has one, so Stabilize's frames are the bursts the grid shows.
 
 The models come from `bro.models` (`owlv2`, `bioclip-2`, and the `species`
-folder holding `upper-midwest.json` and `upper-midwest-herps/`). Where one
-is missing, the status bar offers to download them (about 2.2 GB; a species
-folder from before the herps is offered just `species/upper-midwest-herps`,
-83 KB) with `bro.models.fetch`: a progress bar and Cancel while it runs, a
+folder holding `upper-midwest.json`, `upper-midwest-herps/`,
+`upper-midwest-arthropods/` and `pets/`). Where one is missing, the status
+bar offers to download them (about 2.2 GB; a species folder from before a
+list is offered just the list folders it lacks, e.g.
+`species/upper-midwest-herps`, 83 KB) with `bro.models.fetch`, one folder
+after another: a progress bar and Cancel while it runs, a
 reason and Retry when it fails, a toast when they are installed, and then
 the folder is analysed. Settings: `findAnimals` (on; also *Find Animals* in
 the More menu), `showNoAnimals`, `animalsModel` (`bioclip-2` or `bioclip`),
@@ -215,7 +228,8 @@ worker (`js/burst/track-worker.js`), previews and export on another
 | `js/wildlife/feature.js` | Find Animals: its commands, the Animals menu and filter, the status bar, the tile tags |
 | `js/wildlife/analysis.js` | One folder's analysis: cache, queue, the workers, bursts (`groupBursts`) |
 | `js/wildlife/models.js` | Which models, where (`bro.models`), and downloading the missing ones |
-| `js/wildlife/records.js` / `labels.js` | The record, its cache file and settings hash; the tile tag and the details sections |
+| `js/wildlife/records.js` / `labels.js` | The record, its cache file and settings hash; the tile tags and the details sections |
+| `js/wildlife/isolate.js` / `isolate-worker.js` | An animal isolated on hover (soft box, then SAM 2.1's mask) and zoomed to on a click |
 | `js/wildlife/store-worker.js` / `decode-worker.js` / `analyze-worker.js` | The cache, decoding and sharpness, the models |
 | `js/wildlife/stub.js` | TEST ONLY: a colour key standing in for the models (`app.wildlife.useStub`) |
 | `js/viewer.js` | The view: fit, zoom, pan, rotate, flip; draws into a canvas (or lays out an SVG or animation) |
@@ -244,8 +258,10 @@ worker (`js/burst/track-worker.js`), previews and export on another
 | `js/burst/affine.js` / `draw.js` / `rpc.js` | 2x3 matrices and polygons, mask drawing, worker calls |
 | `tests/` | Headless acceptance tests and `test_perf.js`; `tests/burst.js` makes synthetic bursts, `tests/wildlife.js` synthetic animal photos |
 
-`test_animals.js` and `test_animals_download.js` drive Find Animals with the
-test stub; `test_animals_models.js` runs the real models and skips without
+`test_animals.js`, `test_animals_multi.js` (several animals a photo and a
+burst, names above species, "+N more", isolating and zooming to an animal
+with a SAM stand-in) and `test_animals_download.js` drive Find Animals with
+the test stub; `test_animals_models.js` runs the real models and skips without
 them (`BRO_MODELS=<folder with owlv2, bioclip-2, species> scripts/run_tests.sh
 images animals`). `IV_PERF_DIR=<photos> IV_PERF_ANIMALS=1` makes `test_perf`
 also time Find Animals over a real folder.

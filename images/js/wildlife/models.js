@@ -8,8 +8,9 @@
  *   wildlifeSupported()       this bro can run it at all (else the feature is hidden)
  *   locateModels(model, list) { paths, missing: ['owlv2', ...] } by folder name
  *                             (bro.vision.wildlife.locate's `fetch`: 'species', or
- *                             'species/upper-midwest-herps' for a species folder
- *                             from before the herps)
+ *                             each list folder an older species folder lacks:
+ *                             'species/upper-midwest-herps',
+ *                             'species/upper-midwest-arthropods', 'species/pets')
  *   const d = new ModelDownload(['owlv2', 'species'], { onChange });
  *   d.start(); d.cancel();    d.state 'running' | 'failed' | 'done' | 'cancelled', d.done, d.total, d.error
  *
@@ -26,6 +27,9 @@ export const FOLDERS = {
   bioclip: { name: 'bioclip', label: 'BioCLIP', bytes: 599921912 },
   species: { name: 'species', label: 'species lists', bytes: 534767 },
   'species/upper-midwest-herps': { name: 'species/upper-midwest-herps', label: 'reptiles and amphibians', bytes: 84654 },
+  // Planned sizes; the listing's own wins once a download has it (ModelDownload).
+  'species/upper-midwest-arthropods': { name: 'species/upper-midwest-arthropods', label: 'insects and spiders', bytes: 588712 },
+  'species/pets': { name: 'species/pets', label: 'dogs and cats', bytes: 3501 },
 };
 
 /**
@@ -51,8 +55,9 @@ export function canFetch() {
  * Where the models are: `paths` for the analyzer ({ detector, classifier,
  * species, model }), and `missing`, the folder names to fetch. `listFile`
  * is a species list inside the species folder, or '' for
- * bro.vision.wildlife's default lists (the birds and mammals, and the
- * reptiles and amphibians in a folder of their own); `listMissing` says a
+ * bro.vision.wildlife's default lists (the birds and mammals; the reptiles
+ * and amphibians, the insects and spiders, and the pets, each in a folder
+ * of its own below the species folder); `listMissing` says a
  * list is not there and a fetch would not bring it (the folder is there
  * without that file).
  */

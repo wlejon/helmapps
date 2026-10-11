@@ -4,25 +4,28 @@
  * (analysis.js) and the answers kept, so the folder opens instantly next
  * time. This module is the feature's face:
  *
- *  - the Animals menu (toolbar): every species with its photo count, "All"
- *    first, "Unidentified" (an animal found, no name sure enough), and Show
- *    Photos Without Animals; the choice filters the grid, the strip and
- *    Next / Previous (items());
- *  - a tag on each grid tile (the burst's species and how sure) and the
- *    Animals sections of the details panel (labels.js);
+ *  - the Animals menu (toolbar): every taxon named in the folder with its
+ *    photo count ("Mallard", "Darners (Aeshnidae)"), "All" first,
+ *    "Unidentified" (an animal found, nothing named), and Show Photos
+ *    Without Animals; the choice filters the grid, the strip and Next /
+ *    Previous (items());
+ *  - a tag on each grid tile (its top name and how sure, "+N" for the
+ *    others) and the Animals sections of the details panel (labels.js),
+ *    whose animals isolate and zoom to on request (isolate.js);
  *  - progress in the status bar ("Finding animals · 120 of 958", Pause),
  *    and, when the models are missing, the offer to download them
  *    (models.js: size, progress, Cancel, Retry with the reason).
  *
- * Bursts stay whole: every frame of a burst is a photo of its own in the
- * grid, carrying the burst's consensus species (what the filter and the tag
- * use; a frame's own top species is in the details). A species is named
- * only where bro.vision.wildlife.label() names it, at a score of 0.85 or
- * more (the burst's consensus share, else a lone photo's top-1); under it
- * the photo is Unidentified: no tag, counted and filtered as such. A photo
- * counts as "without animals" when it and its burst have no animal; such
- * photos are hidden once analysed, unless Show Photos Without Animals is
- * on, and never otherwise touched. Photos not analysed yet always show.
+ * The names are bro.vision.wildlife.labels(): every animal of a photo, each
+ * at the narrowest rank it is sure of (0.85 or more). Bursts stay whole:
+ * every frame of a burst is a photo of its own in the grid and carries all
+ * of the burst's names (an egret in two frames and mallards in the third
+ * are on all three). A photo matches a filter when any of its names is that
+ * taxon (by rank and scientific name); it counts once per taxon. A photo
+ * with an animal and no name is Unidentified. A photo counts as "without
+ * animals" when it and its burst have no animal; such photos are hidden
+ * once analysed, unless Show Photos Without Animals is on, and never
+ * otherwise touched. Photos not analysed yet always show.
  *
  * The filter never takes away what she is working with: the photo on
  * screen and the strip's selection stay (keep()) until she moves on or
@@ -42,7 +45,8 @@ import { Progress } from '/lib/controls.js';
 import { formatBytes, formatNumber } from '/lib/format.js';
 import { Analysis } from './analysis.js';
 import { wildlifeSupported, canFetch, locateModels, bytesOf, ModelDownload } from './models.js';
-import { decorateTile, detailsSection } from './labels.js';
+import { decorateTile, detailsSection, labelKey, labelText } from './labels.js';
+import { Isolate } from './isolate.js';
 import { pathKey } from './records.js';
 
 export const WILDLIFE_SETTINGS = {
@@ -53,19 +57,22 @@ export const WILDLIFE_SETTINGS = {
   animalsSpeciesList: { type: 'string', default: '' },
 };
 
-/** The Animals filter that shows the photos with an animal but no name (filter is otherwise a species). */
+/** The Animals filter that shows the photos with an animal but no name (filter is otherwise a label key). */
 export const UNIDENTIFIED = ':unidentified';
+
+export { labelKey };
 
 export class WildlifeFeature {
   /**
    * settings: app.settings; commands: app.commands; folder: js/folder.js;
+   * viewer, viewHost: the photo view and the element over it (isolate.js);
    * mode(): the view ('grid', 'image', ...); onItems(): the shown items or
    * their labels changed; onDetails(): the details panel's photo may have new answers.
    * keep(): paths the filter must not take away (the photo on screen, the
    * strip's selection); hold(): true while nothing shown may go (Select
    * Subject, Stabilize).
    */
-  constructor({ settings, commands, folder, mode, cacheDir, onItems, onDetails, keep = null, hold = null }) {
+  constructor({ settings, commands, folder, viewer, viewHost, mode, cacheDir, onItems, onDetails, keep = null, hold = null }) {
     this.settings = settings;
     this.commands = commands;
     this.folder = folder;
@@ -79,12 +86,15 @@ export class WildlifeFeature {
     this.onDetails = onDetails;
     this.supported = wildlifeSupported();
     this.stub = null;              // TEST ONLY: useStub()
-    this.filter = '';              // a species' common name, UNIDENTIFIED, '' for all
+    this.filter = '';              // a label's key (labelKey: 'species:Anas platyrhynchos'), UNIDENTIFIED, '' for all
+    this.names = new Map();        // label key -> its text, for the filter's button
     this.located = null;           // models.js locateModels(), when the models are not all there
     this.download = null;          // a ModelDownload while one is wanted
     this.seen = { dir: '', version: -1 };
     this.cache = { key: '', items: null };
+    this.answers = { version: -1, taxa: null, map: new Map() };   // answerOf's, per analysis version
     this.analysis = new Analysis({ cacheDir, onChange: () => this.analysisChanged() });
+    this.isolate = viewer && viewHost ? new Isolate({ viewer, host: viewHost }) : null;
 
     this.text = h('span.iv-animals-text.ellipsis');
     this.progress = new Progress(0);
@@ -130,7 +140,7 @@ export class WildlifeFeature {
 
   /** The analyzer's options, or null (and `located` says why) when models are missing. */
   analyzerOpts() {
-    if (this.stub && !this.stub.requireModels) return { stub: this.stub.table };
+    if (this.stub && !this.stub.requireModels) return this.stubOpts();
     let loc;
     try {
       loc = locateModels(this.settings.get('animalsModel'), this.settings.get('animalsSpeciesList'));
@@ -139,12 +149,22 @@ export class WildlifeFeature {
     }
     if (loc.error || loc.missing.length || loc.listMissing) { this.located = loc; return null; }
     this.located = null;
-    return this.stub ? { stub: this.stub.table } : loc.paths;
+    // A stub that needed the models found reads their lists' taxa maps.
+    return this.stub ? { ...this.stubOpts(), species: loc.paths.species } : loc.paths;
   }
 
-  /** TEST ONLY: answer with js/wildlife/stub.js instead of the models (requireModels: still look for them first). */
-  useStub(table, { requireModels = false } = {}) {
-    this.stub = { table, requireModels };
+  stubOpts() {
+    const s = this.stub;
+    return { stub: s.table, ...(s.taxa ? { taxa: s.taxa } : {}), ...(s.maxClassify ? { maxClassify: s.maxClassify } : {}) };
+  }
+
+  /**
+   * TEST ONLY: answer with js/wildlife/stub.js instead of the models
+   * (requireModels: still look for them first; taxa: the names of genera
+   * and up, as a list's taxa map; maxClassify: boxes classified a photo).
+   */
+  useStub(table, { requireModels = false, taxa = null, maxClassify = 0 } = {}) {
+    this.stub = { table, requireModels, taxa, maxClassify };
     this.folderChanged({ force: true });
   }
 
@@ -158,26 +178,37 @@ export class WildlifeFeature {
   // ---- what is shown -----------------------------------------------------------------
 
   /**
-   * What is known of a photo: `label` (bro.vision.wildlife.label: the
-   * burst's consensus, or its own top-1, named at 0.85 or more; else null),
-   * `animal` (it or its burst has one), `empty` (analysed, no animal).
+   * What is known of a photo: `labels` (bro.vision.wildlife.labels: the
+   * burst's names, else its own; [] when nothing is named), `keys` their
+   * labelKeys, `animal` (it or its burst has one), `empty` (analysed, no
+   * animal). Kept until the analysis changes.
    */
   answerOf(p) {
     const a = this.analysis;
+    if (this.answers.version !== a.version || this.answers.taxa !== a.taxa) {
+      this.answers = { version: a.version, taxa: a.taxa, map: new Map() };
+    }
+    const k = pathKey(p);
+    const have = this.answers.map.get(k);
+    if (have) return have;
     const rec = a.record(p), b = a.burstOf(p);
-    const animal = !!(b && b.species) || !!(rec && !rec.error && rec.animal);
-    return { burst: b, label: bro.vision.wildlife.label(rec, b), animal, empty: !!rec && !rec.error && !animal };
+    const labels = rec || b ? bro.vision.wildlife.labels(rec, b, { taxa: a.taxa }) : [];
+    for (const l of labels) this.names.set(labelKey(l), labelText(l));
+    const animal = !!(b && b.animalCount > 0) || !!(rec && !rec.error && rec.animal);
+    const ans = { burst: b, labels, keys: new Set(labels.map(labelKey)), animal, empty: !!rec && !rec.error && !animal };
+    this.answers.map.set(k, ans);
+    return ans;
   }
 
-  /** A photo's species name ('' for none, or none sure enough). */
+  /** A photo's names as its tile shows them ('Mallard, Great Egret'; '' for none). */
   tagOf(p) {
-    const l = this.answerOf(p).label;
-    return l ? l.common : '';
+    return this.answerOf(p).labels.map(labelText).join(', ');
   }
 
   /** The filter's name on the button and in the status bar. */
   filterName() {
-    return this.filter === UNIDENTIFIED ? 'Unidentified' : this.filter;
+    if (this.filter === UNIDENTIFIED) return 'Unidentified';
+    return this.names.get(this.filter) || this.filter.slice(this.filter.indexOf(':') + 1);
   }
 
   /** The photos of p's burst as { has(path) } (any form of a path), or null: Select Subject's frames. */
@@ -212,23 +243,26 @@ export class WildlifeFeature {
     if (this.cache.key === key && this.cache.src === folderItems) return (this.lastShown = this.cache.items);
     const out = [];
     for (const it of folderItems) {
-      const { burst: b, label, animal, empty } = this.answerOf(it.path);
-      const tag = label ? label.common : '';
+      const { burst: b, labels, keys, animal, empty } = this.answerOf(it.path);
       const stays = keep.has(it.path) || (this.held && this.held.has(it.path));
       if (!stays) {
-        if (this.filter === UNIDENTIFIED ? !(animal && !label) : this.filter && tag !== this.filter) continue;
+        if (this.filter === UNIDENTIFIED ? !(animal && !labels.length) : this.filter && !keys.has(this.filter)) continue;
         if (!this.filter && !showEmpty && empty) continue;
       }
+      const top = labels[0];
       out.push({
-        name: it.name, path: it.path, tag,
-        conf: label ? Math.round(label.score * 100) : 0,
+        name: it.name, path: it.path,
+        tag: top ? labelText(top) : '',
+        conf: top ? Math.round(top.score * 100) : 0,
+        more: Math.max(0, labels.length - 1),
+        names: labels.map((l) => `${labelText(l)} · ${Math.round(l.score * 100)}%`).join(', '),
         burst: b && b.count > 1 && pathKey(b.first) === pathKey(it.path) ? b.count : 0,
       });
     }
     // The same photos with the same tags: the last array, so nothing redraws.
     const prev = this.cache.src === folderItems ? this.cache.items : null;
     const same = prev && prev.length === out.length && prev.every((p, i) => p.path === out[i].path &&
-      p.tag === out[i].tag && p.conf === out[i].conf && p.burst === out[i].burst);
+      p.names === out[i].names && p.burst === out[i].burst);
     this.cache = { key, src: folderItems, items: same ? prev : out };
     return (this.lastShown = this.cache.items);
   }
@@ -244,35 +278,46 @@ export class WildlifeFeature {
   }
 
   /**
-   * Species named in the folder by photo count, most first: [{ common, count }];
-   * the photos with an animal but no name (unidentified), and those without animals.
+   * Taxa named in the folder by photo count, most first: [{ key, label, count }]
+   * (a photo counts once per taxon); the photos with an animal but no name
+   * (unidentified), and those without animals.
    */
   counts() {
     const by = new Map();
     let empty = 0, unidentified = 0;
     for (const it of this.folder.items) {
-      const { label, animal, empty: none } = this.answerOf(it.path);
-      if (label) by.set(label.common, (by.get(label.common) || 0) + 1);
-      else if (animal) unidentified++;
+      const { labels, animal, empty: none } = this.answerOf(it.path);
+      for (const l of labels) {
+        const k = labelKey(l);
+        const t = by.get(k) || { key: k, label: labelText(l), count: 0 };
+        t.count++;
+        by.set(k, t);
+      }
+      if (!labels.length && animal) unidentified++;
       else if (none) empty++;
     }
-    const species = [...by].map(([common, count]) => ({ common, count }))
-      .sort((x, y) => y.count - x.count || (x.common < y.common ? -1 : 1));
-    return { species, unidentified, empty, all: this.folder.items.length - (this.settings.get('showNoAnimals') ? 0 : empty) };
+    const taxa = [...by.values()].sort((x, y) => y.count - x.count || (x.label < y.label ? -1 : 1));
+    return { taxa, unidentified, empty, all: this.folder.items.length - (this.settings.get('showNoAnimals') ? 0 : empty) };
   }
 
   decorate(item, el) { decorateTile(item, el); }
 
-  /** The details panel's Animals sections for a photo (null when the feature is off). */
+  /**
+   * The details panel's Animals sections for a photo (null when the feature
+   * is off). Its animals isolate and zoom when the photo is on screen.
+   */
   details(p) {
     if (!this.active || !p) return null;
     const a = this.analysis;
     const rec = a.record(p);
-    return detailsSection(rec, a.burstOf(p), { pending: !rec && a.dir === this.folder.dir && a.total > 0 });
+    const target = rec && !rec.error && rec.width && this.isolate && this.mode() === 'image' && this.isolate.onScreen(p)
+      ? { path: p, size: [rec.width, rec.height] } : null;
+    return detailsSection(rec, a.burstOf(p), { pending: !rec && a.dir === this.folder.dir && a.total > 0, taxa: a.taxa, target });
   }
 
-  setFilter(common) {
-    this.filter = common || '';
+  /** Show only the photos naming a taxon (its labelKey), UNIDENTIFIED, or '' for all. */
+  setFilter(key) {
+    this.filter = key || '';
     this.cache.key = '';
     this.showStatus();
     if (this.onItems) this.onItems();
@@ -362,7 +407,7 @@ export class WildlifeFeature {
     return [
       { id: 'animals-menu', label: 'Animals', icon: 'filter', enabled: () => browsing() && (a.results.size > 0 || !!this.filter),
         run: () => this.showMenu() },
-      { id: 'animals-filter', label: 'Show Species', enabled: browsing, run: (common) => this.setFilter(common) },
+      { id: 'animals-filter', label: 'Show Species', enabled: browsing, run: (key) => this.setFilter(key) },
       { id: 'animals-show-empty', label: 'Show Photos Without Animals', enabled: () => this.active && !this.holding(),
         checked: () => this.settings.get('showNoAnimals'),
         run: () => { this.settings.set('showNoAnimals', !this.settings.get('showNoAnimals')); this.analysisChanged(); } },
@@ -387,17 +432,17 @@ export class WildlifeFeature {
     this.analysisChanged();
   }
 
-  /** The Animals menu: All, every species with its photo count, Unidentified, the toggle. */
+  /** The Animals menu: All, every taxon with its photo count, Unidentified, the toggle. */
   showMenu() {
     const c = this.counts();
-    const pick = (common, label, count) => this.commands.item('animals-filter', {
-      label, count, checked: this.filter === common, icon: undefined,
-      action: () => this.commands.run('animals-filter', common),
+    const pick = (key, label, count) => this.commands.item('animals-filter', {
+      label, count, checked: this.filter === key, icon: undefined,
+      action: () => this.commands.run('animals-filter', key),
     });
     const items = [
       pick('', 'All photos', c.all),
-      c.species.length || c.unidentified ? { separator: true } : null,
-      ...c.species.map((s) => pick(s.common, s.common, s.count)),
+      c.taxa.length || c.unidentified ? { separator: true } : null,
+      ...c.taxa.map((t) => pick(t.key, t.label, t.count)),
       c.unidentified || this.filter === UNIDENTIFIED ? pick(UNIDENTIFIED, 'Unidentified', c.unidentified) : null,
       { separator: true },
       this.commands.item('animals-show-empty', { count: c.empty }),
