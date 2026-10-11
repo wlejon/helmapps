@@ -55,7 +55,7 @@ for (let round = 0; round < ROUNDS; round++) {
 }
 if (profiling) {
   try {
-    const p = bro.profiler.stop({ callers: false, report: true, top: 40 });
+    const p = bro.profiler.stop({ callers: false, report: true, top: Number(process.env.TOP || 40) });
     console.log(p.report);
   } catch (e) { console.log('profiler: ' + e.message); }
 }
