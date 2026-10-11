@@ -42,39 +42,46 @@ assert(!$('connect').hidden && $('viewer').hidden, 'no host given: the connect s
 assert($('recent-block').hidden, 'nothing recent yet');
 
 // ── host this window, and view it ──
-const socket = 'remote-test-' + Math.floor(Math.random() * 1e6);
-const hosted = bro.remote.host({ socket, codecs: 'raw', fps: 30 });
-assert(hosted.hosting, 'hosting on ' + socket);
+// bro.remote is compiled out where bro has no BRO_WITH_REMOTE (macOS): its
+// stub says so, and there is nothing to host or view. A host() that throws
+// in a build that has it still fails.
+if (bro.remote.available === false) {
+    skipTest('bro.remote is compiled out of this build');
+} else {
+    const socket = 'remote-test-' + Math.floor(Math.random() * 1e6);
+    const hosted = bro.remote.host({ socket, codecs: 'raw', fps: 30 });
+    assert(hosted.hosting, 'hosting on ' + socket);
 
-$('socket').value = socket;
-app.connect({ host: '', socket });
-assert($('connect').hidden && !$('viewer').hidden, 'connecting shows the viewer');
-assert(app.view.session === app.state.session, 'the view shows the session');
-waitFor(() => app.state.session.status().state === 'connected', 'the session to connect');
-waitFor(() => app.view.stats().pictures > 0 && app.view.streamWidth > 0, 'a picture in the view');
+    $('socket').value = socket;
+    app.connect({ host: '', socket });
+    assert($('connect').hidden && !$('viewer').hidden, 'connecting shows the viewer');
+    assert(app.view.session === app.state.session, 'the view shows the session');
+    waitFor(() => app.state.session.status().state === 'connected', 'the session to connect');
+    waitFor(() => app.view.stats().pictures > 0 && app.view.streamWidth > 0, 'a picture in the view');
 
-const st = app.state.session.status();
-eq([st.codec, st.width, st.height], ['raw', 1280, 800], 'the stream');
-assert(app.view.captured, 'connecting captures the view');
-assert(document.activeElement === app.view, 'the view has focus');
-assert(/raw 1280x800/.test($('bar-state').textContent), 'the bar says the stream: ' + $('bar-state').textContent);
+    const st = app.state.session.status();
+    eq([st.codec, st.width, st.height], ['raw', 1280, 800], 'the stream');
+    assert(app.view.captured, 'connecting captures the view');
+    assert(document.activeElement === app.view, 'the view has focus');
+    assert(/raw 1280x800/.test($('bar-state').textContent), 'the bar says the stream: ' + $('bar-state').textContent);
 
-// ── statistics ──
-$('toggle-stats').click();
-waitFor(() => !$('stats').hidden && /pictures: (cpu|gpu)/.test($('stats').textContent), 'the statistics overlay');
-assert(/raw 1280x800/.test($('stats').textContent), 'the overlay names the stream: ' + $('stats').textContent);
+    // ── statistics ──
+    $('toggle-stats').click();
+    waitFor(() => !$('stats').hidden && /pictures: (cpu|gpu)/.test($('stats').textContent), 'the statistics overlay');
+    assert(/raw 1280x800/.test($('stats').textContent), 'the overlay names the stream: ' + $('stats').textContent);
 
-// ── release and back ──
-app.view.release();
-waitFor(() => $('viewer').classList.contains('show-bar'), 'the bar on release');
-$('disconnect').click();
-waitFor(() => !$('connect').hidden, 'the connect screen again');
-assert(app.state.session === null && app.view.session === null, 'disconnected');
+    // ── release and back ──
+    app.view.release();
+    waitFor(() => $('viewer').classList.contains('show-bar'), 'the bar on release');
+    $('disconnect').click();
+    waitFor(() => !$('connect').hidden, 'the connect screen again');
+    assert(app.state.session === null && app.view.session === null, 'disconnected');
 
-// The host is remembered.
-const recent = JSON.parse(fs.readFileSync(path.join(bro.app.dataDir, 'recent.json'), 'utf-8'));
-eq(recent.map((r) => [r.host, r.socket]), [['', socket]], 'recent.json');
-assert(!$('recent-block').hidden && $('recent').children.length === 1, 'the recent list shows it');
-assert(/this machine : /.test($('recent').textContent), 'described: ' + $('recent').textContent);
+    // The host is remembered.
+    const recent = JSON.parse(fs.readFileSync(path.join(bro.app.dataDir, 'recent.json'), 'utf-8'));
+    eq(recent.map((r) => [r.host, r.socket]), [['', socket]], 'recent.json');
+    assert(!$('recent-block').hidden && $('recent').children.length === 1, 'the recent list shows it');
+    assert(/this machine : /.test($('recent').textContent), 'described: ' + $('recent').textContent);
 
-bro.remote.stop();
+    bro.remote.stop();
+}

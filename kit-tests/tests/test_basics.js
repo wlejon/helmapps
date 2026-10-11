@@ -1,15 +1,17 @@
 // The kit's pure parts: chords, commands, settings, formatting, icons, h().
 
 import { app, eq, press, mod } from '/lib/test.js';
-import { normalizeChord, Commands } from '/lib/commands.js';
+import { normalizeChord, displayChord, Commands } from '/lib/commands.js';
 import { formatBytes, formatCount, formatNumber, formatDuration, formatDate } from '/lib/format.js';
 import { iconNames, hasIcon, icon } from '/lib/icons.js';
 import { h } from '/lib/dom.js';
 import { kindOf, iconFor, userDirs, openApp, appsReady } from '/lib/files.js';
 
 // Chords
+// Mod is Meta on macOS, which sorts last (Ctrl, Alt, Shift, Meta: ⌃⌥⇧⌘).
 const M = process.platform === 'darwin' ? 'Meta' : 'Ctrl';
-eq(normalizeChord('shift+mod+z'), `${M}+Shift+Z`, 'mods ordered, Mod resolved');
+eq(normalizeChord('shift+mod+z'), process.platform === 'darwin' ? 'Shift+Meta+Z' : 'Ctrl+Shift+Z',
+   'mods ordered, Mod resolved');
 eq(normalizeChord('Ctrl+Alt+Delete'), 'Ctrl+Alt+Delete', 'named key kept');
 eq(normalizeChord('f2'), 'F2', 'a function key in any case');
 eq(normalizeChord('alt+left'), 'Alt+ArrowLeft', 'arrow shorthand');
@@ -31,7 +33,8 @@ allowed = true;
 eq(c.item('tog').checked, false, 'checked state in the item');
 c.run('tog');
 eq(c.item('tog').checked, true, 'and it follows');
-eq(c.keysFor('go'), `${M}+G`, 'display keys');
+eq(c.keysFor('go'), displayChord(`${M}+G`), 'display keys');  // ⌘G on macOS
+eq(displayChord('Shift+Meta+Z'), process.platform === 'darwin' ? '⇧⌘Z' : 'Shift+Meta+Z', 'displayed as the OS spells it');
 
 // The app's registry gets real key events.
 let appRan = 0;
