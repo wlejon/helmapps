@@ -148,23 +148,33 @@ still:
    photo, Ctrl+click adds or leaves out one frame.
 2. **Stabilize Burst** (B) opens the frames. The subject is tracked frame to
    frame on a crop that follows it; across a gap between bursts it jumps.
-   Each frame in the row along the bottom shows its mask and a badge: the
-   tracker's confidence, *Check* when it is low, *Click subject* when it lost
-   it. Go to such a frame and click the subject (C turns that on for any
-   frame); tracking carries on from there. X leaves a frame out.
+   The timeline along the bottom shows the frames that play, each a cell as
+   wide as it holds with its picture inside; a frame the tracker is unsure
+   of is flagged *Check*, one where it lost the subject *Click subject*, and
+   the panel's frame section says what to do. Go to such a frame and click
+   the subject (C turns that on for any frame); tracking carries on from
+   there. Delete (or Backspace) removes the selected frames from the
+   timeline and the animation; Mod+Z brings them back, and the quiet
+   *n removed* button above the timeline restores them later.
 3. **Lock** (L): *Subject* holds the subject's position and size (its own
    alignment, pulled onto the mask and smoothed); *Scene* holds the
    surroundings (aligned with the subject left out) so the subject moves
    naturally through a steady scene. The last lock used is remembered.
 4. **Crop**: drag the frame to move it, a corner to size it, in the shape
-   chosen (Free, 1:1, 4:5, 3:2, 16:9). It stays inside what every included
-   frame covers; what not every frame covers is shaded.
-5. **Timing** comes from the EXIF times (to the hundredth of a second). A
-   step longer than 0.4 s, or than 3x the typical step, is a gap between
-   bursts and is trimmed to the hold (0.1 s by default). Speed scales it
-   all; a frame's own hold overrides its time. The panel shows how long the
-   photos took and how long the animation plays. Space plays and pauses,
-   Left / Right step.
+   chosen (Free, 1:1, 4:5, 3:2, 16:9). It stays inside what every frame in
+   the animation covers; what not every frame covers is shaded.
+5. **Timing** is per frame. A frame holds until the next one was taken (the
+   EXIF times, to the hundredth of a second); a step longer than 0.4 s, or
+   than 3x the typical step, is a gap between bursts, trimmed to 0.1 s and
+   shown in the timeline as a break. Drag a cell's right edge (or a gap's
+   break) to set its hold: the time shows while dragging, snapping to
+   0.01 s under 0.2 s, 0.05 s under 1 s, then 0.1 s, and to the time as
+   shot; with several frames selected (Shift+click a range, Ctrl+click one
+   more) they all take it. A double click on the edge puts back the time as
+   shot. Speed (beside the timeline) scales every frame. Ctrl+wheel or the
+   zoom buttons zoom the timeline; only the cells on screen exist. Space
+   plays and pauses (the playhead runs along the timeline), Left / Right
+   step, a click on a cell goes to it.
 6. **Export** (Mod+E) a GIF (each frame its own delay) or a WebM (30 fps,
    frames repeated to keep the timing), at the size chosen (long side), to a
    file named for the first and last photo beside them. Frames are rendered
@@ -190,7 +200,8 @@ worker (`js/burst/track-worker.js`), previews and export on another
 | B | Stabilize Burst |
 | Space / Left / Right | Play or pause / previous / next frame |
 | C | Correct the frame's subject (click it) |
-| X | Leave the frame out (or back in) |
+| Delete / Backspace | Remove the selected frames |
+| Mod+Z / Mod+Shift+Z | Undo / redo a removal or a hold |
 | L | Hold the scene still / the subject |
 | Mod+E | Export |
 | Escape | Back to the photo |
@@ -225,8 +236,10 @@ worker (`js/burst/track-worker.js`), previews and export on another
 | `js/burst/frames.js` | Decoding, crops, mask resampling and measuring (worker side) |
 | `js/burst/stabilize.js` | Transforms for the subject and scene locks, the common area, the crop |
 | `js/burst/timing.js` | EXIF times, bursts and gaps, the schedule, GIF delays and WebM repeats |
-| `js/burst/view.js` | The stabilize view: the held-still frame, the crop, playback, corrections |
-| `js/burst/frame-row.js` / `panel.js` | Its frame row (masks and badges) and side panel |
+| `js/burst/view.js` / `stage.js` | The stabilize view: the held-still frame, the crop, playback, corrections; drawing the stage |
+| `js/burst/timeline.js` | Its timeline: cells as wide as they hold, the playhead, hold dragging, zoom |
+| `js/burst/edits.js` | Removed frames and per-frame holds, with undo and redo |
+| `js/burst/panel.js` / `inspector.js` | Its side panel, and what it says about the selected frames |
 | `js/burst/exporter.js` / `media-worker.js` | Export: the save dialog; rendering and encoding on a worker |
 | `js/burst/affine.js` / `draw.js` / `rpc.js` | 2x3 matrices and polygons, mask drawing, worker calls |
 | `tests/` | Headless acceptance tests and `test_perf.js`; `tests/burst.js` makes synthetic bursts, `tests/wildlife.js` synthetic animal photos |

@@ -9,14 +9,17 @@
  * interval is trimmed to a short hold. What the user controls:
  *
  *   hold       seconds a trimmed gap shows for (default 0.1)
- *   speed      a multiplier on everything not overridden (2 = twice as fast)
- *   frame.hold a per-frame override: that frame shows this many seconds,
- *              whatever its interval and the speed
- *   frame.included  false leaves the frame out; the intervals are then
- *              measured between the frames that stay, so real time is kept
+ *   speed      a multiplier on every frame (2 = twice as fast)
+ *   frame.hold a per-frame hold in seconds at 1x, in place of its interval
+ *              (or, for the frame before a gap, of the trimmed gap); the
+ *              speed still applies, so the whole animation keeps its pace
+ *   frame.included  false leaves the frame out (removed); the intervals are
+ *              then measured between the frames that stay, so real time is kept
  *
  *   const s = schedule(frames, { hold: 0.1, speed: 1 });
- *   s.frames        [{ index, start, duration, gap, interval }] the included ones, in order
+ *   s.frames        [{ index, start, duration, gap, interval, base, custom }] the
+ *                   included ones, in order: duration is what plays; base the
+ *                   1x hold it came from, as shot (custom false) or the frame's own
  *   s.total         seconds the animation lasts
  *   s.realElapsed   seconds from the first included frame to the last, as shot
  *   gifDelays(s)    centiseconds per frame, rounded so the total does not drift
@@ -117,8 +120,11 @@ export function schedule(frames, { hold = 0.1, speed = 1 } = {}) {
     const interval = j < intervals.length ? intervals[j] : typical;
     const gap = j < intervals.length && (interval > limit || interval < 0);
     const override = frames[k].hold;
-    const duration = override != null && override >= 0 ? override : (gap ? hold : Math.max(0, interval)) / sp;
-    out.push({ index: k, start, duration, gap, interval });
+    const custom = override != null && override >= 0;
+    const asShot = gap ? hold : Math.max(0, interval);
+    const base = custom ? override : asShot;
+    const duration = base / sp;
+    out.push({ index: k, start, duration, gap, interval, base, asShot, custom });
     start += duration;
   });
   const realElapsed = kept.length > 1 ? times[kept[kept.length - 1]] - times[kept[0]] : 0;

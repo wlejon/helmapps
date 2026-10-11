@@ -43,12 +43,18 @@ near(s.total, s.frames.reduce((a, f) => a + f.duration, 0), 'total is the sum', 
 s = schedule(fr(robin), { hold: 0.5, speed: 2 });
 near(s.frames[1].duration, 0.25, 'gap: hold / speed');
 near(s.frames[0].duration, 0.05, 'step / speed', 1e-9);
-// A frame's own hold is used as it is; a frame left out is not in it (its step goes to the frame before).
+// A frame's own hold replaces its step, and the speed applies to it too (the
+// animation keeps its pace); a frame left out is not in it (its step goes to the frame before).
 const f2 = fr(robin);
 f2[0].hold = 1;
+f2[1].hold = 0.4;
 f2[8].included = false;
 s = schedule(f2, { hold: 0.1, speed: 2 });
-near(s.frames[0].duration, 1, 'a frame\'s own hold, not sped up');
+near(s.frames[0].duration, 0.5, 'a frame\'s own hold, at the speed');
+eq(s.frames[0].custom && !s.frames[2].custom, true, 'custom marks the frames with their own hold');
+near(s.frames[0].asShot, 0.1, 'and asShot keeps what it would be', 1e-9);
+near(s.frames[1].duration, 0.2, 'a gap\'s own hold replaces the trimmed gap', 1e-9);
+eq(s.frames[1].gap, true, 'and it is still a gap');
 eq(s.frames.map((f) => f.index).includes(8), false, 'the frame left out');
 const seven = s.frames.find((f) => f.index === 7);
 near(seven.duration, 0.1, 'its step goes to the frame before (0.2 s / 2)', 1e-9);

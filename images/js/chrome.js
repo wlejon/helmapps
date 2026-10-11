@@ -28,7 +28,8 @@ export function buildToolbar(toolbar, commands, { extra = null } = {}) {
   if (extra) toolbar.add(extra);
   inBurst(toolbar.button('burst-play'));
   inBurst(toolbar.button('burst-correct'));
-  inBurst(toolbar.button('burst-exclude'));
+  inBurst(toolbar.button('burst-undo'));
+  inBurst(toolbar.button('burst-remove'));
   inBurst(toolbar.button('burst-export'));
   only(toolbar.button('subject'));
   only(toolbar.button('stabilize'));

@@ -69,3 +69,9 @@ beyond saying so in the window. Kit-level gaps shared by every app are in
 - The kit's `VirtualList` takes `typeAhead: false`: with the thumbnail strip
   focused, letters were jumping through the strip instead of reaching the
   app's shortcuts (R, H, V, and now S, B).
+- A 2D canvas taken out of the document and put back kept nothing: bro's
+  frame sweep dropped its scene, so it painted nothing and its context drew
+  into nothing. Every recycled cell of the stabilize frame row (a virtual
+  list) went blank after about the 18th frame. bro 168be1b1 keeps a canvas's
+  bitmap and context until its element is gone; tests/test_burst_thumbs.js
+  checks every picture of a 120-frame timeline in the presented frame.

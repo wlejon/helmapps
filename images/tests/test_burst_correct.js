@@ -31,8 +31,8 @@ eq(statuses().slice(0, 5).every((x) => x === 'ok' || x === 'seed'), true, `held 
 eq(statuses().slice(5).join(), 'lost,lost,lost', 'lost from the jump on');
 assert(!view.canExport(), 'no export while frames are lost');
 assert(/need a look/.test(document.querySelector('.statusbar').textContent), 'the status bar says frames need a look');
-const badge = document.querySelector('.iv-burst-row .vgrid-cell[data-index="5"] .iv-burst-badge');
-eq(badge && badge.textContent, 'Click subject', 'the lost frame\'s badge');
+const flag = document.querySelector('.iv-tl-cell[data-index="5"] .iv-tl-flag');
+eq(flag && flag.textContent, 'Click subject', 'the lost frame\'s flag');
 
 // Go to the frame: it asks for a click; click the subject where it is now.
 view.go(5);

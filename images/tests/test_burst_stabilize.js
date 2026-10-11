@@ -15,7 +15,7 @@ const view = app.burst.view;
 eq(view.model().statuses.filter((s) => s === 'ok' || s === 'seed').length, frames.length,
   `every frame tracked with confidence (${view.model().statuses.join(' ')})`);
 eq(view.lock, 'subject', 'subject lock by default');
-assert(document.querySelectorAll('.iv-burst-row .vgrid-cell').length === frames.length, 'a cell per frame in the row');
+assert(document.querySelectorAll('.iv-tl .iv-tl-cell').length === frames.length, 'a cell per frame in the timeline');
 
 /** The exported GIF's frames: where a colour's centroid is in each. */
 function measure(file, what) {

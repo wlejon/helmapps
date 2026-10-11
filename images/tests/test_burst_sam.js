@@ -44,7 +44,7 @@ s.frames.forEach((f, k) => {
   assert(err < 3, `frame ${k + 1} tracked onto the disc (off by ${err.toFixed(1)} px)`);
   assert(f.status === 'ok' || f.status === 'seed', `frame ${k + 1} confident (${f.status})`);
 });
-eq(document.querySelector('.iv-burst-model').textContent.startsWith('Subject found with SAM'), true, 'the panel names the model');
+eq(document.querySelector('.iv-bp-model').textContent.startsWith('Subject found with SAM'), true, 'the panel names the model');
 
 console.log('test_burst_sam PASSED');
 }

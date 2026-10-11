@@ -1,0 +1,130 @@
+/* Image Viewer, Stabilize: the held-still frame and its crop on the stage,
+   the panel beside it, the timeline below. Kit tokens only. */
+
+.iv-burst { display: flex; flex-direction: column; flex: 1 1 0px; min-height: 0; }
+.iv-burst-main { display: flex; flex: 1 1 0px; min-height: 0; }
+.iv-burst-stage { position: relative; flex: 1 1 0px; min-width: 0; overflow: hidden; outline: none; background: var(--surface-0); }
+.iv-burst-stage.picking { cursor: crosshair; }
+.iv-burst-canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+.iv-burst-hint {
+  position: absolute; left: 50%; top: var(--s3); transform: translateX(-50%); padding: var(--s1) var(--s3);
+  border-radius: var(--r-ctl); background: var(--surface-1); border: 1px solid var(--hairline); color: var(--t2); font-size: var(--fs-cap);
+  pointer-events: none; white-space: nowrap;
+}
+
+/* ---- The panel: sections down a scrolling body, the export pinned at the foot. ---- */
+
+.iv-burst-panel {
+  flex: none; width: 300px; min-height: 0; display: flex; flex-direction: column;
+  background: var(--surface-1); border-left: 1px solid var(--hairline);
+}
+.iv-bp-body { flex: 1 1 0px; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
+.iv-bp-sec { display: flex; flex-direction: column; gap: var(--s3); padding: var(--s4); border-top: 1px solid var(--hairline); }
+.iv-bp-sec:first-child { border-top: none; }
+.iv-bp-head { display: flex; align-items: baseline; gap: var(--s2); min-width: 0; }
+.iv-bp-head .micro { flex: none; text-transform: uppercase; color: var(--t4); }
+.iv-bp-sub { flex: 1 1 auto; min-width: 0; text-align: right; font-size: var(--fs-cap); color: var(--t3); }
+
+.iv-bp-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.iv-bp-label { font-size: var(--fs-cap); color: var(--t2); font-weight: 500; }
+.iv-bp-note { font-size: var(--fs-cap); line-height: 1.45; color: var(--t3); }
+/* Every control spans the panel: one width down the whole column. */
+.iv-bp-fill { width: 100%; }
+.segmented.iv-bp-fill { display: flex; }
+.segmented.iv-bp-fill button { flex: 1 1 0px; justify-content: center; padding: 0 var(--s1); }
+.select.iv-bp-fill { min-width: 0; }
+
+/* The selected frames: properties, a note when tracking is unsure, the actions. */
+.iv-bp-props { display: flex; flex-direction: column; gap: var(--s2); }
+.iv-bp-prop { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); min-height: 20px; }
+.iv-bp-key { flex: none; font-size: var(--fs-cap); color: var(--t3); }
+.iv-bp-val { min-width: 0; text-align: right; color: var(--t1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.iv-bp-callout {
+  display: flex; gap: var(--s2); padding: var(--s3); border-radius: var(--r-ctl);
+  background: var(--danger-soft); color: var(--danger-text);
+}
+.iv-bp-callout > .icon { width: 16px; height: 16px; margin-top: 1px; }
+.iv-bp-callout-body { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s2); min-width: 0; }
+.iv-bp-callout-text { font-size: var(--fs-cap); line-height: 1.45; color: var(--t1); }
+.iv-bp-callout .btn .kbd { margin-left: var(--s1); }
+.iv-bp-actions { display: flex; flex-wrap: wrap; gap: var(--s1); margin-left: calc(-1 * var(--s2)); }
+.iv-bp-actions .btn .kbd { margin-left: var(--s1); }
+
+.iv-bp-foot {
+  flex: none; display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4) var(--s4);
+  border-top: 1px solid var(--hairline); background: var(--surface-1);
+}
+.iv-bp-summary { font-size: var(--fs-cap); color: var(--t2); }
+.iv-burst-export { width: 100%; height: 34px; }
+.iv-bp-model { font-size: var(--fs-micro); color: var(--t4); }
+.iv-burst-progress { display: flex; flex-direction: column; gap: var(--s1); font-size: var(--fs-cap); color: var(--t3); }
+
+/* ---- The timeline: the bar, then the frames as wide as they hold. ---- */
+
+.iv-tl { flex: none; display: flex; flex-direction: column; background: var(--surface-1); border-top: 1px solid var(--hairline); }
+.iv-tl-bar { display: flex; align-items: center; gap: var(--s2); height: 36px; padding: 0 var(--s3); min-width: 0; }
+.iv-tl-time { min-width: 92px; font-size: var(--fs-cap); color: var(--t2); }
+.iv-tl-label { margin-left: var(--s2); font-size: var(--fs-cap); color: var(--t3); }
+.select.iv-tl-speed { height: 24px; min-width: 72px; padding: 0 4px 0 var(--s2); font-size: var(--fs-cap); }
+.iv-tl-hint { flex: 1 1 auto; min-width: 0; margin-left: var(--s3); font-size: var(--fs-cap); color: var(--t4); }
+.iv-tl-removed { flex: none; color: var(--t3); }
+.iv-tl-zoom { display: flex; align-items: center; gap: 2px; flex: none; }
+
+.iv-tl-scroll { position: relative; height: 92px; overflow-x: auto; overflow-y: hidden; outline: none; }
+.iv-tl-content { position: relative; height: 100%; }
+.iv-tl-cell { position: absolute; top: 4px; height: 76px; }
+.iv-tl-frame {
+  position: absolute; left: 1px; right: 1px; top: 0; bottom: 0; overflow: hidden;
+  border-radius: var(--r-sm); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--hairline);
+  cursor: pointer;
+}
+.iv-tl-thumb { position: absolute; left: 0; top: 0; width: 96px; height: 56px; background: var(--surface-0); }
+.iv-tl-cell.narrow .iv-tl-thumb { width: 96px !important; }
+.iv-tl-cell.narrow .iv-tl-thumb { left: 50%; transform: translateX(-50%); }
+.iv-tl-cap {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 20px; display: flex; align-items: center; gap: var(--s1);
+  padding: 0 6px; font-size: var(--fs-micro); color: var(--t3);
+}
+.iv-tl-name { flex: 1 1 auto; min-width: 0; }
+.iv-tl-hold { flex: none; color: var(--t2); }
+.iv-tl-cell.custom .iv-tl-hold { color: var(--accent-text); }
+.iv-tl-cell.narrow .iv-tl-name { display: none; }
+.iv-tl-cell.narrow .iv-tl-cap { padding: 0 2px; justify-content: center; }
+.iv-tl-cell.ref .iv-tl-name { color: var(--accent-text); }
+.iv-tl-flag { position: absolute; right: 3px; top: 3px; height: 16px; padding: 0 5px; }
+.iv-tl-flag[data-kind="bad"] { background: var(--danger); color: white; }
+.iv-tl-flag[data-kind="wait"] { background: var(--surface-1); color: var(--t3); }
+.iv-tl-cell.current .iv-tl-frame { box-shadow: inset 0 0 0 1px var(--accent-line); }
+.iv-tl-cell.selected .iv-tl-frame { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
+.iv-tl-cell.selected .iv-tl-cap { color: var(--t1); }
+
+/* The right edge: drag to set the hold. */
+.iv-tl-edge { position: absolute; top: 8px; bottom: 8px; right: -3px; width: 8px; cursor: ew-resize; z-index: 1; }
+.iv-tl-edge::after {
+  content: ''; position: absolute; left: 3px; top: 0; bottom: 0; width: 2px; border-radius: 1px;
+  background: var(--t4); opacity: 0;
+}
+.iv-tl-cell:hover .iv-tl-edge::after, .iv-tl-cell.selected .iv-tl-edge::after { opacity: 1; }
+.iv-tl-edge:hover::after { background: var(--accent); }
+
+/* A gap between bursts: a break after the burst's last frame, draggable too. */
+.iv-tl-gap { position: absolute; top: 0; bottom: 0; width: 14px; cursor: ew-resize; }
+.iv-tl-gap-line {
+  position: absolute; left: 6px; top: 6px; bottom: 6px; width: 0;
+  border-left: 2px dotted var(--t4);
+}
+.iv-tl-gap:hover .iv-tl-gap-line { border-left-color: var(--accent); }
+
+.iv-tl-playhead {
+  position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--accent);
+  pointer-events: none; z-index: 2;
+}
+.iv-tl-playhead::before {
+  content: ''; position: absolute; left: -4px; top: 0; width: 10px; height: 6px;
+  border-radius: 0 0 3px 3px; background: var(--accent);
+}
+.iv-tl-tip {
+  position: absolute; top: 2px; transform: translateX(-50%); padding: 2px var(--s2); z-index: 3;
+  border-radius: var(--r-sm); background: var(--surface-3); box-shadow: var(--depth-1);
+  color: var(--t1); font-size: var(--fs-cap); white-space: nowrap; pointer-events: none;
+}
