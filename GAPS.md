@@ -34,6 +34,16 @@ Each app keeps its own `GAPS.md` in the same format (see AGENTS.md).
 - **Belongs in:** bro: in the windowed path, load the driver and create the
   instance alongside the window.
 
+## The JS profiler is Windows-only
+- **Where:** bro (`bro.profiler`, docs/profiler-api.js)
+- **Expected:** `bro.profiler.start()` samples an app's JS on every platform
+  and splits it by tier, as it does on Windows x64.
+- **Actual:** on macOS (and other non-Windows-x64 hosts) `start()` throws
+  "the sampling profiler is supported on Windows x64 only". A Mac profile of
+  an app's handler is only macOS `sample`, where JIT frames are `???` and no
+  tier is named (music/tests/bench_switch.js runs `PROFILE=1` where it can).
+- **Belongs in:** bro / bronze: the sampler on aarch64 macOS and Linux.
+
 ## Fixed while building the kit
 - `openApp(id, args)` is `bro.app.open`: another app by id on every platform
   (installed, else in this project), single-instance hand-off included.
