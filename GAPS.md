@@ -44,6 +44,15 @@ Each app keeps its own `GAPS.md` in the same format (see AGENTS.md).
   tier is named (music/tests/bench_switch.js runs `PROFILE=1` where it can).
 - **Belongs in:** bro / bronze: the sampler on aarch64 macOS and Linux.
 
+## The Windows profiler samples below the rate asked for
+- **Where:** bro (`bro.profiler`, docs/profiler-api.js)
+- **Expected:** `start({ hz: 2000 })` takes about 2000 samples a second.
+- **Actual:** music/tests/bench_switch.js with `PROFILE=1 ROUNDS=80` took
+  19676 samples in 32 s, about 615 a second. Shares between functions hold,
+  but sample counts read about 3x low as time.
+- **Belongs in:** bronze: the sampler's timer on Windows (likely the default
+  timer resolution), or report the achieved rate beside the requested one.
+
 ## Fixed while building the kit
 - `openApp(id, args)` is `bro.app.open`: another app by id on every platform
   (installed, else in this project), single-instance hand-off included.
