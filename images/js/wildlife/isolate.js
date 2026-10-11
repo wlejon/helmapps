@@ -135,9 +135,9 @@ export class Isolate {
     const p = this.worker.call({ op: 'segment', path, box, source: { width: size[0], height: size[1] }, dir })
       .then(async (r) => {
         const rgba = new Uint8ClampedArray(r.width * r.height * 4);
-        for (let i = 0; i < r.mask.length; i++) if (r.mask[i]) rgba[i * 4 + 3] = 255;
+        for (let i = 0; i < r.mask.length; i++) rgba[i * 4 + 3] = r.mask[i];
         const bitmap = await createImageBitmap(new ImageData(rgba, r.width, r.height));
-        this.remember(k, { rect: r.rect, width: r.width, height: r.height, bitmap });
+        this.remember(k, { rect: r.rect, width: r.width, height: r.height, bitmap, ms: r.ms });
       }, (err) => {
         console.warn(`isolate: ${err.message}`);
         this.remember(k, { failed: true });

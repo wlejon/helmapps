@@ -97,6 +97,15 @@ eq(list.map((x) => [x.name, x.score, x.meta, x.hit]), [
   ['Mallard', '90%', 'Anas platyrhynchos · 1 of 3 frames · 2 here', true],
   ['Mallard', '90%', 'Anas platyrhynchos · 2 here', true],
 ], 'the burst\'s egret (not here), its mallards (here) and the photo\'s own');
+// The animals come first in the panel, above File and Camera: hoverable without scrolling.
+eq(Array.from(document.querySelectorAll('.iv-details-body .iv-details-title')).map((t) => t.textContent).slice(0, 3).join('|'),
+  'Burst|This photo|File', 'the Animals sections above the file\'s');
+{
+  const body = document.querySelector('.iv-details-body');
+  eq(body.scrollTop, 0, 'the panel is not scrolled');
+  const r = list[2].el.getBoundingClientRect(), b = body.getBoundingClientRect();
+  assert(r.bottom <= b.bottom, `the photo's mallards in view unscrolled: ${Math.round(r.bottom)} <= ${Math.round(b.bottom)}`);
+}
 
 // Hover: everything but the mallards darkens, a soft box at once, then the mask.
 const iso = app.wildlife.isolate;

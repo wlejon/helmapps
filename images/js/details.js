@@ -2,7 +2,8 @@
  * The details panel: what the file is. Name, folder, dimensions, size, type,
  * modified time, and the photo's EXIF (camera, lens, exposure, date taken,
  * location, orientation) when the file carries it. `extra(file)` adds what
- * a feature knows about it below (Find Animals: js/wildlife/labels.js), and
+ * a feature knows about it above them (Find Animals: js/wildlife/labels.js,
+ * whose animals are hovered, so they sit where no scroll is needed), and
  * refresh(file) redraws when that changes.
  */
 
@@ -68,10 +69,11 @@ export class Details {
       ['Type', f ? f.type : ''],
       ['Modified', st ? formatDateLong(st.mtime) : '…'],
     ];
-    const parts = [section('File', rows)];
-    if (pic && pic.exif) parts.push(section('Camera', exifRows(pic)));
+    // A feature's sections first (the animals, hovered to isolate one): reachable without scrolling.
     const more = this.extra ? this.extra(file) : null;
-    if (more) parts.push(more);
+    const parts = more ? [more] : [];
+    parts.push(section('File', rows));
+    if (pic && pic.exif) parts.push(section('Camera', exifRows(pic)));
     this.last = [file, pic, st];
     this.body.replaceChildren(...parts);
   }

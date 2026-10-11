@@ -88,7 +88,8 @@ are grouped into bursts (`groupBursts`).
 - Each grid tile carries a quiet tag: its top name and how sure, "+N" when
   it has more (all of them in the tag's tooltip), and on a burst's first
   frame how many frames it has.
-- The details panel (Mod+I) lists the burst's animals (score, rank and
+- The details panel (Mod+I) lists first, above the file and camera (so
+  they are hovered without scrolling), the burst's animals (score, rank and
   scientific name, in how many frames, how many in this photo), how long
   it took and its sharpest frame, then this photo's own animals, each
   animal not identified with its guesses muted under it, "+3 more birds"
@@ -97,7 +98,10 @@ are grouped into bursts (`groupBursts`).
   the pointer on an animal in the details darkens everything else in the
   photo: a soft-edged box at once, then the animal's own outline once
   SAM 2.1 has segmented it (when `sam2.1-hiera-*` is in `bro.models`; on a
-  worker of its own, kept per photo and box for the session). It follows
+  worker of its own, kept per photo and box for the session; the proposal
+  with the best predicted IoU inside the box, its edge as soft as SAM is
+  unsure, stray bits dropped; ~0.6 s for the first, model load included,
+  then ~0.1–0.3 s a box on halo). It follows
   zoom and pan and goes when the pointer leaves. A click on the animal
   zooms the view to it (`viewer.frame()`).
 - **Bursts stay whole.** Every frame of a burst is a photo of its own in
