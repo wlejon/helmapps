@@ -17,12 +17,18 @@
 import { api } from '/lib/dom.js';
 import { formatOf } from './formats.js';
 
-/** Previews being made at once. */
-const PARALLEL = 6;
 /**
- * Previews fill the folder grid's tiles (a few hundred px, more on HiDPI),
- * so they are the 512 px tier; decoding the source costs the same whatever
- * the preview's size. The long side of one the decoder thread makes matches.
+ * Previews asked for at once. bro.thumb spreads them over the machine's
+ * cores, and a camera JPEG's decode is serial within a file, so a screenful
+ * comes fast only with many in flight (a 24 MP card: 6 at once took 5 s for
+ * a screen of 56, 24 at once 0.5 s). The rest of the queue stays here, where
+ * scrolling away drops it.
+ */
+const PARALLEL = 24;
+/**
+ * Previews fill the folder grid's square tiles (about 240 px, cropped to
+ * fill), so a 3:2 photo needs the 512 px tier for its short side to cover
+ * one. The long side of one the decoder thread makes matches.
  */
 const THUMB_SIZE = 'x-large';
 const WORKER_SIZE = 512;
