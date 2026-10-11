@@ -4,7 +4,7 @@
 // bro has no bro.vision.
 
 import { app, waitFor, eq, press, clickEl, fixtureDir } from '/lib/test.js';
-import { burstTree, defaultBurst, pickSubject } from '/app/tests/burst.js';
+import { burstTree, defaultBurst, pickSubject, withoutAnimals } from '/app/tests/burst.js';
 import { findModelSpec } from '/app/js/burst/session.js';
 
 const path = require('path');
@@ -20,6 +20,7 @@ const frames = defaultBurst(5, 0);
 const r = 36;
 const dir = fixtureDir(burstTree(frames, { r }));
 const names = frames.map((f) => f.name);
+withoutAnimals();
 app.openPath(path.join(dir, names[0]));
 waitFor(() => app.state.pic && !app.state.pic.placeholder && app.state.pic.path.endsWith(names[0]), 'the first photo');
 waitFor(() => app.strip.items.length === names.length, 'the strip lists the burst');

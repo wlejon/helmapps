@@ -24,6 +24,12 @@
  * photos are hidden once analysed, unless Show Photos Without Animals is
  * on, and never otherwise touched. Photos not analysed yet always show.
  *
+ * The filter never takes away what she is working with: the photo on
+ * screen and the strip's selection stay (keep()) until she moves on or
+ * changes the selection, and while Select Subject or Stabilize is open
+ * (hold()) nothing shown goes at all; answers landing then wait, and apply
+ * when she leaves (holdReleased()).
+ *
  * Hidden entirely where this bro cannot run it (wildlifeSupported), or with
  * the findAnimals setting off.
  */
@@ -55,12 +61,20 @@ export class WildlifeFeature {
    * settings: app.settings; commands: app.commands; folder: js/folder.js;
    * mode(): the view ('grid', 'image', ...); onItems(): the shown items or
    * their labels changed; onDetails(): the details panel's photo may have new answers.
+   * keep(): paths the filter must not take away (the photo on screen, the
+   * strip's selection); hold(): true while nothing shown may go (Select
+   * Subject, Stabilize).
    */
-  constructor({ settings, commands, folder, mode, cacheDir, onItems, onDetails }) {
+  constructor({ settings, commands, folder, mode, cacheDir, onItems, onDetails, keep = null, hold = null }) {
     this.settings = settings;
     this.commands = commands;
     this.folder = folder;
     this.mode = mode;
+    this.keep = keep;
+    this.hold = hold;
+    this.held = null;              // while hold(): the paths shown when it began
+    this.heldSeq = 0;
+    this.lastShown = null;         // what items() answered last
     this.onItems = onItems;
     this.onDetails = onDetails;
     this.supported = wildlifeSupported();
@@ -182,28 +196,51 @@ export class WildlifeFeature {
   /**
    * The folder's items as the grid, the strip and Next / Previous show them:
    * the filter applied, each with its tag. The folder's own list when there
-   * is nothing to add (same array, so nothing redraws).
+   * is nothing to add (same array, so nothing redraws). keep() and hold()
+   * stand over the filter: what they cover stays.
    */
   items(folderItems) {
     const a = this.analysis;
-    if (!this.active || (!a.results.size && !this.filter)) return folderItems;
+    // Select Subject or Stabilize open: what is shown now stays shown until she leaves.
+    if (this.hold && this.hold()) {
+      if (!this.held) { this.held = new Set((this.lastShown || folderItems).map((it) => it.path)); this.heldSeq++; }
+    } else this.held = null;
+    if (!this.active || (!a.results.size && !this.filter)) return (this.lastShown = folderItems);
     const showEmpty = this.settings.get('showNoAnimals');
-    const key = `${a.version}|${this.filter}|${showEmpty}|${this.folder.version}`;
-    if (this.cache.key === key && this.cache.src === folderItems) return this.cache.items;
+    const keep = new Set(this.keep ? this.keep().filter(Boolean) : []);
+    const key = `${a.version}|${this.filter}|${showEmpty}|${this.folder.version}|${this.held ? this.heldSeq : ''}|${[...keep].join('\n')}`;
+    if (this.cache.key === key && this.cache.src === folderItems) return (this.lastShown = this.cache.items);
     const out = [];
     for (const it of folderItems) {
       const { burst: b, label, animal, empty } = this.answerOf(it.path);
       const tag = label ? label.common : '';
-      if (this.filter === UNIDENTIFIED ? !(animal && !label) : this.filter && tag !== this.filter) continue;
-      if (!this.filter && !showEmpty && empty) continue;
+      const stays = keep.has(it.path) || (this.held && this.held.has(it.path));
+      if (!stays) {
+        if (this.filter === UNIDENTIFIED ? !(animal && !label) : this.filter && tag !== this.filter) continue;
+        if (!this.filter && !showEmpty && empty) continue;
+      }
       out.push({
         name: it.name, path: it.path, tag,
         conf: label ? Math.round(label.score * 100) : 0,
         burst: b && b.count > 1 && pathKey(b.first) === pathKey(it.path) ? b.count : 0,
       });
     }
-    this.cache = { key, src: folderItems, items: out };
-    return out;
+    // The same photos with the same tags: the last array, so nothing redraws.
+    const prev = this.cache.src === folderItems ? this.cache.items : null;
+    const same = prev && prev.length === out.length && prev.every((p, i) => p.path === out[i].path &&
+      p.tag === out[i].tag && p.conf === out[i].conf && p.burst === out[i].burst);
+    this.cache = { key, src: folderItems, items: same ? prev : out };
+    return (this.lastShown = this.cache.items);
+  }
+
+  /** Select Subject and Stabilize have both closed since the shown photos were held: show them filtered again. */
+  holdReleased() {
+    return !!this.held && !(this.hold && this.hold());
+  }
+
+  /** Whether the shown photos are held (Select Subject or Stabilize open): the filter waits. */
+  holding() {
+    return !!(this.hold && this.hold());
   }
 
   /**
@@ -319,13 +356,14 @@ export class WildlifeFeature {
   // ---- commands --------------------------------------------------------------------------
 
   commandList() {
-    const browsing = () => this.active && (this.mode() === 'grid' || this.mode() === 'image');
+    // While Select Subject or Stabilize holds the photos, the filter waits for her to leave.
+    const browsing = () => this.active && (this.mode() === 'grid' || this.mode() === 'image') && !this.holding();
     const a = this.analysis;
     return [
       { id: 'animals-menu', label: 'Animals', icon: 'filter', enabled: () => browsing() && (a.results.size > 0 || !!this.filter),
         run: () => this.showMenu() },
       { id: 'animals-filter', label: 'Show Species', enabled: browsing, run: (common) => this.setFilter(common) },
-      { id: 'animals-show-empty', label: 'Show Photos Without Animals', enabled: () => this.active,
+      { id: 'animals-show-empty', label: 'Show Photos Without Animals', enabled: () => this.active && !this.holding(),
         checked: () => this.settings.get('showNoAnimals'),
         run: () => { this.settings.set('showNoAnimals', !this.settings.get('showNoAnimals')); this.analysisChanged(); } },
       { id: 'animals-pause', label: 'Pause Finding Animals', enabled: () => this.active && ['running', 'loading', 'paused'].includes(a.state),

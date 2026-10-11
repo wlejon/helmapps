@@ -5,7 +5,7 @@
 // pauses, the arrows step.
 
 import { app, waitFor, eq, press } from '/lib/test.js';
-import { burstTree, defaultBurst, useKeyModel, pickSubject } from '/app/tests/burst.js';
+import { burstTree, defaultBurst, useKeyModel, pickSubject, withoutAnimals } from '/app/tests/burst.js';
 import { apply, invert } from '/app/js/burst/affine.js';
 import { fixtureDir, clickEl } from '/lib/test.js';
 
@@ -15,6 +15,7 @@ const path = require('path');
 const frames = defaultBurst(8, 0).map((f, k) => ({ ...f, subject: k >= 5 ? [f.subject[0] + 260, f.subject[1] + 120] : f.subject }));
 const dir = fixtureDir(burstTree(frames));
 const names = frames.map((f) => f.name);
+withoutAnimals();
 app.openPath(path.join(dir, names[0]));
 waitFor(() => app.state.pic && !app.state.pic.placeholder && app.state.pic.path.endsWith(names[0]), 'the first photo');
 waitFor(() => app.strip.items.length === 8, 'the strip lists the burst');

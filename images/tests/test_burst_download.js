@@ -7,7 +7,7 @@
 // bytes, so the tool is never asked to load them.
 
 import { app, waitFor, eq, press, clickEl, fixtureDir } from '/lib/test.js';
-import { burstTree, defaultBurst } from '/app/tests/burst.js';
+import { burstTree, defaultBurst, withoutAnimals } from '/app/tests/burst.js';
 import { findModelSpec, downloadableModel } from '/app/js/burst/session.js';
 
 const net = require('net');
@@ -64,6 +64,7 @@ bro.settings.setDefault('models.sources', `http://127.0.0.1:${tcp.address().port
 // ---- a photo on screen ------------------------------------------------------------
 const frames = defaultBurst(3, 0);
 const dir = fixtureDir(burstTree(frames, { w: 320, h: 240, r: 16 }));
+withoutAnimals();
 app.openPath(path.join(dir, frames[0].name));
 waitFor(() => app.state.pic && !app.state.pic.placeholder, 'the photo');
 

@@ -143,6 +143,8 @@ const strip = stripList({
         strip.paint();
       }
       if (burst) burst.changed();
+      // A frame left out of the selection may be one the animal filter hides: once the strip is done with the click.
+      Promise.resolve().then(() => itemsChanged());
       return;
     }
     const it = strip.items[strip.cursor];
@@ -179,12 +181,14 @@ burst = new BurstFeature({
   onMode: (mode) => {
     presentation.stopSlideshow();
     state.mode = mode;
+    if (wild.holdReleased()) itemsChanged();
     layoutChrome();
     if (mode === 'image') viewer.el.focus();
     updateStatus();
     toolbar.refresh();
   },
-  onChange: () => { updateStatus(); toolbar.refresh(); },
+  // Leaving Select Subject or Stabilize: the animal filter held back while they were open applies now.
+  onChange: () => { if (wild.holdReleased()) itemsChanged(); else { updateStatus(); toolbar.refresh(); } },
   burstOf: (p) => wild.burstMembers(p),
 });
 
@@ -193,6 +197,10 @@ wild = new WildlifeFeature({
   cacheDir: (typeof bro !== 'undefined' && bro.app && bro.app.cacheDir) || path.join(os.tmpdir(), 'helm-images'),
   onItems: () => itemsChanged(),
   onDetails: () => { if (settings.get('showDetails')) details.refresh(state.path); },
+  // The filter never takes away the photo on screen or the frames selected around it,
+  // and nothing at all while Select Subject or Stabilize is open.
+  keep: () => (state.mode === 'image' || state.mode === 'burst' ? [state.path, ...strip.selection] : []),
+  hold: () => burst.picking || burst.active,
 });
 
 const status = { dims: h('span.num'), zoom: h('span.num'), pos: h('span.num'), note: h('span.iv-note.hidden'), text: h('span.grow.ellipsis') };
@@ -347,13 +355,16 @@ function updateStatus() {
 
 function syncStrip() {
   syncingStrip = true;
-  const items = shownItems();
-  if (strip.items !== items) strip.setItems(items);
-  // A burst's frames selected around the photo stay selected.
-  if (state.path && strip.index.has(state.path)) {
-    if (!strip.selection.has(state.path)) strip.select([state.path]);
-    else strip.cursor = strip.index.get(state.path);
-  } else strip.clearSelection();
+  // Twice: the filter keeps the selection, so a selection changed here may let photos it kept go.
+  for (let pass = 0; pass < 2; pass++) {
+    const items = shownItems();
+    if (strip.items !== items) strip.setItems(items);
+    // A burst's frames selected around the photo stay selected.
+    if (state.path && strip.index.has(state.path)) {
+      if (!strip.selection.has(state.path)) strip.select([state.path]);
+      else strip.cursor = strip.index.get(state.path);
+    } else strip.clearSelection();
+  }
   syncingStrip = false;
 }
 

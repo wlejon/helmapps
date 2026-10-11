@@ -5,7 +5,7 @@
 
 import { app, waitFor, eq, press, clickEl, fixtureDir } from '/lib/test.js';
 import { shown } from '/app/tests/images.js';
-import { burstTree, defaultBurst, base } from '/app/tests/burst.js';
+import { burstTree, defaultBurst, base, withoutAnimals } from '/app/tests/burst.js';
 
 const path = require('path');
 
@@ -13,6 +13,7 @@ const frames = defaultBurst(4, 4);
 const dir = fixtureDir(burstTree(frames, { w: 320, h: 240, r: 16 }));
 const names = frames.map((f) => f.name);
 
+withoutAnimals();
 app.openPath(path.join(dir, names[1]));
 shown(app, waitFor, names[1]);
 waitFor(() => app.strip.items.length === 8, 'the strip lists the burst');

@@ -133,6 +133,16 @@ export function screenOf(viewer, [x, y]) {
   return [r.left + M[0] * x + M[1] * y + M[2], r.top + M[3] * x + M[4] * y + M[5]];
 }
 
+/**
+ * Find Animals off: the burst tests are about the burst, and must run the
+ * same whether the animal models are installed or not (with them, the
+ * analysis would land at a moment of its own; test_animals_hold covers the two
+ * together). Call before opening the burst.
+ */
+export function withoutAnimals() {
+  app.settings.set('findAnimals', false);
+}
+
 /** Colour-key the subject (the tests' stand-in for SAM). */
 export function useKeyModel() {
   app.burst.useModel({ kind: 'key', color: SUBJECT_COLOR, tolerance: 60, name: 'key' });
@@ -164,6 +174,7 @@ export function stabilize() {
 export function openBurst(frames = defaultBurst(), size = {}) {
   const dir = fixtureDir(burstTree(frames, size));
   const names = frames.map((f) => f.name);
+  withoutAnimals();
   app.openPath(path.join(dir, names[0]));
   waitFor(() => app.state.mode === 'image' && app.state.pic && app.state.pic.path.endsWith(names[0]) && !app.state.pic.placeholder,
     `${names[0]} on screen`);

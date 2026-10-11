@@ -98,6 +98,12 @@ measured), and photos shot less than 1.0 s apart are grouped into bursts
   species) are hidden once analysed, until *Show Photos Without Animals*
   is on; they are never touched otherwise, and one opened directly still
   shows. Photos not analysed yet always show.
+- **The filter never takes away what you are working with.** The photo on
+  screen and the frames selected in the strip stay until you move on or
+  change the selection, and while Select Subject or Stabilize is open
+  nothing leaves the strip at all (the Animals menu waits too): answers
+  that land then apply when you leave. A burst the detector misses can
+  still be stabilized.
 - Progress shows in the status bar ("Finding animals · 120 of 958") with
   Pause / Resume. Files that come, go or change in the open folder (the
   folder watch) are analysed as they appear.
