@@ -139,7 +139,17 @@ const tipEl = document.querySelector('.tooltip');
 assert(tipEl && tipEl.textContent.includes('Refresh') && tipEl.textContent.includes('F5'), 'the tooltip shows its label and keys');
 press('escape');
 assert(!document.querySelector('.tooltip'), 'a key hides it');
-tipBtn.remove();
+// Re-rendered under the still pointer (a toolbar rebuilt): the new button is
+// hovered with no move, and its tip shows after the pause.
+const tipBtn2 = h('button.btn', { 'data-tip': 'Reload' }, 'R');
+tipBtn.replaceWith(tipBtn2);
+advanceTime(16);
+assert(tipBtn2.matches(':hover'), 'the button put in under the pointer is hovered');
+advanceTime(700);
+const tipEl2 = document.querySelector('.tooltip');
+assert(tipEl2 && tipEl2.textContent.includes('Reload'), 'its tooltip shows with no move');
+press('escape');
+tipBtn2.remove();
 
 // ---- VirtualList: grid ------------------------------------------------------
 list.setLayout('grid', { cellWidth: 100, cellHeight: 100 });
