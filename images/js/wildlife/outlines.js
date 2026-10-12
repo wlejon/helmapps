@@ -87,9 +87,13 @@ export class Outlines {
     if (!M || !rec || rec.error || !rec.width) { this.hide(); return; }
     if (this.picker && pathKey(this.path) !== pathKey(p)) this.close();
     const list = this.animals(p);
-    const key = `${pathKey(p)}|${this.feature.analysis.version}|${this.feature.answers.version}|` +
-      list.map((a) => `${a.i}:${a.kind}:${a.name}`).join(',');
-    if (key !== this.key) {
+    // The outlines are made again only when what they show changed: a result landing for
+    // another photo leaves them (and the picker placed on one) where they are.
+    const key = `${pathKey(p)}|${list.map((a) => `${a.i}:${a.kind}:${a.name}:${a.box.join(' ')}`).join(',')}`;
+    if (key === this.key) {
+      this.items = list.map((a, j) => ({ ...a, el: this.items[j].el }));
+      if (this.picker) this.picker.item = this.items.find((x) => x.el === this.picker.item.el) || this.picker.item;
+    } else {
       this.key = key;
       this.path = p;
       this.items = list.map((a) => {
@@ -100,6 +104,10 @@ export class Outlines {
         return { ...a, el };
       });
       this.layer.replaceChildren(...this.items.map((a) => a.el));
+      // An open picker stays on its animal's new outline (gone: it closes).
+      const pk = this.picker;
+      const now = pk && this.items.find((x) => x.i === pk.i);
+      if (now) { pk.item = now; now.el.classList.add('picking'); } else if (pk) this.close();
     }
     this.layer.classList.toggle('hidden', !this.items.length);
     // The record's pixels -> the picture's (a preview has a nominal size) -> stage px; the box's bounds.

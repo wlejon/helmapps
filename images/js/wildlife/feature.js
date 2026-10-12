@@ -85,6 +85,13 @@ export const LOOKALIKE_MIN = 0.92;
 
 export { labelKey };
 
+/** Whether two shown items have the same own fields (===). */
+function sameFields(a, b) {
+  const ka = Object.keys(a);
+  if (ka.length !== Object.keys(b).length) return false;
+  return ka.every((k) => a[k] === b[k]);
+}
+
 export class WildlifeFeature {
   /**
    * settings: app.settings; commands: app.commands; folder: js/folder.js;
@@ -118,12 +125,17 @@ export class WildlifeFeature {
     this.download = null;          // a ModelDownload while one is wanted
     this.seen = { dir: '', version: -1 };
     this.cache = { key: '', items: null };
-    this.known = null;             // answerOf's, per analysis and answers version
-    this.analysis = new Analysis({ cacheDir, onChange: () => this.analysisChanged() });
+    this.current = current;
+    this.known = null;             // answerOf's: { taxa, map: pathKey -> answer }, a photo dropped when it changes
+    this.itemsSeq = 0;             // items()' cache: bumped when any photo's answer changed
+    this.itemOf = new Map();       // path -> { ans, view, item }: the shown item of an answer, kept while it stays
+    this.touched = new Set();      // pathKeys changed since the last flush (null: any)
+    this.flushQueued = false;
+    this.analysis = new Analysis({ cacheDir, onChange: (_, paths) => this.analysisChanged(paths) });
     this.isolate = viewer && viewHost ? new Isolate({ viewer, host: viewHost }) : null;
     this.outlines = viewer && viewHost ? new Outlines({ viewer, host: viewHost, feature: this }) : null;
     // Her answers win over the identifier's everywhere (answerOf); kept apart from the analysis.
-    this.answers = new Answers({ dataDir, cacheDir, onChange: () => this.analysisChanged() });
+    this.answers = new Answers({ dataDir, cacheDir, onChange: (_, paths) => this.analysisChanged(paths) });
     // The crops she has named, across folders ("looks like your ..."); on the answers' worker.
     this.examplesStore = new Examples({ dataDir, worker: this.answers.worker });
     this.examplesQueued = false;
@@ -218,12 +230,39 @@ export class WildlifeFeature {
     this.folderChanged({ force: true });
   }
 
-  analysisChanged() {
-    this.cache.key = '';
-    if (this.active && this.folder.dir) this.syncExamples();
+  /**
+   * The analysis or her answers changed for `paths` (pathKeys; empty: only
+   * the state or the progress; null: any photo). What is known of those
+   * photos is worked out again when next asked for, and every view follows
+   * at the next frame, once however many changes came in it: a card being
+   * analysed lands a result after another, and each must not cost every
+   * photo's names again (answerOf) nor a redraw of what did not change.
+   */
+  analysisChanged(paths = null) {
+    if (!paths) {
+      this.known = null;
+      this.touched = null;
+      this.itemsSeq++;
+    } else if (paths.size) {
+      if (this.known) for (const k of paths) this.known.map.delete(k);
+      if (this.touched) for (const k of paths) this.touched.add(k);
+      this.itemsSeq++;
+    }
+    if (this.flushQueued) return;
+    this.flushQueued = true;
+    requestAnimationFrame(() => this.flushChanges());
+  }
+
+  /** The views after analysisChanged(): the status, the shown items, and the photo on screen's details and outlines. */
+  flushChanges() {
+    this.flushQueued = false;
+    const touched = this.touched;
+    this.touched = new Set();
+    if (this.active && this.folder.dir && (!touched || touched.size)) this.syncExamples();
     this.showStatus();
     if (this.onItems) this.onItems();
-    this.detailsChanged();
+    const cur = this.current();
+    if (!touched || (cur && touched.has(pathKey(cur)))) this.detailsChanged();
     if (this.outlines) this.outlines.draw();
   }
 
@@ -257,14 +296,12 @@ export class WildlifeFeature {
    * What is known of a photo: `labels` (bro.vision.wildlife.labels: the
    * burst's names, else its own; [] when nothing is named), `keys` their
    * labelKeys, `animal` (it or its burst has one), `empty` (analysed, no
-   * animal). Kept until the analysis changes.
+   * animal). Kept until its record, its burst or her answer changes
+   * (analysisChanged), or the lists' names do.
    */
   answerOf(p) {
     const a = this.analysis, mine = this.answers;
-    const c = this.known;
-    if (!c || c.version !== a.version || c.taxa !== a.taxa || c.mine !== mine.version) {
-      this.known = { version: a.version, taxa: a.taxa, mine: mine.version, map: new Map() };
-    }
+    if (!this.known || this.known.taxa !== a.taxa) this.known = { taxa: a.taxa, map: new Map() };
     const k = pathKey(p);
     const have = this.known.map.get(k);
     if (have) return have;
@@ -433,18 +470,27 @@ export class WildlifeFeature {
     if (!this.active || (!a.results.size && !this.filter && !this.query && !this.answers.size)) return (this.lastShown = folderItems);
     const showEmpty = this.settings.get('showNoAnimals');
     const keep = new Set(this.keep ? this.keep().filter(Boolean) : []);
-    const key = `${a.version}|${this.answers.version}|${this.filter}|${this.query}|${showEmpty}|${this.folder.version}|` +
+    const key = `${this.itemsSeq}|${this.filter}|${this.query}|${showEmpty}|${this.folder.version}|` +
       `${this.held ? this.heldSeq : ''}|${[...keep].join('\n')}`;
     if (this.cache.key === key && this.cache.src === folderItems) return (this.lastShown = this.cache.items);
     const out = [];
     const uncertainView = this.filter === UNCERTAIN;
+    const itemOf = new Map();
     for (const it of folderItems) {
-      const { burst: b, labels, keys, empty, mine, uncertain, isUncertain } = this.answerOf(it.path);
+      const ans = this.answerOf(it.path);
+      const { burst: b, labels, keys, empty, mine, uncertain, isUncertain } = ans;
       const stays = keep.has(it.path) || (this.held && this.held.has(it.path));
       if (!stays) {
         if (uncertainView ? !isUncertain : this.filter && !keys.has(this.filter)) continue;
         if (!this.filter && !showEmpty && empty) continue;
         if (!this.matches(it, labels)) continue;
+      }
+      // A photo whose answer did not change keeps its item: the grid and the strip leave its cell be.
+      const had = this.itemOf.get(it.path);
+      if (had && had.ans === ans && had.view === uncertainView && had.item.name === it.name) {
+        itemOf.set(it.path, had);
+        out.push(had.item);
+        continue;
       }
       const top = labels[0];
       const sure = (l) => (l.mine ? 'yours' : `${Math.round(l.score * 100)}%`);
@@ -472,12 +518,15 @@ export class WildlifeFeature {
       }
       item.names = names;
       item.found = found;      // "3 birds, 1 dog": the tile's tooltip
-      out.push(item);
+      // Worked out again to the same: still the item it had.
+      const kept = had && had.view === uncertainView && sameFields(had.item, item) ? had.item : item;
+      itemOf.set(it.path, { ans, view: uncertainView, item: kept });
+      out.push(kept);
     }
-    // The same photos with the same tags: the last array, so nothing redraws.
+    this.itemOf = itemOf;
+    // The same photos with the same items: the last array, so nothing redraws.
     const prev = this.cache.src === folderItems ? this.cache.items : null;
-    const same = prev && prev.length === out.length && prev.every((p, i) => p.path === out[i].path &&
-      p.names === out[i].names && p.burst === out[i].burst && p.tag === out[i].tag);
+    const same = prev && prev.length === out.length && prev.every((p, i) => p === out[i]);
     this.cache = { key, src: folderItems, items: same ? prev : out };
     return (this.lastShown = this.cache.items);
   }

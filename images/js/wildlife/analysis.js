@@ -36,6 +36,10 @@ const SAVE_MS = 1000;
 const GROUP_MS = 250;
 /** The models are freed after this long with nothing to do. */
 const IDLE_MS = 120000;
+/** A shot joins the burst of the one before when at most this many seconds later (groupBursts' gapS). */
+const GAP_S = 1.0;
+/** changed()'s paths when only the state or the progress changed. */
+const NONE = new Set();
 
 /** Whether a photo is analysed: the raster formats bro.image decodes. */
 export function analysable(p) {
@@ -76,9 +80,15 @@ export class Analysis {
     this.groupTimer = null;
     this.idleTimer = null;
     this.version = 0;
+    this.landed = new Set(); // pathKeys whose records came since the last regroup (null: all may have)
   }
 
-  changed() { this.version++; if (this.onChange) this.onChange(this); }
+  /**
+   * Tell the feature: onChange(this, paths), `paths` the pathKeys whose
+   * record, burst or embeddings changed (empty: only the state or the
+   * progress did), or null when anything may have (a folder, a scan).
+   */
+  changed(paths = null) { this.version++; if (this.onChange) this.onChange(this, paths); }
 
   progress() {
     return { state: this.state, done: this.results.size, total: this.total, error: this.error };
@@ -143,7 +153,7 @@ export class Analysis {
         const r = await this.store.call({ op: 'embLoad', file: this.embFile, want, config: this.hash });
         if (gen !== this.gen) return;
         for (const e of r.entries) if (!this.embeddings.has(pathKey(e.path))) this.embeddings.set(pathKey(e.path), { dim: e.dim, rows: e.rows });
-        if (r.entries.length) this.changed();
+        if (r.entries.length) this.changed(new Set(r.entries.map((e) => pathKey(e.path))));
       }
     } catch (err) {
       if (gen !== this.gen) return;
@@ -169,6 +179,7 @@ export class Analysis {
     }
     this.todo = todo;
     this.total = entries.length;
+    this.landed = null;      // the folder's records as a whole: every photo may have changed
     this.regroup();
     this.pump();
   }
@@ -176,13 +187,13 @@ export class Analysis {
   fail(err) {
     this.state = 'error';
     this.error = String((err && err.message) || err);
-    this.changed();
+    this.changed(NONE);
   }
 
   pause() {
     if (this.state !== 'running' && this.state !== 'loading') return;
     this.state = 'paused';
-    this.changed();
+    this.changed(NONE);
   }
 
   resume() {
@@ -190,7 +201,7 @@ export class Analysis {
     this.state = 'idle';
     this.error = '';
     this.pump();
-    this.changed();
+    this.changed(NONE);
   }
 
   /** Nothing to analyse any more (the feature turned off). Answers still in flight are saved. */
@@ -218,7 +229,7 @@ export class Analysis {
         this.state = 'done';
         if (this.saves.length) this.flush();   // the last answers on disk now, not a second later
         this.idleLater();
-        this.changed();
+        this.changed(NONE);
       }
       return;
     }
@@ -226,7 +237,7 @@ export class Analysis {
     if (this.opened !== this.optsKey) {
       const key = this.optsKey;
       this.state = 'loading';
-      this.changed();
+      this.changed(NONE);
       try {
         await this.models.call({ op: 'open', opts: { ...this.opts, cacheDir: `${this.cacheDir}/wildlife` } });
       } catch (err) {
@@ -239,7 +250,7 @@ export class Analysis {
       this.state = 'idle';
       if (key !== this.optsKey) { this.pump(); return; }
     }
-    if (this.state !== 'running') { this.state = 'running'; this.changed(); }
+    if (this.state !== 'running') { this.state = 'running'; this.changed(NONE); }
     while (this.inflight.size < IN_FLIGHT && this.todo.length) this.run(this.todo.shift());
   }
 
@@ -283,6 +294,7 @@ export class Analysis {
       if (emb) this.embeddings.set(pathKey(job.path), emb);
       else this.embeddings.delete(pathKey(job.path));
       this.results.set(pathKey(job.path), rec);
+      if (this.landed) this.landed.add(pathKey(job.path));
       this.regroupSoon();
     }
     this.pump();
@@ -319,14 +331,51 @@ export class Analysis {
     this.groupTimer = setTimeout(() => { this.groupTimer = null; this.regroup(); }, GROUP_MS);
   }
 
-  /** Bursts from every record of the folder (bro.vision.wildlife.groupBursts, 1.0 s gaps). */
+  /**
+   * Bursts from every record of the folder, as bro.vision.wildlife.groupBursts
+   * makes them (sorted by time, a shot joins the one before at most GAP_S
+   * later), but summarised again only where a record landed: a burst none
+   * joined is the same object as before, so a card of thousands costs a
+   * result its own burst, not every burst again. Tells the feature the photos
+   * that landed and every photo of a burst made again, as it is and as it was.
+   */
   regroup() {
     clearTimeout(this.groupTimer);
     this.groupTimer = null;
-    this.bursts = this.results.size ? bro.vision.wildlife.groupBursts([...this.results.values()]) : [];
+    const wl = bro.vision.wildlife;
+    const was = this.byPath;
+    const landed = this.landed;      // null: every record may be new
+    this.landed = new Set();
+    const shots = [...this.results.values()].filter((r) => !r.error).sort((a, b) =>
+      (a.time == null) - (b.time == null) || (a.time || 0) - (b.time || 0) || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+    const groups = [];
+    let cur = null, prev = null;
+    for (const r of shots) {
+      if (cur && prev.time != null && r.time != null && r.time - prev.time <= GAP_S * 1000) cur.push(r);
+      else groups.push((cur = [r]));
+      prev = r;
+    }
+    const touched = landed ? new Set(landed) : null;
+    this.bursts = [];
     this.byPath = new Map();
-    for (const b of this.bursts) for (const p of b.photos) this.byPath.set(pathKey(p), b);
-    this.changed();
+    for (const g of groups) {
+      const old = landed ? was.get(pathKey(g[0].path)) : null;
+      const same = !!old && old.photos.length === g.length &&
+        g.every((r) => !landed.has(pathKey(r.path)) && was.get(pathKey(r.path)) === old);
+      const b = same ? old : wl.groupBursts(g, { gapS: GAP_S })[0];
+      if (!same && touched) {
+        for (const r of g) {
+          touched.add(pathKey(r.path));
+          const o = was.get(pathKey(r.path));
+          if (o) for (const p of o.photos) touched.add(pathKey(p));
+        }
+      }
+      this.bursts.push(b);
+      for (const p of b.photos) this.byPath.set(pathKey(p), b);
+    }
+    // A photo in a burst before and in none now (its record went, or failed).
+    if (touched) for (const k of was.keys()) if (!this.byPath.has(k)) touched.add(k);
+    this.changed(touched);
   }
 
   /** Free the models after a while with nothing to do; the next photo loads them again. */

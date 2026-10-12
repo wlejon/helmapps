@@ -71,7 +71,18 @@ export class Answers {
     this.folderSeq = 0;
   }
 
-  changed() { this.version++; if (this.onChange) this.onChange(this); }
+  /**
+   * Tell the feature: onChange(this, paths), `paths` the pathKeys whose
+   * answer may have changed, or null for any (the file read).
+   */
+  changed(paths = null) { this.version++; if (this.onChange) this.onChange(this, paths); }
+
+  /** changed() for records by key: the paths of the photos with those keys. */
+  changedKeys(keys) {
+    const paths = new Set();
+    for (const [k, key] of this.keys) if (keys.has(key)) paths.add(k);
+    this.changed(paths);
+  }
 
   /** Read the answers file (once; later calls wait on the first). */
   load() {
@@ -95,8 +106,9 @@ export class Answers {
     const todo = paths.filter((p) => !this.keys.has(pathKey(p)));
     // A slice at a time: the first photos answer while the rest are read.
     for (let i = 0; i < todo.length && seq === this.folderSeq; i += 64) {
-      await this.keysFor(todo.slice(i, i + 64));
-      if (seq === this.folderSeq) this.changed();
+      const slice = todo.slice(i, i + 64);
+      await this.keysFor(slice);
+      if (seq === this.folderSeq) this.changed(new Set(slice.map(pathKey)));
     }
   }
 
@@ -119,7 +131,7 @@ export class Answers {
   }
 
   /** A file changed or went: its key is read again when next asked for. */
-  forget(p) { this.keys.delete(pathKey(p)); }
+  forget(p) { this.keys.delete(pathKey(p)); this.changed(new Set([pathKey(p)])); }
 
   /** Her record for a photo, or null (none, or its key not read yet). */
   of(p) {
@@ -156,7 +168,7 @@ export class Answers {
       this.byKey.set(key, rec);
     }
     if (!undo.length) throw new Error('the photo could not be read');
-    this.changed();
+    this.changedKeys(new Set(undo.map((u) => u.key)));
     await this.save();
     return undo;
   }
@@ -172,7 +184,7 @@ export class Answers {
       this.byKey.delete(key);
     }
     if (!undo.length) return undo;
-    this.changed();
+    this.changedKeys(new Set(undo.map((u) => u.key)));
     await this.save();
     return undo;
   }
@@ -182,7 +194,7 @@ export class Answers {
     for (const { key, rec } of undo) {
       if (rec) this.byKey.set(key, rec); else this.byKey.delete(key);
     }
-    this.changed();
+    this.changedKeys(new Set(undo.map((u) => u.key)));
     await this.save();
   }
 
