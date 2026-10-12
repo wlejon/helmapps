@@ -127,9 +127,19 @@ document.querySelectorAll('.iv-details .iv-answer .iv-animal[data-edit]')[1].foc
 press('x');
 saved(() => animals('d_01.jpg').length === 1, 'X removes the focused one');
 eq(animals('d_01.jpg')[0].name, 'Northern Cardinal', 'the other stays');
-// Undo in the toast.
-const undoBtn = () => Array.from(document.querySelectorAll('.toast button')).reverse().find((b) => b.textContent === 'Undo');
-clickEl(undoBtn());
+// Undo in the toast. Her answer shows at once, its toast once it is on disk (the answers
+// worker's write and fsync): the Undo of this removal, not the toast before it it replaces.
+const undoOf = (text) => {
+  let btn = null;
+  waitFor(() => {
+    const t = Array.from(document.querySelectorAll('.toast[data-toast-key="answers"]:not(.leaving)'))
+      .find((el) => el.querySelector('.toast-text').textContent === text);
+    btn = t ? Array.from(t.querySelectorAll('button')).find((b) => b.textContent === 'Undo') : null;
+    return btn;
+  }, `the toast '${text}' with its Undo`);
+  return btn;
+};
+clickEl(undoOf('Removed Eastern Gray Squirrel'));
 saved(() => animals('d_01.jpg').length === 2, 'Undo puts it back');
 waitFor(() => document.querySelectorAll('.iv-details .iv-answer .iv-animal-act').length === 2, 'the rows\' buttons');
 clickEl(document.querySelectorAll('.iv-details .iv-answer .iv-animal')[1].querySelector('.iv-animal-act[data-tip^="Remove"]'));

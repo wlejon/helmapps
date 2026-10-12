@@ -163,8 +163,14 @@ export class Outlines {
     const chips = this.chips(p, a);
     const b = ed.burstOf(p);
     const scope = ed.scopeFor(p);
-    const done = () => { this.close(); this.feature.detailsChanged(); };
-    const pick = (animal, shiftKey) => { ed.nameBox(p, a.box, animal, { other: shiftKey }).then(done, done); };
+    // Her choice closes this picker at once (her answer shows before it is on disk); the save's
+    // end only refreshes the details, never closing a picker she has opened since.
+    const mine = () => !!this.picker && this.picker.cb === cb;
+    const done = () => this.feature.detailsChanged();
+    const pick = (animal, shiftKey) => {
+      if (mine()) this.close();
+      ed.nameBox(p, a.box, animal, { other: shiftKey }).then(done, done);
+    };
     const index = this.feature.nameIndex();
     // The suggestions in the picker's flow: Remove and Not an animal move down
     // under them rather than lying beneath a list a click would land on.
@@ -183,7 +189,11 @@ export class Outlines {
       onclick: (e) => { e.stopPropagation(); pick(c.animal, !!e.shiftKey); },
     }, c.kind === 'lookalike' ? icon('user', 'sm') : null, h('span.iv-chip-text.ellipsis', c.text), h('span.iv-chip-detail', c.detail)));
     const act = (label, tip, no) => h('button.btn.small.ghost', {
-      'data-tip': tip, onclick: (e) => { e.stopPropagation(); ed.dropBox(p, a.box, { other: !!e.shiftKey, notAnimal: no }).then(done, done); },
+      'data-tip': tip, onclick: (e) => {
+        e.stopPropagation();
+        if (mine()) this.close();
+        ed.dropBox(p, a.box, { other: !!e.shiftKey, notAnimal: no }).then(done, done);
+      },
     }, label);
     const el = h('div.iv-picker', { role: 'dialog', 'aria-label': `Name this animal: ${a.name}` },
       h('div.iv-picker-head', h('span.iv-picker-name.ellipsis', a.name),
