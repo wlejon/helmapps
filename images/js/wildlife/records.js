@@ -37,9 +37,20 @@ export function recordPath(p) {
 
 /** The key two paths of one file share: the record form, without case on Windows. */
 export function pathKey(p) {
-  const r = recordPath(p);
-  return WINDOWS ? r.toLowerCase() : r;
+  if (!WINDOWS) return String(p);
+  // Asked for every photo of a folder at each change (items, bursts): a regex
+  // and a lower-casing a time cost a card of thousands, so each path's key is kept.
+  const s = String(p);
+  let k = keyOf.get(s);
+  if (k === undefined) {
+    if (keyOf.size >= KEYS_KEPT) keyOf.clear();
+    k = recordPath(s).toLowerCase();
+    keyOf.set(s, k);
+  }
+  return k;
 }
+const keyOf = new Map();
+const KEYS_KEPT = 200000;
 
 /** FNV-1a of a string, as 8 hex digits. */
 export function fnv1a(str) {

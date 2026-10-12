@@ -54,15 +54,32 @@ const a = W.analysis;
 W.useStub(stubTable(TABLE));
 // Frames while the answers land: the worst one in each tenth of the run, so a climb shows.
 const tenths = Array.from({ length: 10 }, () => 0);
+let k = 0;
+// What must not grow with the photos analysed so far (each tenth: total ms, calls):
+// regrouping the bursts (it sorted every record each time), and a message to a
+// worker (relaying a photo's pixels detached a buffer, and bronze walked the
+// page's whole heap for its views: 0.4 ms a message at the start, 0.7 by the end).
+const timed = (obj, name, into) => {
+  const f = obj[name];
+  obj[name] = function (...args) {
+    const t = perf.now();
+    try { return f.apply(this, args); } finally { into[k].ms += perf.now() - t; into[k].n++; }
+  };
+  return () => { obj[name] = f; };
+};
+const perTenth = () => Array.from({ length: 10 }, () => ({ ms: 0, n: 0 }));
+const regroups = perTenth(), posts = perTenth();
+const untimeRegroup = timed(a, 'regroup', regroups);
+const untimePost = timed(Worker.prototype, 'postMessage', posts);
 let frames = 0, worst = 0;
 const end = Date.now() + 300000;
 let done = false;
 while (Date.now() < end) {
+  k = Math.min(9, Math.floor((a.results.size / N) * 10));
   const t = perf.now();
   advanceTime(16);
   const dt = perf.now() - t;
   frames++;
-  const k = Math.min(9, Math.floor((a.results.size / N) * 10));
   if (dt > tenths[k]) tenths[k] = dt;
   if (dt > worst) worst = dt;
   if (a.state === 'done' && a.results.size === N && !a.groupTimer) { done = true; break; }
@@ -82,7 +99,34 @@ assert(a.bursts.length > N / BURST / 2, `bursts grouped (${a.bursts.length})`);
 assert(W.answerOf(first).labels.length > 0, 'the photo on screen is named');
 assert(calls < 3 * N, `labels() is worked out O(n) times: ${calls} calls for ${N} photos`);
 assert(worst < FRAME_BUDGET_MS, `no frame over ${FRAME_BUDGET_MS} ms while answers land (worst ${worst.toFixed(1)}; a tenth: ${tenths.map((x) => x.toFixed(0)).join(' ')})`);
+untimeRegroup();
+untimePost();
+// Flat: the last third of the results costs what the first did (the first tenth
+// left out: the folder and the workers start there). A regroup was 1.5 ms over
+// tenths 2-4 and 2.8 ms over 8-10 here (O(n log n) each time); now about 1 ms throughout.
+const mean = (xs, from, to) => {
+  let ms = 0, n = 0;
+  for (let i = from; i < to; i++) { ms += xs[i].ms; n += xs[i].n; }
+  return n ? ms / n : 0;
+};
+const show = (xs) => xs.map((x) => (x.n ? x.ms / x.n : 0).toFixed(2)).join(' ');
+console.log(`regroup ms a call, a tenth: ${show(regroups)}; postMessage ms a call: ${show(posts)}`);
+const early = mean(regroups, 1, 4), late = mean(regroups, 7, 10);
+assert(late <= early * 1.4 + 0.2, `regrouping does not grow with the records: ${late.toFixed(2)} ms a call over the last third, ${early.toFixed(2)} over the first (a tenth: ${show(regroups)})`);
+const worstPost = Math.max(...posts.map((x) => (x.n ? x.ms / x.n : 0)));
+assert(worstPost < 0.25, `a message to a worker does not cost the page's heap: ${worstPost.toFixed(2)} ms a call at worst (a tenth: ${show(posts)})`);
 wl.labels = labelsOf;
+
+// The bursts kept up result by result are the ones grouping every record at once makes.
+const membersOf = () => new Map([...a.byPath].map(([p, b]) => [p, b.photos.join('\n')]));
+const kept = membersOf();
+a.landed = null;
+a.regroup();
+const whole = membersOf();
+eq(kept.size, whole.size, 'as many photos in bursts as a whole regroup puts in them');
+let differ = 0;
+for (const [p, m] of whole) if (kept.get(p) !== m) differ++;
+eq(differ, 0, 'every photo in the burst a whole regroup puts it in');
 
 console.log('test_animals_perf PASSED');
 }

@@ -139,6 +139,8 @@ export class WildlifeFeature {
     // The crops she has named, across folders ("looks like your ..."); on the answers' worker.
     this.examplesStore = new Examples({ dataDir, worker: this.answers.worker });
     this.examplesQueued = false;
+    this.examplesTouched = null;   // pathKeys whose examples to make again (null: every photo)
+    this.byKey = null;             // itemOfKey's map
     this.editor = new AnswerEditor({ feature: this, settings, current, openDetails, goTo, shownItems });
     this.index = { names: null, index: null };   // nameIndex() over analysis.names
     this.detailsStale = false;
@@ -258,7 +260,7 @@ export class WildlifeFeature {
     this.flushQueued = false;
     const touched = this.touched;
     this.touched = new Set();
-    if (this.active && this.folder.dir && (!touched || touched.size)) this.syncExamples();
+    if (this.active && this.folder.dir && (!touched || touched.size)) this.syncExamples(touched);
     this.showStatus();
     if (this.onItems) this.onItems();
     const cur = this.current();
@@ -336,16 +338,23 @@ export class WildlifeFeature {
   /**
    * Her examples (examples.js) made again for the open folder's photos whose
    * crops are known: each animal of her answer on a box of the record, with
-   * the box's embedding. Coalesced: once after a burst of changes.
+   * the box's embedding. Only the photos changed since (`touched`, pathKeys;
+   * null: every photo), so a card being analysed costs a result its own
+   * photos, not the folder. Coalesced: once after a burst of changes.
    */
-  syncExamples() {
+  syncExamples(touched = null) {
+    if (!touched) this.examplesTouched = null;
+    else if (this.examplesTouched) for (const k of touched) this.examplesTouched.add(k);
     if (this.examplesQueued) return;
     this.examplesQueued = true;
     Promise.all([this.answers.load(), this.examplesStore.load()]).then(() => setTimeout(() => {
       this.examplesQueued = false;
+      const keys = this.examplesTouched;
+      this.examplesTouched = new Set();
       if (!this.active) return;
       const a = this.analysis, model = this.embeddingModel(), photos = [];
-      for (const it of this.folder.items) {
+      const items = keys ? [...keys].map((k) => this.itemOfKey(k)).filter(Boolean) : this.folder.items;
+      for (const it of items) {
         const key = this.answers.keys.get(pathKey(it.path));
         const rec = a.record(it.path);
         if (!key || !rec || rec.error || !Array.isArray(rec.animals)) continue;
@@ -366,8 +375,17 @@ export class WildlifeFeature {
         }
         photos.push({ key, model, entries });
       }
-      this.examplesStore.sync(photos);
+      if (photos.length) this.examplesStore.sync(photos);
     }, 0));
+  }
+
+  /** The folder's item for a pathKey, or null (a map kept per listing). */
+  itemOfKey(k) {
+    const f = this.folder;
+    if (!this.byKey || this.byKey.items !== f.items) {
+      this.byKey = { items: f.items, map: new Map(f.items.map((it) => [pathKey(it.path), it])) };
+    }
+    return this.byKey.map.get(k) || null;
   }
 
   /**

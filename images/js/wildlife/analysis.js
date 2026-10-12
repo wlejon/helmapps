@@ -19,8 +19,8 @@
  * only relays a decoded image from a decoder to the models (a transfer) and
  * keeps the answers. A photo whose path, size, mtime and settings match its
  * cached record is not analysed again, so a folder opened again is answered
- * at once and a changed one only for what changed. Bursts are regrouped from
- * all the folder's records at most every GROUP_MS while answers arrive.
+ * at once and a changed one only for what changed. Bursts are regrouped where
+ * answers landed, at most every GROUP_MS while they arrive (regroup).
  */
 
 import { WorkerClient } from '../burst/rpc.js';
@@ -40,6 +40,32 @@ const IDLE_MS = 120000;
 const GAP_S = 1.0;
 /** changed()'s paths when only the state or the progress changed. */
 const NONE = new Set();
+
+/** groupBursts' order: by time (untimed last), then by path. */
+function shotOrder(a, b) {
+  return (a.time == null) - (b.time == null) || (a.time || 0) - (b.time || 0) || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
+}
+
+/** Whether shot b, just after a, is of a's burst. */
+function joins(a, b) {
+  return a.time != null && b.time != null && b.time - a.time <= GAP_S * 1000;
+}
+
+/** Where r goes in the sorted `shots`: after every shot that sorts before it. */
+function insertionIndex(shots, r) {
+  let lo = 0, hi = shots.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (shotOrder(shots[mid], r) < 0) lo = mid + 1; else hi = mid;
+  }
+  return lo;
+}
+
+/** Where r is in the sorted `shots`. */
+function shotIndex(shots, r) {
+  const i = insertionIndex(shots, r);
+  return shots[i] === r ? i : shots.indexOf(r);
+}
 
 /** Whether a photo is analysed: the raster formats bro.image decodes. */
 export function analysable(p) {
@@ -68,8 +94,7 @@ export class Analysis {
     this.results = new Map();
     this.embeddings = new Map();   // pathKey -> { dim, rows }: each crop's embedding (animal i's at i * dim)
     this.embFile = '';
-    this.bursts = [];
-    this.byPath = new Map(); // path -> burst
+    this.clearBursts();
     this.total = 0;
     this.todo = [];
     this.inflight = new Map();
@@ -121,8 +146,7 @@ export class Analysis {
       this.embFile = embeddingsFile(this.file);
       this.results = new Map();
       this.embeddings = new Map();
-      this.bursts = [];
-      this.byPath = new Map();
+      this.clearBursts();
       this.todo = [];
       this.total = 0;
       if (key !== this.optsKey) {
@@ -213,8 +237,7 @@ export class Analysis {
     this.todo = [];
     this.results = new Map();
     this.embeddings = new Map();
-    this.bursts = [];
-    this.byPath = new Map();
+    this.clearBursts();
     this.total = 0;
     this.state = 'idle';
     this.error = '';
@@ -331,54 +354,120 @@ export class Analysis {
     this.groupTimer = setTimeout(() => { this.groupTimer = null; this.regroup(); }, GROUP_MS);
   }
 
+  /** The folder's bursts (bro.vision.wildlife.groupBursts' objects), each once. */
+  get bursts() { return [...this.burstSet]; }
+
+  /** No bursts: a folder left, or every record about to be grouped again. */
+  clearBursts() {
+    this.shots = [];             // the records grouped (not failed), in shotOrder
+    this.shotOf = new Map();     // pathKey -> its record in `shots`
+    this.burstSet = new Set();
+    this.byPath = new Map();     // pathKey -> its burst
+  }
+
   /**
    * Bursts from every record of the folder, as bro.vision.wildlife.groupBursts
    * makes them (sorted by time, a shot joins the one before at most GAP_S
-   * later), but summarised again only where a record landed: a burst none
-   * joined is the same object as before, so a card of thousands costs a
-   * result its own burst, not every burst again. Tells the feature the photos
-   * that landed and every photo of a burst made again, as it is and as it was.
+   * later), but worked out again only where a record landed: the records are
+   * kept sorted, a landed one goes in its place, and only the groups around
+   * it and around its old burst's photos are made again, so a card of
+   * thousands costs a result its own burst, not a sort and a pass over every
+   * record (every GROUP_MS, while the frames have to stay short). Tells the
+   * feature the photos that landed and every photo of a burst made again, as
+   * it is and as it was.
    */
   regroup() {
     clearTimeout(this.groupTimer);
     this.groupTimer = null;
-    const wl = bro.vision.wildlife;
-    const was = this.byPath;
     const landed = this.landed;      // null: every record may be new
     this.landed = new Set();
-    const shots = [...this.results.values()].filter((r) => !r.error).sort((a, b) =>
-      (a.time == null) - (b.time == null) || (a.time || 0) - (b.time || 0) || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
-    const groups = [];
-    let cur = null, prev = null;
-    for (const r of shots) {
-      if (cur && prev.time != null && r.time != null && r.time - prev.time <= GAP_S * 1000) cur.push(r);
-      else groups.push((cur = [r]));
-      prev = r;
-    }
-    const touched = landed ? new Set(landed) : null;
-    this.bursts = [];
-    this.byPath = new Map();
-    for (const g of groups) {
-      const old = landed ? was.get(pathKey(g[0].path)) : null;
-      const same = !!old && old.photos.length === g.length &&
-        g.every((r) => !landed.has(pathKey(r.path)) && was.get(pathKey(r.path)) === old);
-      const b = same ? old : wl.groupBursts(g, { gapS: GAP_S })[0];
-      if (!same && touched) {
-        const olds = new Set();
-        for (const r of g) {
-          const k = pathKey(r.path);
-          touched.add(k);
-          const o = was.get(k);
-          if (o) olds.add(o);
-        }
-        for (const o of olds) for (const p of o.photos) touched.add(pathKey(p));
+    if (!landed) { this.regroupAll(); return; }
+    const wl = bro.vision.wildlife;
+    const shots = this.shots;
+    const touched = new Set(landed);
+    const dirty = new Set();         // records whose group is made again
+    for (const k of landed) {
+      const had = this.shotOf.get(k);
+      if (had) {
+        shots.splice(shotIndex(shots, had), 1);
+        this.shotOf.delete(k);
       }
-      this.bursts.push(b);
+      const ob = this.byPath.get(k);
+      if (ob) {
+        // Its old burst goes: every photo of it is grouped again (it may split).
+        this.byPath.delete(k);
+        this.burstSet.delete(ob);
+        for (const p of ob.photos) {
+          const pk = pathKey(p);
+          touched.add(pk);
+          const s = this.shotOf.get(pk);
+          if (s) dirty.add(s);
+        }
+      }
+      const r = this.results.get(k);
+      if (r && !r.error) {
+        shots.splice(insertionIndex(shots, r), 0, r);
+        this.shotOf.set(k, r);
+        dirty.add(r);
+      }
+    }
+    const done = new Set();
+    for (const r of dirty) {
+      if (done.has(r) || this.shotOf.get(pathKey(r.path)) !== r) continue;
+      const i = shotIndex(shots, r);
+      let lo = i, hi = i;
+      while (lo > 0 && joins(shots[lo - 1], shots[lo])) lo--;
+      while (hi + 1 < shots.length && joins(shots[hi], shots[hi + 1])) hi++;
+      const g = shots.slice(lo, hi + 1);
+      for (const s of g) done.add(s);
+      const old = this.byPath.get(pathKey(g[0].path));
+      const same = !!old && old.photos.length === g.length &&
+        g.every((s) => !landed.has(pathKey(s.path)) && this.byPath.get(pathKey(s.path)) === old);
+      if (same) continue;
+      const b = wl.groupBursts(g, { gapS: GAP_S })[0];
+      const olds = new Set();
+      for (const s of g) {
+        const sk = pathKey(s.path);
+        touched.add(sk);
+        const o = this.byPath.get(sk);
+        if (o) olds.add(o);
+      }
+      for (const o of olds) {
+        this.burstSet.delete(o);
+        for (const p of o.photos) {
+          const pk = pathKey(p);
+          touched.add(pk);
+          // A photo of a merged burst outside this group is grouped again too.
+          const s = this.shotOf.get(pk);
+          if (s && !done.has(s)) dirty.add(s);
+        }
+      }
+      this.burstSet.add(b);
       for (const p of b.photos) this.byPath.set(pathKey(p), b);
     }
-    // A photo in a burst before and in none now (its record went, or failed).
-    if (touched) for (const k of was.keys()) if (!this.byPath.has(k)) touched.add(k);
     this.changed(touched);
+  }
+
+  /** Every record grouped from scratch: a folder (or its scan) as a whole. */
+  regroupAll() {
+    const wl = bro.vision.wildlife;
+    this.clearBursts();
+    const shots = this.shots;
+    for (const [k, r] of this.results) {
+      if (r.error) continue;
+      shots.push(r);
+      this.shotOf.set(k, r);
+    }
+    shots.sort(shotOrder);
+    for (let lo = 0; lo < shots.length;) {
+      let hi = lo;
+      while (hi + 1 < shots.length && joins(shots[hi], shots[hi + 1])) hi++;
+      const b = wl.groupBursts(shots.slice(lo, hi + 1), { gapS: GAP_S })[0];
+      this.burstSet.add(b);
+      for (const p of b.photos) this.byPath.set(pathKey(p), b);
+      lo = hi + 1;
+    }
+    this.changed(null);
   }
 
   /** Free the models after a while with nothing to do; the next photo loads them again. */
