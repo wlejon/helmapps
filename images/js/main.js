@@ -80,8 +80,12 @@ const viewer = new Viewer({
   onChange: () => { updateStatus(); toolbar.refresh(); },
   // Zoomed past the screen-sized preview: the picture at full resolution.
   onNeedFull: (pic) => decoder.wantFull(pic),
-  // The subject tool's mask and an isolated animal's darkening follow the view.
-  onDraw: () => { if (burst) burst.tool.draw(); if (wild && wild.isolate) wild.isolate.draw(); },
+  // The subject tool's mask, an isolated animal's darkening and the animals' outlines follow the view.
+  onDraw: () => {
+    if (burst) burst.tool.draw();
+    if (wild && wild.isolate) wild.isolate.draw();
+    if (wild && wild.outlines) wild.outlines.draw();
+  },
 });
 viewer.el.dataset.bg = settings.get('background');
 const details = new Details({ extra: (file) => (wild ? wild.details(file) : null), busy: (file) => !!wild && wild.editingFor(file) });

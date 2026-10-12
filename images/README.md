@@ -79,10 +79,10 @@ are grouped into bursts (`groupBursts`).
   photo are classified; the rest are counted), each named at the narrowest
   rank it is sure of at 85% or more: its species, else its genus, family,
   order or class ("Darners (Aeshnidae)"). A photo with an animal that no
-  rank names is *Unidentified*.
+  name covers is *Uncertain* (see Your answers).
 - **Animals** (the toolbar's filter button) lists every name in the folder
   with its photo count (a photo counts once per name), *All photos* first,
-  then *Unidentified* with its count, and *Show Photos Without Animals*.
+  then *Uncertain* with its count, and *Show Photos Without Animals*.
   The choice filters the grid, the strip, Next / Previous and the
   slideshow: a photo shows when any of its names is the one chosen.
 - Each grid tile carries a quiet tag: its top name and how sure, "+N" when
@@ -153,7 +153,32 @@ a changed model, list or setting.
 *Revert to identifier* (in the details) drops her answer. Every change is a
 toast with Undo. In a burst the details offer *This photo* or *Whole burst*;
 Enter takes the one chosen, Shift+Enter (Shift+Y for a confirm) the other,
-and her last choice is remembered (`answerScope`).
+and her last choice is remembered (`answerScope`). Whole burst is the same
+animal in the other frames, not every animal: a corrected name changes where
+that name is, an animal named on the photo names the box overlapping it most
+in each frame (IoU 0.3 or more; a frame where it is not is left alone), a
+confirm confirms each frame's own names.
+
+**On the photo.** Every animal the identifier classified is a quiet outline
+over the photo (following zoom and pan; O hides them): hers in the accent
+colour, a sure name grey, an uncertain one amber, its name on hover. A click
+opens a picker: chips with the identifier's sure name and its top guesses
+for that crop, and "Looks like your Eastern Bluebird from May 1" when the
+crop's image embedding is near (cosine 0.92 or more: above every pair of
+different species in a local sample, where same-species pairs have a
+median of 0.97) one she has named
+(`analyze(img, { embeddings: true })` and `bro.vision.wildlife.nearest`);
+then a field over every name, as in the details; then *Remove* (no name
+here) and *Not an animal* (the box is none; its outline goes, kept in her
+answer as `notAnimal`). The embeddings are kept beside the records in the
+cache dir (`<cache>/wildlife/folders/*.emb`, binary, per photo and record
+key).
+
+**Uncertain** (the Animals menu) holds every photo with an animal no name
+covers: a crop under the threshold, or an animal and no name; each tile
+there shows its best guess as a suggestion ("Green Frog?"). Her answer takes
+a photo out of it. The details and a tag's tooltip say at a glance what the
+detector found ("Found 1 bird, 1 frog").
 
 Her answers are in `<bro.app.dataDir>/wildlife/answers.json` (not the cache
 dir): `{ format: 'helm.images.answers', version: 1, answers: [record] }`,
@@ -277,6 +302,7 @@ worker (`js/burst/track-worker.js`), previews and export on another
 | `js/wildlife/records.js` / `labels.js` | The record, its cache file and settings hash; the tile tags and the details sections |
 | `js/wildlife/answers.js` / `answers-worker.js` | Her answers: the store in the data dir, file keys, writing it durably |
 | `js/wildlife/editor.js` / `mine.js` | Correcting names in the details (the commands, the field, burst scope); her answer as labels, name text, spiders |
+| `js/wildlife/outlines.js` / `crops.js` | The animals' outlines on the photo and their picker; crops, Uncertain, box overlap, counts |
 | `js/wildlife/isolate.js` / `isolate-worker.js` | An animal isolated on hover (soft box, then SAM 2.1's mask) and zoomed to on a click |
 | `js/wildlife/store-worker.js` / `decode-worker.js` / `analyze-worker.js` | The cache, decoding and sharpness, the models |
 | `js/wildlife/stub.js` | TEST ONLY: a colour key standing in for the models (`app.wildlife.useStub`) |
@@ -313,7 +339,10 @@ the test stub, as do `test_animals_answers.js` (correcting: names, counts,
 add, remove, no animal, confirm, revert, burst scope, a restart through
 `answers_restart.js`) and `test_animals_answers_more.js` (groups mixing
 guesses and her answers, counts, search, tiles, Next to check and spiders,
-analysing again, a copied folder); `test_animals_models.js` runs the real models and skips without
+analysing again, a copied folder) and `test_animals_label.js` (Uncertain,
+the outlines following the zoom, the picker's chips, burst carry-over by
+overlap and this photo only, "looks like" after she names one, Remove, Not
+an animal; `IV_SHOTS=<dir>` saves pictures of it); `test_animals_models.js` runs the real models and skips without
 them (`BRO_MODELS=<folder with owlv2, bioclip-2, species> scripts/run_tests.sh
 images animals`). `IV_PERF_DIR=<photos> IV_PERF_ANIMALS=1` makes `test_perf`
 also time Find Animals over a real folder.

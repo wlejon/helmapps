@@ -14,7 +14,8 @@
  * orders and classes bro.vision.wildlife.taxaScores of them, as analyze()
  * ranks a crop. The first `maxClassify` are classified (`animals`), the
  * rest counted (`animalsDropped`). No patch: no animal. The result has
- * analyze()'s shape (docs/vision-api.js, Wildlife), in the source photo's pixels.
+ * analyze()'s shape (docs/vision-api.js, Wildlife), in the source photo's
+ * pixels; with `embeddings`, each animal's is stubEmbedding of its colour.
  */
 
 const r1 = (x) => Math.round(x * 10) / 10;
@@ -59,7 +60,19 @@ function taxaOf(rows) {
   return out;
 }
 
-export function stubAnalyze(table, image, { source, maxClassify = 8 } = {}) {
+/**
+ * A crop's stand-in image embedding: its entry's colour and the colour's
+ * complement, as a unit vector (8 numbers), so the same colour is the same
+ * animal (similarity 1) and the table's colours sit well apart.
+ */
+export function stubEmbedding(color) {
+  const [r, g, b] = color;
+  const v = [r, g, b, 255 - r, 255 - g, 255 - b, 40, 40];
+  const n = Math.hypot(...v) || 1;
+  return Float32Array.from(v, (x) => x / n);
+}
+
+export function stubAnalyze(table, image, { source, maxClassify = 8, embeddings = false } = {}) {
   const { width: w, height: h } = image;
   const ch = image.channels || 4;
   const px = image.pixels || image.data;
@@ -96,8 +109,10 @@ export function stubAnalyze(table, image, { source, maxClassify = 8 } = {}) {
       w: Math.min(side, sw), h: Math.min(side, sh),
     };
     const species = speciesRows(f.entry);
-    animals.push({ box, score: detections[i].score, label: detections[i].label, subject, species,
-      taxa: taxaOf(species), candidates: 'all' });
+    const animal = { box, score: detections[i].score, label: detections[i].label, subject, species,
+      taxa: taxaOf(species), candidates: 'all' };
+    if (embeddings) animal.embedding = stubEmbedding(f.entry.color);
+    animals.push(animal);
   }
   return {
     animal: true,

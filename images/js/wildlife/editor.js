@@ -15,7 +15,12 @@
  *  - In a burst, each applies to this photo or the whole burst: the scope
  *    switch beside the actions shows which; Shift+Enter in the field, a
  *    shift-click on an action or Shift+Y takes the other; the one used last
- *    is remembered (the answerScope setting).
+ *    is remembered (the answerScope setting). Whole burst is the same animal
+ *    in every frame, not every animal: a corrected name changes where that
+ *    name is, an animal named on the photo (its box, outlines.js) names the
+ *    box overlapping it most in each frame (crops.js IOU_MIN), a confirm
+ *    confirms each frame's own names; "no animal" and a new name with no
+ *    box go to every frame.
  *  - Next to check (U): the next photo shown with an animal and no answer of
  *    hers, never one of a spider or another arachnid (mine.js isArachnid).
  *
@@ -27,8 +32,11 @@ import { icon } from '/lib/icons.js';
 import { toast } from '/lib/toast.js';
 import { formatNumber } from '/lib/format.js';
 import { Combobox } from '/lib/combobox.js';
-import { labelKey, animalOf, animalFromText, editText, parseNameText, suggestionDetail, isArachnid, recordHasArachnid } from './mine.js';
+import { labelKey, animalKey, animalOf, animalFromText, editText, parseNameText, suggestionDetail, isArachnid,
+  recordHasArachnid } from './mine.js';
 import { labelText, countedText } from './labels.js';
+import { bestMatch, nameBox, detachBox, sameBox } from './crops.js';
+import { pathKey } from './records.js';
 
 const RANK_NAMES = { species: 'Species', genus: 'Genus', family: 'Family', order: 'Order', class: 'Class' };
 
@@ -87,23 +95,54 @@ export class AnswerEditor {
     return this.feature.answerOf(p).labels.map(animalOf);
   }
 
+  /** The box in photo f that is `box` of another frame: the crop overlapping it most (crops.js bestMatch), or null. */
+  matchIn(f, box) {
+    const rec = this.feature.analysis.record(f);
+    if (!rec || rec.error) return null;
+    const boxes = (rec.animals || []).map((a) => a.box).filter(Boolean);
+    return bestMatch(box, boxes.length ? boxes : (rec.detections || []).map((d) => d.box));
+  }
+
   /**
-   * Save `answer` ({ animals } or { none: true }) for p, or p's burst (`other`
-   * flips the remembered scope), and say so with an Undo.
+   * Change p's answer, or the same animal's in every frame of p's burst
+   * (`other` flips the remembered scope), and say so with an Undo.
+   * change({ animals, ans, box, self, path, notAnimal }) answers a frame's
+   * new answer ({ animals, notAnimal? } or { none: true }), or null to leave
+   * that frame be: `animals` the names the frame shows now (as her answer's),
+   * `box` the frame's own box for `box` (matched by overlap; a frame without
+   * one is left be), `self` whether it is p. confirmed(ans): whether a
+   * frame's answer confirms the identifier's names as they were.
    */
-  async save(p, answer, { other = false, confirmed = false, what = '' } = {}) {
+  async apply(p, change, { other = false, confirmed = null, what = '', box = null } = {}) {
     const scope = this.scopeFor(p, other);
     this.remember(p, scope);
-    const paths = this.pathsFor(p, scope);
+    const puts = [];
+    for (const f of this.pathsFor(p, scope)) {
+      const self = pathKey(f) === pathKey(p);
+      const fbox = box && !self ? this.matchIn(f, box) : box;
+      if (box && !fbox) continue;
+      const ans = this.feature.answerOf(f);
+      const notAnimal = (ans.mine && ans.mine.answer.notAnimal) || [];
+      const res = change({ animals: ans.labels.map(animalOf), ans, box: fbox, self, path: f, notAnimal });
+      if (!res) continue;
+      if (notAnimal.length && !res.none && !res.notAnimal) res.notAnimal = notAnimal;
+      puts.push({ path: f, answer: res, confirmed: confirmed ? !!confirmed(ans) : false });
+    }
+    if (!puts.length) return false;
     let undo;
     try {
-      undo = await this.feature.answers.put(paths, answer, { scope, confirmed });
+      undo = await this.feature.answers.putEach(puts, { scope });
     } catch (err) {
       toast(`Could not save your answer: ${err.message}`, { error: true });
       return false;
     }
-    this.say(what, paths.length, undo);
+    this.say(what, puts.length, undo);
     return true;
+  }
+
+  /** Save one answer for p, or every frame of p's burst ("no animal"). */
+  save(p, answer, { other = false, confirmed = false, what = '' } = {}) {
+    return this.apply(p, () => ({ ...answer }), { other, confirmed: () => confirmed, what });
   }
 
   say(what, n, undo) {
@@ -140,17 +179,52 @@ export class AnswerEditor {
       return Promise.resolve(false);
     }
     const names = ans.labels.map(countedText).join(', ');
-    return this.save(p, { animals: ans.labels.map(animalOf) }, { other, confirmed: !ans.mine || !!(ans.mine && ans.mine.confirmed),
-      what: `${ans.mine ? 'Kept' : 'Confirmed'} ${names}` });
+    // In a burst each frame confirms its own names.
+    return this.apply(p, ({ animals, ans: a }) => (a.labels.length ? { animals } : null), { other,
+      confirmed: (a) => !a.mine || !!a.mine.confirmed, what: `${ans.mine ? 'Kept' : 'Confirmed'} ${names}` });
+  }
+
+  /** Where a row's animal is in a frame's animals: by place in p itself, by name in the burst's other frames. */
+  placeIn(animals, self, p, ref) {
+    if (self) return this.indexOf(p, ref);
+    const k = labelKey(ref.label);
+    return animals.findIndex((a) => animalKey(a) === k);
   }
 
   remove(p, ref, { other = false } = {}) {
     const i = this.indexOf(p, ref);
-    const animals = this.animalsOf(p);
-    if (i < 0 || i >= animals.length) return Promise.resolve(false);
-    const [gone] = animals.splice(i, 1);
-    return this.save(p, animals.length ? { animals } : { none: true }, { other,
-      what: animals.length ? `Removed ${gone.name}` : `Removed ${gone.name}: no animal` });
+    const shown = this.animalsOf(p);
+    if (i < 0 || i >= shown.length) return Promise.resolve(false);
+    const gone = shown[i];
+    const left = shown.length - 1;
+    return this.apply(p, ({ animals, self }) => {
+      const at = this.placeIn(animals, self, p, ref);
+      if (at < 0) return null;
+      animals.splice(at, 1);
+      return animals.length ? { animals } : { none: true };
+    }, { other, what: left ? `Removed ${gone.name}` : `Removed ${gone.name}: no animal` });
+  }
+
+  // ---- one animal of the photo (its box: outlines.js) ----------------------------------
+
+  /** Name the animal in `box` of p (and the same animal in the burst's other frames). */
+  nameBox(p, box, animal, { other = false } = {}) {
+    const shown = animal.count > 1 ? `${animal.name} ×${animal.count}` : animal.name;
+    return this.apply(p, ({ animals, box: b, notAnimal }) => ({
+      animals: nameBox(animals, b, animal), notAnimal: notAnimal.filter((x) => !sameBox(x, b)),
+    }), { other, box, what: `Saved ${shown}` });
+  }
+
+  /** The animal in `box` is not there by any name (remove) or is no animal at all (notAnimal). */
+  dropBox(p, box, { other = false, notAnimal: no = false } = {}) {
+    return this.apply(p, ({ animals, box: b, notAnimal }) => {
+      const left = detachBox(animals, b);
+      const res = left.length ? { animals: left } : { animals: [] };
+      res.notAnimal = no ? [...notAnimal.filter((x) => !sameBox(x, b)), b] : notAnimal;
+      // Every name gone and nothing marked: there is no animal.
+      if (!left.length && !res.notAnimal.length) return { none: true };
+      return res;
+    }, { other, box, what: no ? 'Not an animal' : 'Removed' });
   }
 
   none(p, { other = false } = {}) {
@@ -351,12 +425,25 @@ export class AnswerEditor {
       keepCount: ed.label && !/^\s*\d/.test(text) ? ed.label.count || 0 : 0 });
     this.restoreFocus();
     if (!animal) { this.feature.detailsChanged(); return; }
-    const animals = this.animalsOf(p);
-    const i = this.indexOf(p, ed.ref);
-    if (i >= 0) animals[i] = animal; else animals.push(animal);
     const shown = animal.count > 1 ? `${animal.name} ×${animal.count}` : animal.name;
     const was = ed.label ? countedText(ed.label) : '';
-    await this.save(p, { animals }, { other: shiftKey, what: was && was !== shown ? `${was} → ${shown}` : `Saved ${shown}` });
+    const what = was && was !== shown ? `${was} → ${shown}` : `Saved ${shown}`;
+    if (ed.box) await this.nameBox(p, ed.box, animal, { other: shiftKey });
+    else {
+      // A new name: on every frame it applies to that lacks it. A corrected one: where that name is,
+      // keeping the boxes it was on (the same animal under its right name).
+      const k = animalKey(animal);
+      await this.apply(p, ({ animals, self }) => {
+        const at = ed.label ? this.placeIn(animals, self, p, ed.ref) : -1;
+        if (at >= 0) {
+          const boxes = animals[at].boxes;
+          animals[at] = boxes ? { ...animal, boxes } : animal;
+        } else if (ed.label && !self) return null;
+        else if (!animals.some((a) => animalKey(a) === k)) animals.push(animal);
+        else if (!self) return null;
+        return { animals };
+      }, { other: shiftKey, what });
+    }
     this.feature.detailsChanged();
   }
 

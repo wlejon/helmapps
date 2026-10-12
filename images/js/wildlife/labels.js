@@ -51,7 +51,9 @@ export function decorateTile(item, el) {
     const sure = item.mine
       ? h('span.iv-tag-mine', { title: 'Your answer' }, icon('user', 'sm'))
       : h('span.iv-tag-conf.num', `${item.conf}%`);
-    parts.push(h(`span.iv-tag${item.mine ? '.mine' : ''}`, { title: item.names || `${item.tag} · ${item.conf}%` },
+    // Hers, the identifier's sure name, or (in the Uncertain group) its best guess.
+    const title = [item.names || `${item.tag} · ${item.conf}%`, item.found ? `found ${item.found}` : ''].filter(Boolean).join(' · ');
+    parts.push(h(`span.iv-tag${item.mine ? '.mine' : ''}${item.guess ? '.guess' : ''}`, { title },
       h('span.iv-tag-name.ellipsis', item.tag), sure));
     if (item.more) parts.push(h('span.iv-tag.iv-tag-more.num', { title: item.names }, `+${item.more}`));
   } else if (item.none) {

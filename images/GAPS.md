@@ -66,6 +66,17 @@ beyond saying so in the window. Kit-level gaps shared by every app are in
   ASCII, so nothing shows it yet).
 - **Belongs in:** brokit, bro
 
+## Burst carry-over matches boxes, not tracks
+- **Where:** this app (`js/wildlife/crops.js`, `editor.js`)
+- **Expected:** a name given to one animal of a burst follows that animal
+  through the other frames, even where it moved far or overlaps another.
+- **Actual:** each other frame's crop that overlaps the named box most (IoU
+  0.3 or more) is taken as the same animal; a frame where it moved farther
+  is left alone. bro.vision's SAM 2.1 tracking (one object across frames)
+  could follow it instead; not built, as overlap holds for bursts shot
+  0.1-0.5 s apart.
+- **Belongs in:** this app (using `bro.vision` SAM 2.1 tracking)
+
 ## Fixed while building corrections (your answers)
 - A key whose keydown the page cancelled still typed its character: N
   opened the name field and an "n" landed in it. bro now drops the text
@@ -78,6 +89,9 @@ beyond saying so in the window. Kit-level gaps shared by every app are in
 - `bro.vision.wildlife.nameEntries()` / `nameIndex()`: every name a person
   can give an animal (species rows, their groups) and a matcher over them,
   so the app does not carry its own copy of the lists' names.
+- `analyze(img, { embeddings: true })` and `bro.vision.wildlife.nearest()`
+  (bro 87af743e): each crop's image embedding, and the rows most like one,
+  for "looks like your Blue Jay from May 1".
 - The kit has a `Combobox` (`lib/combobox.js`): a text field with a list
   of suggestions, free text allowed.
 

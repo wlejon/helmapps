@@ -6,7 +6,7 @@
  *
  *  - the Animals menu (toolbar): every taxon named in the folder with its
  *    photo count ("Mallard", "Darners (Aeshnidae)"), "All" first,
- *    "Unidentified" (an animal found, nothing named), and Show Photos
+ *    "Uncertain" (an animal no name covers: UNCERTAIN), and Show Photos
  *    Without Animals; the choice filters the grid, the strip and Next /
  *    Previous (items());
  *  - a tag on each grid tile (its top name and how sure, "+N" for the
@@ -22,7 +22,7 @@
  * of the burst's names (an egret in two frames and mallards in the third
  * are on all three). A photo matches a filter when any of its names is that
  * taxon (by rank and scientific name); it counts once per taxon. A photo
- * with an animal and no name is Unidentified. A photo counts as "without
+ * with a crop no name covers, or an animal and no name, is Uncertain until she answers it. A photo counts as "without
  * animals" when it and its burst have no animal; such photos are hidden
  * once analysed, unless Show Photos Without Animals is on, and never
  * otherwise touched. Photos not analysed yet always show.
@@ -51,6 +51,9 @@ import { pathKey } from './records.js';
 import { Answers } from './answers.js';
 import { AnswerEditor, EDITOR_SETTINGS } from './editor.js';
 import { answerLabels, fold } from './mine.js';
+import { Outlines } from './outlines.js';
+import { uncertainCrops, guessOf, countsText, sameBox } from './crops.js';
+import { formatDate } from '/lib/format.js';
 
 export const WILDLIFE_SETTINGS = {
   findAnimals: { type: 'bool', default: true },
@@ -58,11 +61,26 @@ export const WILDLIFE_SETTINGS = {
   animalsModel: { type: 'string', default: 'bioclip-2' },  // bioclip-2 | bioclip
   // A list file in the species folder, or '' for bro.vision.wildlife's default lists.
   animalsSpeciesList: { type: 'string', default: '' },
+  // The animals' outlines on the photo, a click to name one (outlines.js).
+  showOutlines: { type: 'bool', default: true },
   ...EDITOR_SETTINGS,
 };
 
-/** The Animals filter that shows the photos with an animal but no name (filter is otherwise a label key). */
-export const UNIDENTIFIED = ':unidentified';
+/**
+ * The Animals filter that shows the photos with an animal no name covers:
+ * a crop under the threshold, or an animal and no name (filter is otherwise
+ * a label key). Her answer takes a photo out of it.
+ */
+export const UNCERTAIN = ':uncertain';
+/** The old name of UNCERTAIN. */
+export const UNIDENTIFIED = UNCERTAIN;
+/**
+ * Her named crops whose embedding is this near a crop's are offered as
+ * "looks like your ..." (cosine). BioCLIP 2 crops of 17 local photos: pairs
+ * of different species up to 0.91 (median 0.86), of the same species median
+ * 0.97 (10th percentile 0.84): over every different pair, about half the same.
+ */
+export const LOOKALIKE_MIN = 0.92;
 
 export { labelKey };
 
@@ -102,6 +120,8 @@ export class WildlifeFeature {
     this.known = null;             // answerOf's, per analysis and answers version
     this.analysis = new Analysis({ cacheDir, onChange: () => this.analysisChanged() });
     this.isolate = viewer && viewHost ? new Isolate({ viewer, host: viewHost }) : null;
+    this.outlines = viewer && viewHost ? new Outlines({ viewer, host: viewHost, feature: this }) : null;
+    this.lookalikes = { key: '', rows: [], refs: [] };   // her named crops' embeddings (examples())
     // Her answers win over the identifier's everywhere (answerOf); kept apart from the analysis.
     this.answers = new Answers({ dataDir, cacheDir, onChange: () => this.analysisChanged() });
     this.editor = new AnswerEditor({ feature: this, settings, current, openDetails, goTo, shownItems });
@@ -200,6 +220,7 @@ export class WildlifeFeature {
     this.showStatus();
     if (this.onItems) this.onItems();
     this.detailsChanged();
+    if (this.outlines) this.outlines.draw();
   }
 
   /** The details panel's photo may show something new; not while she is typing a name there. */
@@ -256,9 +277,58 @@ export class WildlifeFeature {
       empty = !animal;
     }
     for (const l of labels) this.names.set(labelKey(l), labelText(l));
-    const ans = { burst: b, labels, theirs, mine: own, keys: new Set(labels.map(labelKey)), animal, empty };
+    // Uncertain: a crop no shown name covers (crops.js), or an animal and no name; never once she answered.
+    const uncertain = uncertainCrops(rec, labels, a.taxa, own);
+    const ans = { burst: b, labels, theirs, mine: own, keys: new Set(labels.map(labelKey)), animal, empty, uncertain,
+      isUncertain: !own && (uncertain.length > 0 || (animal && !labels.length)) };
     this.known.map.set(k, ans);
     return ans;
+  }
+
+  // ---- her named crops, and the ones like them ---------------------------------------
+
+  /**
+   * The crops she has named in the folder (a box of a label of hers, or of
+   * a name she confirmed) with their embeddings: { rows: [Float32Array],
+   * refs: [{ path, label, time }] }. Kept until the analysis or her answers change.
+   */
+  examples() {
+    const a = this.analysis;
+    const key = `${a.version}|${this.answers.version}`;
+    if (this.lookalikes.key === key) return this.lookalikes;
+    const rows = [], refs = [];
+    for (const it of this.folder.items) {
+      if (!this.answers.of(it.path)) continue;
+      const rec = a.record(it.path);
+      if (!rec || rec.error || !Array.isArray(rec.animals)) continue;
+      for (const l of this.answerOf(it.path).labels) {
+        for (const box of l.boxes || []) {
+          const i = rec.animals.findIndex((x) => sameBox(x.box, box));
+          const emb = i >= 0 ? a.embeddingOf(it.path, i) : null;
+          if (emb) { rows.push(emb); refs.push({ path: it.path, label: l, time: rec.time }); }
+        }
+      }
+    }
+    this.lookalikes = { key, rows, refs };
+    return this.lookalikes;
+  }
+
+  /**
+   * The crop she has named that animal i of p looks most like, at
+   * LOOKALIKE_MIN or more (another photo's): { label, path, similarity,
+   * when } or null.
+   */
+  lookalike(p, i) {
+    const wl = bro.vision.wildlife;
+    const q = this.analysis.embeddingOf(p, i);
+    if (!q || typeof wl.nearest !== 'function') return null;
+    const ex = this.examples();
+    const others = ex.refs.map((r, j) => j).filter((j) => pathKey(ex.refs[j].path) !== pathKey(p));
+    if (!others.length) return null;
+    const hit = wl.nearest(q, others.map((j) => ex.rows[j]), 1, { minSimilarity: LOOKALIKE_MIN })[0];
+    if (!hit) return null;
+    const ref = ex.refs[others[hit.index]];
+    return { label: ref.label, path: ref.path, similarity: hit.similarity, when: formatDate(ref.time) };
   }
 
   /** A photo's names as its tile shows them ('Mallard, Great Egret'; '' for none). */
@@ -310,7 +380,7 @@ export class WildlifeFeature {
 
   /** The filter's name on the button and in the status bar. */
   filterName() {
-    if (this.filter === UNIDENTIFIED) return 'Unidentified';
+    if (this.filter === UNCERTAIN) return 'Uncertain';
     return this.names.get(this.filter) || this.filter.slice(this.filter.indexOf(':') + 1);
   }
 
@@ -346,31 +416,47 @@ export class WildlifeFeature {
       `${this.held ? this.heldSeq : ''}|${[...keep].join('\n')}`;
     if (this.cache.key === key && this.cache.src === folderItems) return (this.lastShown = this.cache.items);
     const out = [];
+    const uncertainView = this.filter === UNCERTAIN;
     for (const it of folderItems) {
-      const { burst: b, labels, keys, animal, empty, mine } = this.answerOf(it.path);
+      const { burst: b, labels, keys, empty, mine, uncertain, isUncertain } = this.answerOf(it.path);
       const stays = keep.has(it.path) || (this.held && this.held.has(it.path));
       if (!stays) {
-        if (this.filter === UNIDENTIFIED ? !(animal && !labels.length) : this.filter && !keys.has(this.filter)) continue;
+        if (uncertainView ? !isUncertain : this.filter && !keys.has(this.filter)) continue;
         if (!this.filter && !showEmpty && empty) continue;
         if (!this.matches(it, labels)) continue;
       }
       const top = labels[0];
       const sure = (l) => (l.mine ? 'yours' : `${Math.round(l.score * 100)}%`);
-      out.push({
+      const found = countsText(this.analysis.record(it.path));
+      let names = mine && mine.answer.none ? 'No animal · yours' : labels.map((l) => `${countedText(l)} · ${sure(l)}`).join(', ');
+      const item = {
         name: it.name, path: it.path,
         tag: top ? countedText(top) : '',
         conf: top ? Math.round(top.score * 100) : 0,
         mine: !!mine,
         none: !!(mine && mine.answer.none),
         more: Math.max(0, labels.length - 1),
-        names: mine && mine.answer.none ? 'No animal · yours' : labels.map((l) => `${countedText(l)} · ${sure(l)}`).join(', '),
+        names,
         burst: b && b.count > 1 && pathKey(b.first) === pathKey(it.path) ? b.count : 0,
-      });
+      };
+      // In the Uncertain group each photo shows its best guess as a suggestion ("Blue Jay?").
+      if (uncertainView && uncertain.length) {
+        const g = uncertain[0];
+        item.guess = true;
+        item.tag = `${guessOf(g)}?`;
+        item.conf = Math.round(g.species[0].score * 100);
+        item.more = Math.max(0, uncertain.length - 1);
+        names = `Uncertain: ${uncertain.map((c) => `${guessOf(c)}? ${Math.round(c.species[0].score * 100)}%`).join(', ')}` +
+          (labels.length ? ` · named: ${labels.map(countedText).join(', ')}` : '');
+      }
+      item.names = names;
+      item.found = found;      // "3 birds, 1 dog": the tile's tooltip
+      out.push(item);
     }
     // The same photos with the same tags: the last array, so nothing redraws.
     const prev = this.cache.src === folderItems ? this.cache.items : null;
     const same = prev && prev.length === out.length && prev.every((p, i) => p.path === out[i].path &&
-      p.names === out[i].names && p.burst === out[i].burst);
+      p.names === out[i].names && p.burst === out[i].burst && p.tag === out[i].tag);
     this.cache = { key, src: folderItems, items: same ? prev : out };
     return (this.lastShown = this.cache.items);
   }
@@ -387,25 +473,25 @@ export class WildlifeFeature {
 
   /**
    * Taxa named in the folder by photo count, most first: [{ key, label, count }]
-   * (a photo counts once per taxon); the photos with an animal but no name
-   * (unidentified), and those without animals.
+   * (a photo counts once per taxon); the uncertain photos (isUncertain; also
+   * as `unidentified`, its old name), and those without animals.
    */
   counts() {
     const by = new Map();
-    let empty = 0, unidentified = 0;
+    let empty = 0, uncertain = 0;
     for (const it of this.folder.items) {
-      const { labels, animal, empty: none } = this.answerOf(it.path);
+      const { labels, empty: none, isUncertain } = this.answerOf(it.path);
       for (const l of labels) {
         const k = labelKey(l);
         const t = by.get(k) || { key: k, label: labelText(l), count: 0 };
         t.count++;
         by.set(k, t);
       }
-      if (!labels.length && animal) unidentified++;
-      else if (none) empty++;
+      if (isUncertain) uncertain++;
+      if (none) empty++;
     }
     const taxa = [...by.values()].sort((x, y) => y.count - x.count || (x.label < y.label ? -1 : 1));
-    return { taxa, unidentified, empty, all: this.folder.items.length - (this.settings.get('showNoAnimals') ? 0 : empty) };
+    return { taxa, uncertain, unidentified: uncertain, empty, all: this.folder.items.length - (this.settings.get('showNoAnimals') ? 0 : empty) };
   }
 
   decorate(item, el) { decorateTile(item, el); }
@@ -430,9 +516,12 @@ export class WildlifeFeature {
       actions: hers || !rec || rec.error ? null : this.editor.actions(p, ans),
       titles: hers ? { burst: 'Identifier · burst', photo: 'Identifier · this photo', alone: 'Identifier' } : null,
     });
-    if (hers) return theirs ? h('div.iv-details-group', hers, theirs) : hers;
+    // At a glance, what the detector found ("3 birds, 1 dog"), over the names.
+    const found = countsText(rec);
+    const glance = found ? h('div.iv-animals-found.num', { title: 'What the detector found' }, `Found ${found}`) : null;
+    if (hers) return h('div.iv-details-group', glance, hers, theirs);
     if (!rec || rec.error) return h('div.iv-details-group', this.editor.emptySection(p), theirs);
-    return theirs;
+    return glance ? h('div.iv-details-group', glance, theirs) : theirs;
   }
 
   /** Show only the photos naming a taxon (its labelKey), UNIDENTIFIED, or '' for all. */
@@ -532,6 +621,9 @@ export class WildlifeFeature {
       { id: 'animals-menu', label: 'Animals', icon: 'filter', enabled: () => browsing() && (a.results.size > 0 || !!this.filter),
         run: () => this.showMenu() },
       { id: 'animals-filter', label: 'Show Species', enabled: browsing, run: (key) => this.setFilter(key) },
+      { id: 'animals-outlines', label: 'Show Animal Outlines', keys: ['O'], enabled: () => this.active && !this.holding(),
+        checked: () => this.settings.get('showOutlines'),
+        run: () => { this.settings.set('showOutlines', !this.settings.get('showOutlines')); if (this.outlines) this.outlines.draw(); } },
       { id: 'animals-show-empty', label: 'Show Photos Without Animals', enabled: () => this.active && !this.holding(),
         checked: () => this.settings.get('showNoAnimals'),
         run: () => { this.settings.set('showNoAnimals', !this.settings.get('showNoAnimals')); this.analysisChanged(); } },
@@ -556,7 +648,7 @@ export class WildlifeFeature {
     this.analysisChanged();
   }
 
-  /** The Animals menu: All, every taxon with its photo count, Unidentified, the toggle. */
+  /** The Animals menu: All, every taxon with its photo count, Uncertain, the toggle. */
   showMenu() {
     const c = this.counts();
     const pick = (key, label, count) => this.commands.item('animals-filter', {
@@ -565,9 +657,9 @@ export class WildlifeFeature {
     });
     const items = [
       pick('', 'All photos', c.all),
-      c.taxa.length || c.unidentified ? { separator: true } : null,
+      c.taxa.length || c.uncertain ? { separator: true } : null,
       ...c.taxa.map((t) => pick(t.key, t.label, t.count)),
-      c.unidentified || this.filter === UNIDENTIFIED ? pick(UNIDENTIFIED, 'Unidentified', c.unidentified) : null,
+      c.uncertain || this.filter === UNCERTAIN ? pick(UNCERTAIN, 'Uncertain', c.uncertain) : null,
       { separator: true },
       this.commands.item('animals-show-empty', { count: c.empty }),
     ];

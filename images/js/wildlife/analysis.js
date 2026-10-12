@@ -8,6 +8,7 @@
  *   a.burstOf(path)   bro.vision.wildlife.groupBursts' burst holding it, or null
  *   a.taxa            the species lists' common names of genera and up (labels()' taxa)
  *   a.names           every name of the lists (bro.vision.wildlife.nameEntries)
+ *   a.embeddingOf(path, i)   animal i's crop embedding (kept beside the records, records.js embeddingsFile)
  *   a.progress()      { state, done, total, error }
  *   a.pause(); a.resume(); a.stop();
  *
@@ -23,7 +24,7 @@
  */
 
 import { WorkerClient } from '../burst/rpc.js';
-import { DETECT_SIZE, SHARP_SIZE, cacheFile, makeRecord, errorRecord, pathKey } from './records.js';
+import { DETECT_SIZE, SHARP_SIZE, cacheFile, embeddingsFile, makeRecord, errorRecord, pathKey } from './records.js';
 import { formatOf } from '../formats.js';
 
 /** Photos between the decoders and the models at once. */
@@ -61,6 +62,8 @@ export class Analysis {
     this.names = [];         // every name of the lists (nameEntries), for her corrections
     this.opened = '';        // the opts key the models were loaded with
     this.results = new Map();
+    this.embeddings = new Map();   // pathKey -> { dim, rows }: each crop's embedding (animal i's at i * dim)
+    this.embFile = '';
     this.bursts = [];
     this.byPath = new Map(); // path -> burst
     this.total = 0;
@@ -86,6 +89,14 @@ export class Analysis {
 
   burstOf(p) { return this.byPath.get(pathKey(p)) || null; }
 
+  /** Animal i's crop embedding in photo p (a unit Float32Array), or null. */
+  embeddingOf(p, i) {
+    const e = this.embeddings.get(pathKey(p));
+    if (!e || !e.dim || (i + 1) * e.dim > e.rows.length) return null;
+    const row = e.rows.subarray(i * e.dim, (i + 1) * e.dim);
+    return row.some((x) => x !== 0) ? row : null;
+  }
+
   /**
    * Analyse the photos of `dir` (`paths`, the folder's listing) with the
    * analyzer `opts`. Called again for the same folder (a file came, went or
@@ -97,7 +108,9 @@ export class Analysis {
       this.gen++;
       this.dir = dir;
       this.file = cacheFile(this.cacheDir, dir);
+      this.embFile = embeddingsFile(this.file);
       this.results = new Map();
+      this.embeddings = new Map();
       this.bursts = [];
       this.byPath = new Map();
       this.todo = [];
@@ -124,6 +137,14 @@ export class Analysis {
       const { entries } = await this.store.call({ op: 'scan', file: this.file, paths: paths.filter(analysable), config: this.hash });
       if (gen !== this.gen) return;
       this.apply(entries);
+      // The cached records' crop embeddings, behind them (the names show first).
+      const want = entries.filter((e) => e.rec && !this.embeddings.has(pathKey(e.path))).map((e) => ({ path: e.path, key: e.key }));
+      if (want.length) {
+        const r = await this.store.call({ op: 'embLoad', file: this.embFile, want, config: this.hash });
+        if (gen !== this.gen) return;
+        for (const e of r.entries) if (!this.embeddings.has(pathKey(e.path))) this.embeddings.set(pathKey(e.path), { dim: e.dim, rows: e.rows });
+        if (r.entries.length) this.changed();
+      }
     } catch (err) {
       if (gen !== this.gen) return;
       this.fail(err);
@@ -180,6 +201,7 @@ export class Analysis {
     this.optsKey = '';
     this.todo = [];
     this.results = new Map();
+    this.embeddings = new Map();
     this.bursts = [];
     this.byPath = new Map();
     this.total = 0;
@@ -224,9 +246,10 @@ export class Analysis {
   async run(job) {
     if (this.decoders.length < DECODERS) this.decoders.push(new WorkerClient('js/wildlife/decode-worker.js'));
     const dec = this.decoders[this.seq % this.decoders.length];
-    const ctx = { file: this.file, hash: this.hash, seq: ++this.seq };
+    const ctx = { file: this.file, embFile: this.embFile, hash: this.hash, seq: ++this.seq };
     this.inflight.set(job.path, job);
     let rec;
+    let emb = null;
     let decoded = null;
     try {
       decoded = await dec.call({ op: 'decode', job: ctx.seq, path: job.path, detectSize: DETECT_SIZE, sharpSize: SHARP_SIZE });
@@ -236,8 +259,9 @@ export class Analysis {
     if (decoded) {
       this.analysed++;
       try {
-        const { result } = await this.models.call({ op: 'analyze', image: decoded.image, source: decoded.source },
+        const { result, embeddings } = await this.models.call({ op: 'analyze', image: decoded.image, source: decoded.source },
           { transfer: [decoded.image.pixels.buffer] });
+        emb = embeddings || null;
         let subject = null;
         if (result.animal && result.detections.length) {
           try {
@@ -253,8 +277,11 @@ export class Analysis {
     }
     if (this.inflight.get(job.path) === job) this.inflight.delete(job.path);
     this.save(ctx.file, rec);
+    if (emb) this.saves.push({ embFile: ctx.embFile, entry: { path: job.path, key: job.key, config: ctx.hash, dim: emb.dim, rows: emb.rows } });
     // Still the folder and the settings on screen (left and opened again counts).
     if (ctx.file === this.file && ctx.hash === this.hash) {
+      if (emb) this.embeddings.set(pathKey(job.path), emb);
+      else this.embeddings.delete(pathKey(job.path));
       this.results.set(pathKey(job.path), rec);
       this.regroupSoon();
     }
@@ -271,14 +298,19 @@ export class Analysis {
   flush() {
     clearTimeout(this.saveTimer);
     this.saveTimer = null;
-    const byFile = new Map();
-    for (const { file, rec } of this.saves) {
-      if (!byFile.has(file)) byFile.set(file, []);
-      byFile.get(file).push(rec);
+    const byFile = new Map(), byEmb = new Map();
+    for (const s of this.saves) {
+      const [map, k, v] = s.embFile ? [byEmb, s.embFile, s.entry] : [byFile, s.file, s.rec];
+      if (!map.has(k)) map.set(k, []);
+      map.get(k).push(v);
     }
     this.saves = [];
     const writes = [...byFile].map(([file, recs]) => this.store.call({ op: 'append', file, recs })
       .catch((err) => console.warn(`wildlife: saving records: ${err.message}`)));
+    for (const [file, entries] of byEmb) {
+      writes.push(this.store.call({ op: 'embAppend', file, entries })
+        .catch((err) => console.warn(`wildlife: saving embeddings: ${err.message}`)));
+    }
     return Promise.all(writes);
   }
 

@@ -55,7 +55,8 @@ eq(highlighted(), 'Mallard', 'a sure match is taken by Enter');
 eq(document.querySelector('.iv-details .iv-answer-hint').textContent, 'Enter saves · Escape cancels', 'a photo alone: no scope to choose');
 press('enter');
 saved(() => mine('b_01.jpg'), 'her answer saved');
-eq(animals('b_01.jpg'), [{ name: 'Mallard', scientific: 'Anas platyrhynchos', rank: 'species' }], 'a name of the lists, with its scientific name');
+eq(animals('b_01.jpg'), [{ name: 'Mallard', scientific: 'Anas platyrhynchos', rank: 'species', boxes: [[120, 80, 80, 80]] }],
+  'a name of the lists, with its scientific name, on the box the name it corrects was on');
 eq([mine('b_01.jpg').by, mine('b_01.jpg').scope, mine('b_01.jpg').name], ['user', 'photo', 'b_01.jpg'], 'by her, this photo, its file name');
 assert(/^\d+:[0-9a-f]{32}$/.test(mine('b_01.jpg').key), `keyed by the file's size and ends: ${mine('b_01.jpg').key}`);
 waitFor(() => item('b_01.jpg').tag === 'Mallard', 'the tile follows');
@@ -146,7 +147,8 @@ open('s_01.jpg');
 press('y');
 saved(() => mine('s_01.jpg'), 'Y confirms the names shown');
 eq([animals('s_01.jpg'), mine('s_01.jpg').confirmed],
-  [[{ name: 'Marbled Orbweaver', scientific: 'Araneus marmoreus', rank: 'species' }], true], 'the identifier\'s name, confirmed');
+  [[{ name: 'Marbled Orbweaver', scientific: 'Araneus marmoreus', rank: 'species', boxes: [[120, 80, 80, 80]] }], true],
+  'the identifier\'s name, confirmed, with its box');
 app.commands.run('animal-revert');
 saved(() => !mine('s_01.jpg'), 'and reverted');
 waitFor(() => document.querySelector('.iv-details .iv-animal-act[data-tip^="Correct"]'), 'a row\'s check');
@@ -171,7 +173,8 @@ type('summer tan');
 press('shift+enter');
 saved(() => mine('a_03.jpg'), 'Shift+Enter: the whole burst');
 eq(['a_01.jpg', 'a_02.jpg', 'a_03.jpg'].map((n) => [animals(n)[0].name, mine(n).scope]),
-  [['Summer Tanager', 'burst'], ['Summer Tanager', 'burst'], ['Summer Tanager', 'burst']], 'every frame, her photo answer included');
+  [['Scarlet Tanager', 'photo'], ['Summer Tanager', 'burst'], ['Summer Tanager', 'burst']],
+  'the same animal in every frame: the cardinal becomes a Summer Tanager; the frame she named otherwise keeps her name');
 eq(app.settings.get('answerScope'), 'burst', 'the choice is remembered');
 waitFor(() => document.querySelector('.iv-details .iv-answer-scope button.on') &&
   document.querySelector('.iv-details .iv-answer-scope button.on').dataset.scope === 'burst', 'and shown');

@@ -29,17 +29,25 @@ export function answerLabels(rec, theirs = []) {
     const l = { common: a.name, scientific: a.scientific || a.name, rank: a.rank || null, score: 1, from: 'user', boxes: [], mine: true };
     if (a.count > 1) l.count = a.count;
     if (rec.confirmed) l.confirmed = true;
-    const same = theirs.find((t) => labelKey(t) === labelKey(l));
-    if (same && same.boxes) l.boxes = same.boxes;
+    // The boxes she named it on; else, for a name she kept, the identifier's.
+    if (a.boxes && a.boxes.length) l.boxes = a.boxes;
+    else {
+      const same = theirs.find((t) => labelKey(t) === labelKey(l));
+      if (same && same.boxes) l.boxes = same.boxes;
+    }
     return l;
   });
 }
 
-/** A label as an animal of her answer: { name, scientific?, rank?, count? }. */
+/** An animal of her answer as a label's key (labelKey). */
+export const animalKey = (a) => labelKey({ common: a.name, scientific: a.scientific || a.name, rank: a.rank || null });
+
+/** A label as an animal of her answer: { name, scientific?, rank?, count?, boxes? } (boxes: where it is in the photo). */
 export function animalOf(l) {
   const a = { name: l.rank ? (l.common || l.scientific) : (l.common || l.scientific) };
   if (l.rank) { a.scientific = l.scientific; a.rank = l.rank; }
   if (l.count > 1) a.count = l.count;
+  if (l.boxes && l.boxes.length) a.boxes = l.boxes.map((b) => b.slice());
   return a;
 }
 

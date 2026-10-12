@@ -136,6 +136,43 @@
 .iv-tag.mine .iv-tag-mine .icon { width: 11px; height: 11px; }
 .iv-toolbar-animals { display: flex; align-items: center; gap: var(--s2); min-width: 0; }
 .iv-search { width: 180px; height: 26px; }
+.iv-tag.guess .iv-tag-name { color: var(--t3); font-style: italic; }
+.iv-animals-found { font-size: var(--fs-cap); color: var(--t3); }
+
+/* The animals' outlines on the photo (js/wildlife/outlines.js): quiet until the
+   pointer is on one; hers, a sure name and an uncertain one told apart by colour. */
+.iv-outlines { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; }
+.iv-outline {
+  position: absolute; pointer-events: auto; cursor: pointer; border-radius: 3px;
+  box-shadow: inset 0 0 0 1px var(--outline-color, var(--t3)); opacity: 0.55;
+  transition: opacity var(--d-state) var(--ease-std);
+}
+.iv-outline.mine { --outline-color: var(--accent); }
+.iv-outline.sure { --outline-color: var(--t2); }
+.iv-outline.uncertain, .iv-outline.unnamed { --outline-color: var(--warn); }
+.iv-outline:hover, .iv-outline.picking { opacity: 1; box-shadow: inset 0 0 0 2px var(--outline-color, var(--t2)); }
+.iv-outline-tag {
+  position: absolute; left: 0; bottom: 100%; margin-bottom: 2px; width: max-content; max-width: 220px; display: none; align-items: center; gap: 2px;
+  height: 18px; padding: 0 6px; border-radius: var(--r-chip); background: var(--surface-1); color: var(--t1); font-size: var(--fs-micro);
+}
+.iv-outline-tag .icon { width: 11px; height: 11px; color: var(--t4); }
+.iv-outline:hover .iv-outline-tag, .iv-outline.picking .iv-outline-tag { display: inline-flex; }
+.iv-picker {
+  position: fixed; z-index: 50; width: 340px; display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3);
+  border-radius: var(--r-ctl); background: var(--surface-1); border: 1px solid var(--hairline); box-shadow: var(--rim-top), var(--depth-2);
+}
+.iv-picker-head { display: flex; align-items: baseline; gap: var(--s2); min-width: 0; }
+.iv-picker-name { flex: 1 1 auto; min-width: 0; color: var(--t1); font-weight: 600; }
+.iv-picker-kind { flex: none; font-size: var(--fs-cap); color: var(--t4); }
+.iv-picker-chips { display: flex; flex-wrap: wrap; gap: var(--s1); }
+.iv-chip { height: 22px; max-width: 100%; gap: var(--s1); }
+.iv-chip-text { min-width: 0; }
+.iv-chip-detail { flex: none; color: var(--t4); font-size: var(--fs-cap); }
+.iv-chip.lookalike { flex-basis: 100%; justify-content: flex-start; }
+.iv-picker .field { height: 26px; }
+.iv-picker-acts { display: flex; gap: var(--s1); }
+.iv-picker-acts .btn.small { height: 22px; }
+
 /* Everything but the animal darkened, over the photo; it lets the pointer through. */
 .iv-isolate { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
 

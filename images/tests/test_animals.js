@@ -7,7 +7,7 @@
 // carry the labels, and Select Subject selects the same bursts. A frog the
 // stub is not sure of at any rank (0.5 and 0.3, under the 0.85 label
 // threshold) has no tag, reads "Not identified" with its guesses in the
-// details and is counted and filtered as Unidentified.
+// details and is counted and filtered as Uncertain, its best guess on its tile there.
 
 import { app, waitFor, eq, press, clickEl, menuLabels, chooseMenu, fixtureDir } from '/lib/test.js';
 import { shotsTree, stubTable, analysed, names, photo, detailAnimals, SQUIRREL, CARDINAL, FROG, TABLE } from '/app/tests/wildlife.js';
@@ -59,20 +59,21 @@ const frogTile = cell('u_01.jpg');
 assert(frogTile && (!frogTile.querySelector('.iv-tags') || frogTile.querySelector('.iv-tags').classList.contains('hidden')),
   'the unidentified frog\'s tile has no tag');
 
-// The Animals menu: All, the species by photo count, Unidentified, the toggle.
+// The Animals menu: All, the species by photo count, Uncertain, the toggle.
 const btn = document.querySelector('.iv-animals-filter');
 assert(btn && !btn.classList.contains('hidden'), 'the Animals button shows');
 clickEl(btn);
 const labels = menuLabels();
-eq(labels.slice(0, 5).join('|'), 'All photos|Blue Jay|Northern Cardinal|Eastern Gray Squirrel|Unidentified',
-  'All first, then the named species by photo count, then the unidentified');
+eq(labels.slice(0, 5).join('|'), 'All photos|Blue Jay|Northern Cardinal|Eastern Gray Squirrel|Uncertain',
+  'All first, then the named species by photo count, then the uncertain');
 assert(!labels.includes('Green Frog'), 'a species under 85% is not in the menu');
 assert(labels.includes('Show Photos Without Animals'), 'the toggle is in the menu');
 const counts = Array.from(document.querySelectorAll('.menu .menu-count')).map((k) => k.textContent);
 eq(counts.slice(0, 5).join(), '8,3,3,1,1', 'with photo counts');
-chooseMenu('Unidentified');
-eq(gridNames(), 'u_01.jpg', 'Unidentified filters like a species');
-eq(btn.textContent, 'Unidentified', 'the button says so');
+chooseMenu('Uncertain');
+eq(gridNames(), 'u_01.jpg', 'Uncertain filters like a species');
+eq(btn.textContent, 'Uncertain', 'the button says so');
+eq(cell('u_01.jpg').querySelector('.iv-tag.guess .iv-tag-name').textContent, 'Green Frog?', 'its best guess as a suggestion');
 clickEl(btn);
 chooseMenu('Blue Jay');
 eq(gridNames(), 'b_01.jpg,c_01.jpg,c_02.jpg', 'the grid shows the jays');

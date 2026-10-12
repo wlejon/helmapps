@@ -41,6 +41,14 @@ for (const rec of a.results.values()) {
   eq(rec.timeSource, 'exif', 'its EXIF time');
   assert(rec.sharpness.frame && rec.sharpness.frame.tenengrad > 0, 'the frame\'s sharpness');
   if (rec.animal) assert(rec.species.length === 5 && rec.subject, 'an animal comes with five species and a subject');
+  // Each crop's embedding beside the record (not in it), unit length, when this bro gives them.
+  assert(!rec.animals.some((x) => 'embedding' in x), 'no embedding in the record');
+  if (typeof bro.vision.wildlife.nearest === 'function') {
+    rec.animals.forEach((x, i) => {
+      const e = a.embeddingOf(rec.path, i);
+      assert(e && e.length >= 256 && Math.abs(Math.hypot(...e) - 1) < 1e-3, `${rec.path}: crop ${i}'s embedding`);
+    });
+  }
 }
 console.log(`animals: ${[...a.results.values()].filter((r) => r.animal).map((r) => `${r.path.split('/').pop()} ` +
   `${r.detections[0].label} ${r.detections[0].score} -> ${r.species[0].common}`).join('; ') || 'none'}`);
@@ -54,6 +62,10 @@ const before = a.analysed;
 app.openPath(dir);
 analysed(app, waitFor, 'the folder again, from the cache');
 eq(a.analysed, before, 'nothing analysed again');
+const firstAnimal = [...a.results.values()].find((r) => r.animal && r.animals.length);
+if (firstAnimal && typeof bro.vision.wildlife.nearest === 'function') {
+  waitFor(() => a.embeddingOf(firstAnimal.path, 0), 'the embeddings read back from the cache');
+}
 
 console.log('test_animals_models PASSED');
 }

@@ -21,7 +21,8 @@
  * record is reused only when the photo's key and the hash both match.
  */
 
-export const SCHEMA = 2;
+// 3: each photo's crop embeddings are kept beside its record (embeddingsFile), so older records are made again once.
+export const SCHEMA = 3;
 /** The detection / classification image, long side (docs/vision-api.js, Wildlife). */
 export const DETECT_SIZE = 1280;
 /** The sharpness image, long side: focus lives in the finest detail. */
@@ -57,6 +58,14 @@ export function cacheFile(cacheDir, dir) {
   const path = require('path');
   const name = path.basename(dir).replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 40) || 'root';
   return path.join(cacheDir, 'wildlife', 'folders', `${name}-${fnv1a(pathKey(dir))}.jsonl`);
+}
+
+/**
+ * The file of a folder's crop embeddings, beside its records (store-worker.js
+ * 'embLoad' / 'embAppend'): what "looks like the one you named" compares.
+ */
+export function embeddingsFile(recordsFile) {
+  return recordsFile.replace(/\.jsonl$/, '') + '.emb';
 }
 
 /** The sharpness fields a record keeps. */

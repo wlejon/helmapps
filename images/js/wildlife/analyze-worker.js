@@ -9,7 +9,9 @@
  *                                   taxa: the lists' names of genera and up (readTaxa), for labels();
  *                                   names: every name of the lists (nameEntries), for her corrections
  *   { id, op: 'open', opts }     -> { id, device, cached }  loads the models (once per opts)
- *   { id, op: 'analyze', image, source } -> { id, result }  analyze()'s answer, in source pixels
+ *   { id, op: 'analyze', image, source } -> { id, result, embeddings }  analyze()'s answer, in source
+ *                                   pixels; embeddings: { dim, rows } (each animal's crop embedding,
+ *                                   animal i's at i * dim; zeros where none) or null, kept out of `result`
  *   { id, op: 'dispose' }        -> { id }                  frees the models
  *   opts: { detector, classifier, species, model, cacheDir }
  *     or, in a test only, { stub: table, taxa, maxClassify, names } (js/wildlife/stub.js; names:
@@ -77,7 +79,16 @@ self.onmessage = (e) => {
       reply = { id: m.id, device: a.device, cached: !!a.cached };
     } else if (m.op === 'analyze') {
       if (!analyzer) throw new Error('the models are not loaded');
-      reply = { id: m.id, result: analyzer.analyze(m.image, { source: m.source }) };
+      const result = analyzer.analyze(m.image, { source: m.source, embeddings: true });
+      // Each crop's embedding apart from the record (records are JSON): rows end to end, animal i's at i * dim.
+      const embs = (result.animals || []).map((a) => { const e = a.embedding || null; delete a.embedding; return e; });
+      const dim = embs.reduce((d, e) => d || (e ? e.length : 0), 0);
+      let rows = null;
+      if (dim) {
+        rows = new Float32Array(embs.length * dim);
+        embs.forEach((e, i) => { if (e && e.length === dim) rows.set(e, i * dim); });
+      }
+      reply = { id: m.id, result, embeddings: rows ? { dim, rows } : null };
     } else if (m.op === 'dispose') {
       if (analyzer) analyzer.dispose();
       analyzer = null;

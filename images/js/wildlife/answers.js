@@ -17,14 +17,19 @@
  *             an answer follows the photo through a move, a rename, a copy
  *             to another folder and any new analysis or model
  *   name      the file name it was last seen under
- *   answer    { animals: [{ name, scientific?, rank?, count? }] } or
- *             { animals: [], none: true } ("no animal"). `name` is what she
- *             calls it (a list's common name, or her own words for one on no
- *             list); `scientific` and `rank` when it is a name of the lists
+ *   answer    { animals: [{ name, scientific?, rank?, count?, boxes? }],
+ *             notAnimal? } or { animals: [], none: true } ("no animal").
+ *             `name` is what she calls it (a list's common name, or her own
+ *             words for one on no list); `scientific` and `rank` when it is a
+ *             name of the lists; `boxes` the detector boxes ([x, y, w, h] in
+ *             the record's pixels) it is on, when known; `notAnimal` boxes
+ *             she said are not an animal
  *   confirmed true when she confirmed the identifier's names as they were
  *   by        'user'
  *   at        when (ISO 8601)
- *   scope     'photo' or 'burst' (given to every frame of its burst)
+ *   scope     'photo' or 'burst' (made on one frame for the burst: each
+ *             frame got the same change to its own animals, a box matched
+ *             across frames by overlap, crops.js)
  *
  * Finding a photo's key reads both ends of the file once; a path index in
  * the cache dir (`<cacheDir>/wildlife/file-keys.json`, path -> size, mtime,
@@ -40,6 +45,8 @@
 
 import { WorkerClient } from '../burst/rpc.js';
 import { pathKey } from './records.js';
+import { animalKey } from './mine.js';
+import { sameBox } from './crops.js';
 
 const path = require('path');
 
@@ -128,10 +135,19 @@ export class Answers {
    * identifier's names as they were. Answers what to restore() for an undo.
    */
   async put(paths, answer, { scope = 'photo', confirmed = false } = {}) {
-    const keys = await this.keysFor(paths);
+    return this.putEach(paths.map((p) => ({ path: p, answer, confirmed })), { scope });
+  }
+
+  /**
+   * Give each photo its own answer: [{ path, answer, confirmed? }] (a burst's
+   * frames, each with what the change made of its names). Answers what to
+   * restore() for an undo.
+   */
+  async putEach(puts, { scope = 'photo' } = {}) {
+    const keys = await this.keysFor(puts.map((x) => x.path));
     const at = new Date().toISOString();
     const undo = [];
-    for (const p of paths) {
+    for (const { path: p, answer, confirmed } of puts) {
       const key = keys[p];
       if (!key) continue;
       undo.push({ key, rec: this.byKey.get(key) || null });
@@ -188,14 +204,31 @@ export class Answers {
 
 /** An answer as it is kept: names trimmed, a count only when more than one; no animals is "no animal". */
 export function cleanAnswer(a) {
-  const animals = (a && !a.none && Array.isArray(a.animals) ? a.animals : [])
-    .filter((x) => x && String(x.name || '').trim())
-    .map((x) => {
-      const out = { name: String(x.name).trim() };
-      if (x.scientific) out.scientific = x.scientific;
-      if (x.rank) out.rank = x.rank;
-      if (x.count > 1) out.count = Math.round(x.count);
-      return out;
-    });
-  return animals.length ? { animals } : { animals: [], none: true };
+  const animals = [];
+  const at = new Map();     // one entry a name: the same name twice is one animal on both boxes
+  for (const x of a && !a.none && Array.isArray(a.animals) ? a.animals : []) {
+    if (!x || !String(x.name || '').trim()) continue;
+    const out = { name: String(x.name).trim() };
+    if (x.scientific) out.scientific = x.scientific;
+    if (x.rank) out.rank = x.rank;
+    if (x.count > 1) out.count = Math.round(x.count);
+    const boxes = cleanBoxes(x.boxes);
+    if (boxes.length) out.boxes = boxes;
+    const k = animalKey(out);
+    const prev = at.get(k);
+    if (!prev) { at.set(k, out); animals.push(out); continue; }
+    if (out.count > (prev.count || 0)) prev.count = out.count;
+    if (boxes.length) prev.boxes = [...(prev.boxes || []), ...boxes.filter((b) => !(prev.boxes || []).some((p) => sameBox(p, b)))];
+  }
+  const res = animals.length ? { animals } : { animals: [], none: true };
+  const notAnimal = cleanBoxes(a && a.notAnimal);
+  if (notAnimal.length) res.notAnimal = notAnimal;
+  return res;
+}
+
+/** Boxes as kept: [x, y, w, h] in the record's pixels, to 0.1 px. */
+function cleanBoxes(boxes) {
+  if (!Array.isArray(boxes)) return [];
+  return boxes.filter((b) => Array.isArray(b) && b.length === 4 && b.every((v) => Number.isFinite(v)))
+    .map((b) => b.map((v) => Math.round(v * 10) / 10));
 }
