@@ -11,7 +11,9 @@
  *     near one she has named (feature.lookalike: bro.vision.wildlife.nearest
  *     over her named crops, LOOKALIKE_MIN or more);
  *   - a field over every name of the lists, her own words kept (as the
- *     details' name field, editor.js suggest);
+ *     details' name field, editor.js suggest); its suggestions are in the
+ *     picker's flow (Combobox inline), so they push the buttons down and
+ *     never lie over them;
  *   - Remove (no name here) and Not an animal (the box is no animal; its
  *     outline goes).
  *
@@ -156,8 +158,11 @@ export class Outlines {
     const done = () => { this.close(); this.feature.detailsChanged(); };
     const pick = (animal, shiftKey) => { ed.nameBox(p, a.box, animal, { other: shiftKey }).then(done, done); };
     const index = this.feature.nameIndex();
+    // The suggestions in the picker's flow: Remove and Not an animal move down
+    // under them rather than lying beneath a list a click would land on.
     const cb = new Combobox({
-      placeholder: 'Name, scientific name or group', label: 'Animal name',
+      placeholder: 'Name, scientific name or group', label: 'Animal name', inline: true,
+      onLayout: () => { if (this.picker && this.picker.cb === cb) this.place(); },
       suggest: (text) => ed.suggest(text, index),
       onCommit: ({ item, text, shiftKey }) => {
         const animal = animalFromText({ entry: item ? item.value : null, text, index });
