@@ -40,32 +40,6 @@ beyond saying so in the window. Kit-level gaps shared by every app are in
   exported WebM back through `<video>` (duration, `stepFrame`) instead.
 - **Belongs in:** bro (a Matroska/WebM reader in the tags code)
 
-## fs.mkdtempSync is missing
-- **Where:** brokit (`fs`)
-- **Expected:** Node's `fs.mkdtempSync(prefix)`.
-- **Actual:** undefined; tests make their folders with `mkdirSync` and a
-  pid/time name (`lib/test.js` `fixtureDir`).
-- **Belongs in:** brokit
-
-## No `<datalist>` suggestions
-- **Where:** bro (HTML)
-- **Expected:** `<input list=...>` with a `<datalist>` shows its options.
-- **Actual:** only the `HTMLDataListElement` name exists (no `input.list`,
-  no options, no popup). The name field uses the kit's `Combobox` instead,
-  which it would anyway: its matching is fuzzy and the lists are thousands
-  of names.
-- **Belongs in:** bro
-
-## brokit `fs` gaps met writing the answers store
-- **Where:** brokit (`fs`), bro (strings)
-- **Actual:** `fs.fsyncSync` is missing (the store writes temp + rename
-  and syncs only where it exists); `fs.writeSync(fd, string)` throws (it
-  takes a typed array, so the store encodes first);
-  `String.prototype.normalize('NFD')` returns the string unchanged, so
-  accents are not folded away in name matching (the species lists are
-  ASCII, so nothing shows it yet).
-- **Belongs in:** brokit, bro
-
 ## Burst carry-over matches boxes, not tracks
 - **Where:** this app (`js/wildlife/crops.js`, `editor.js`)
 - **Expected:** a name given to one animal of a burst follows that animal
@@ -76,6 +50,33 @@ beyond saying so in the window. Kit-level gaps shared by every app are in
   could follow it instead; not built, as overlap holds for bursts shot
   0.1-0.5 s apart.
 - **Belongs in:** this app (using `bro.vision` SAM 2.1 tracking)
+
+## Fixed after corrections (your answers)
+- `String.prototype.normalize` did nothing, so `normalize('NFD')` folded
+  no accents in name matching (`mine.js` `fold`). bronze 5b0fa20 has
+  NFC/NFD/NFKC/NFKD (UAX #15, checked against NormalizationTest.txt); bro
+  tests/intl/test_string_normalize.js.
+- brokit `fs.fsyncSync` was missing and `fs.writeSync(fd, string)` threw.
+  brokit 0402b34 has both (and `fdatasyncSync`, `fs.fsync`, `fs.write`),
+  so the answers store writes its text straight and syncs it before the
+  rename, always (`answers-worker.js` `writeDurably`).
+- brokit `fs.mkdtempSync` was missing: brokit 0402b34 has it (and
+  `fs.mkdtemp`, `fs.promises.mkdtemp`). `lib/test.js` `fixtureDir` still
+  makes its own names, which it needs under one test home anyway.
+- No `<datalist>`: bro now has it (`input.list`, `datalist.options`, the
+  suggestions under the field as she types, Up / Down / Enter, a click,
+  `input` with `insertReplacementText`; tests/dom/test_datalist.js). The
+  name field keeps the kit's `Combobox`: its matching is fuzzy, its rows
+  carry a detail, and the lists are thousands of names.
+- "Looks like your Blue Jay" looked only in the open folder (a folder's
+  crop embeddings are in its cache). Her named crops are now kept in the
+  data dir (`js/wildlife/examples.js`: `wildlife/examples.json` and the
+  float32 rows it names), made again from her answers as each photo's
+  crops are known (a revert, Remove or Undo follows), at most 8 of a name;
+  tests/test_animals_examples.js.
+- Three saves in a row were three toasts over the thumbnail strip. The
+  kit's `toast` takes a `key`: a toast replaces the one shown with its key,
+  and her answers' toasts share one (the latest, its Undo the latest's).
 
 ## Fixed while building corrections (your answers)
 - A key whose keydown the page cancelled still typed its character: N

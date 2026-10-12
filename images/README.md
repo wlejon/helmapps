@@ -166,8 +166,12 @@ opens a picker: chips with the identifier's sure name and its top guesses
 for that crop, and "Looks like your Eastern Bluebird from May 1" when the
 crop's image embedding is near (cosine 0.92 or more: above every pair of
 different species in a local sample, where same-species pairs have a
-median of 0.97) one she has named
-(`analyze(img, { embeddings: true })` and `bro.vision.wildlife.nearest`);
+median of 0.97) one she has named, in this folder or any other
+(`analyze(img, { embeddings: true })` and `bro.vision.wildlife.nearest`;
+her named crops are kept in `<bro.app.dataDir>/wildlife/examples.json` and
+the float32 rows it names, made again from her answers as each photo's crops
+are known, so a revert, Remove or Undo follows; at most 8 of a name, the
+latest);
 then a field over every name, as in the details; then *Remove* (no name
 here) and *Not an animal* (the box is none; its outline goes, kept in her
 answer as `notAnimal`). The embeddings are kept beside the records in the
@@ -342,7 +346,10 @@ guesses and her answers, counts, search, tiles, Next to check and spiders,
 analysing again, a copied folder) and `test_animals_label.js` (Uncertain,
 the outlines following the zoom, the picker's chips, burst carry-over by
 overlap and this photo only, "looks like" after she names one, Remove, Not
-an animal; `IV_SHOTS=<dir>` saves pictures of it); `test_animals_models.js` runs the real models and skips without
+an animal; `IV_SHOTS=<dir>` saves pictures of it) and
+`test_animals_examples.js` ("looks like" across two folders, kept in step
+with a revert, Undo and Remove, the cap, one toast for her answers);
+`test_animals_models.js` runs the real models and skips without
 them (`BRO_MODELS=<folder with owlv2, bioclip-2, species> scripts/run_tests.sh
 images animals`). `IV_PERF_DIR=<photos> IV_PERF_ANIMALS=1` makes `test_perf`
 also time Find Animals over a real folder.

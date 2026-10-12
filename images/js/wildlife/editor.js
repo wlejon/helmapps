@@ -133,7 +133,7 @@ export class AnswerEditor {
     try {
       undo = await this.feature.answers.putEach(puts, { scope });
     } catch (err) {
-      toast(`Could not save your answer: ${err.message}`, { error: true });
+      toast(`Could not save your answer: ${err.message}`, { error: true, key: 'answers' });
       return false;
     }
     this.say(what, puts.length, undo);
@@ -147,7 +147,8 @@ export class AnswerEditor {
 
   say(what, n, undo) {
     const where = n > 1 ? ` · ${formatNumber(n)} photos of the burst` : '';
-    toast(`${what}${where}`, { icon: 'check', action: 'Undo', onAction: () => this.feature.answers.restore(undo) });
+    // One toast for her answers: each save takes the last one's place (its Undo is this save's).
+    toast(`${what}${where}`, { icon: 'check', action: 'Undo', onAction: () => this.feature.answers.restore(undo), key: 'answers' });
   }
 
   /** The rows of the details panel she can correct, in order. */
@@ -175,7 +176,7 @@ export class AnswerEditor {
   confirm(p, { other = false } = {}) {
     const ans = this.feature.answerOf(p);
     if (!ans.labels.length) {
-      toast(ans.mine ? 'Your answer is already “no animal”' : 'No name to confirm: name the animal (N) or say there is none (Shift+N)', { icon: 'info' });
+      toast(ans.mine ? 'Your answer is already “no animal”' : 'No name to confirm: name the animal (N) or say there is none (Shift+N)', { icon: 'info', key: 'answers' });
       return Promise.resolve(false);
     }
     const names = ans.labels.map(countedText).join(', ');
@@ -235,7 +236,7 @@ export class AnswerEditor {
     const scope = this.scopeFor(p, other);
     const paths = this.pathsFor(p, scope);
     const undo = await this.feature.answers.revert(paths);
-    if (!undo.length) { toast('The identifier’s names are showing already', { icon: 'info' }); return false; }
+    if (!undo.length) { toast('The identifier’s names are showing already', { icon: 'info', key: 'answers' }); return false; }
     this.say('Back to the identifier’s names', undo.length, undo);
     return true;
   }
@@ -262,7 +263,7 @@ export class AnswerEditor {
   goNextToCheck() {
     const p = this.nextToCheck();
     if (p) this.goTo(p);
-    else toast('Every photo with an animal has your answer', { icon: 'check' });
+    else toast('Every photo with an animal has your answer', { icon: 'check', key: 'answers' });
   }
 
   // ---- the details panel ------------------------------------------------------------------

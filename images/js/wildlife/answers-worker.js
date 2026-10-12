@@ -12,6 +12,8 @@
  *   { id, op: 'save', file, records } -> { id }
  *        the whole answers file, written to a temporary file, flushed, and
  *        renamed over the old one, so a crash leaves the old file or the new.
+ *   { id, op: 'exLoad' | 'exSave', ... }
+ *        her examples' index and embeddings (examples.js; below).
  *
  * A file's key is its identity across moves, renames, copies and new
  * analysis: "<size>:<32 hex>", the hex the start of the SHA-256 of its first
@@ -60,9 +62,9 @@ function writeDurably(file, text) {
   const tmp = `${file}.tmp-${Date.now().toString(36)}`;
   const fd = fs.openSync(tmp, 'w');
   try {
-    fs.writeSync(fd, new TextEncoder().encode(text));
-    // brokit has no fsyncSync yet (GAPS.md): the rename alone keeps the old file or the new one whole.
-    if (typeof fs.fsyncSync === 'function') fs.fsyncSync(fd);
+    fs.writeSync(fd, text);
+    // On the disk before the rename, so a crash leaves the old file or the new one whole.
+    fs.fsyncSync(fd);
   } finally {
     fs.closeSync(fd);
   }
@@ -127,6 +129,53 @@ function save(m) {
   return { id: m.id };
 }
 
+// ---- her examples (examples.js) ----------------------------------------------------
+
+/**
+ * { op: 'exLoad', file } -> { entries, rows }: the examples index and its
+ * embeddings (one Float32Array; entry i's at entries[i].off, entries[i].dim
+ * floats). An index whose rows file is missing or short loads empty.
+ */
+function exLoad(m) {
+  let doc;
+  try { doc = JSON.parse(String(fs.readFileSync(m.file, 'utf-8'))); } catch (_) { return { id: m.id, entries: [], rows: new Float32Array(0) }; }
+  const entries = doc && Array.isArray(doc.entries) ? doc.entries : [];
+  let bytes;
+  try { bytes = fs.readFileSync(path.join(path.dirname(m.file), String(doc.rows || ''))); } catch (_) { bytes = null; }
+  if (!bytes) return { id: m.id, entries: [], rows: new Float32Array(0) };
+  const u8 = new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const rows = new Float32Array(Math.floor(u8.byteLength / 4));
+  new Uint8Array(rows.buffer).set(u8.subarray(0, rows.length * 4));
+  const ok = entries.filter((e) => e && typeof e.key === 'string' && e.off >= 0 && e.dim > 0 && e.off + e.dim <= rows.length);
+  return { id: m.id, entries: ok, rows };
+}
+
+/**
+ * { op: 'exSave', file, entries, rows } -> {}: the rows to a new file of
+ * their own (`examples-<time>.f32`), then the index naming it, then the old
+ * rows file removed: a crash anywhere leaves an index and the rows it names.
+ */
+function exSave(m) {
+  const dir = path.dirname(m.file);
+  fs.mkdirSync(dir, { recursive: true });
+  let old = '';
+  try { old = String(JSON.parse(String(fs.readFileSync(m.file, 'utf-8'))).rows || ''); } catch (_) { old = ''; }
+  const name = `examples-${Date.now().toString(36)}.f32`;
+  const rows = m.rows instanceof Float32Array ? m.rows : new Float32Array(m.rows || 0);
+  const fd = fs.openSync(path.join(dir, name), 'w');
+  try {
+    fs.writeSync(fd, new Uint8Array(rows.buffer, rows.byteOffset, rows.byteLength));
+    fs.fsyncSync(fd);
+  } finally {
+    fs.closeSync(fd);
+  }
+  writeDurably(m.file, `${JSON.stringify({ format: 'helm.images.examples', version: 1, rows: name, entries: m.entries })}\n`);
+  if (old && old !== name && !old.includes('/') && !old.includes('\\')) {
+    try { fs.unlinkSync(path.join(dir, old)); } catch (_) { /* gone already */ }
+  }
+  return { id: m.id };
+}
+
 // load and save run as they arrive, in order (synchronous), so a save never
 // waits behind a folder being hashed; ids answers when its hashes are done.
 self.onmessage = async (e) => {
@@ -136,6 +185,8 @@ self.onmessage = async (e) => {
     if (m.op === 'load') reply = load(m);
     else if (m.op === 'ids') reply = await ids(m);
     else if (m.op === 'save') reply = save(m);
+    else if (m.op === 'exLoad') reply = exLoad(m);
+    else if (m.op === 'exSave') reply = exSave(m);
     else reply = { id: m.id, error: `unknown op ${m.op}` };
   } catch (err) {
     reply = { id: m.id, error: String((err && err.message) || err) };

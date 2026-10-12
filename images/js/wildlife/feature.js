@@ -51,6 +51,7 @@ import { pathKey } from './records.js';
 import { Answers } from './answers.js';
 import { AnswerEditor, EDITOR_SETTINGS } from './editor.js';
 import { answerLabels, fold } from './mine.js';
+import { Examples } from './examples.js';
 import { Outlines } from './outlines.js';
 import { uncertainCrops, guessOf, countsText, sameBox } from './crops.js';
 import { formatDate } from '/lib/format.js';
@@ -121,9 +122,11 @@ export class WildlifeFeature {
     this.analysis = new Analysis({ cacheDir, onChange: () => this.analysisChanged() });
     this.isolate = viewer && viewHost ? new Isolate({ viewer, host: viewHost }) : null;
     this.outlines = viewer && viewHost ? new Outlines({ viewer, host: viewHost, feature: this }) : null;
-    this.lookalikes = { key: '', rows: [], refs: [] };   // her named crops' embeddings (examples())
     // Her answers win over the identifier's everywhere (answerOf); kept apart from the analysis.
     this.answers = new Answers({ dataDir, cacheDir, onChange: () => this.analysisChanged() });
+    // The crops she has named, across folders ("looks like your ..."); on the answers' worker.
+    this.examplesStore = new Examples({ dataDir, worker: this.answers.worker });
+    this.examplesQueued = false;
     this.editor = new AnswerEditor({ feature: this, settings, current, openDetails, goTo, shownItems });
     this.index = { names: null, index: null };   // nameIndex() over analysis.names
     this.detailsStale = false;
@@ -217,6 +220,7 @@ export class WildlifeFeature {
 
   analysisChanged() {
     this.cache.key = '';
+    if (this.active && this.folder.dir) this.syncExamples();
     this.showStatus();
     if (this.onItems) this.onItems();
     this.detailsChanged();
@@ -287,48 +291,65 @@ export class WildlifeFeature {
 
   // ---- her named crops, and the ones like them ---------------------------------------
 
-  /**
-   * The crops she has named in the folder (a box of a label of hers, or of
-   * a name she confirmed) with their embeddings: { rows: [Float32Array],
-   * refs: [{ path, label, time }] }. Kept until the analysis or her answers change.
-   */
-  examples() {
-    const a = this.analysis;
-    const key = `${a.version}|${this.answers.version}`;
-    if (this.lookalikes.key === key) return this.lookalikes;
-    const rows = [], refs = [];
-    for (const it of this.folder.items) {
-      if (!this.answers.of(it.path)) continue;
-      const rec = a.record(it.path);
-      if (!rec || rec.error || !Array.isArray(rec.animals)) continue;
-      for (const l of this.answerOf(it.path).labels) {
-        for (const box of l.boxes || []) {
-          const i = rec.animals.findIndex((x) => sameBox(x.box, box));
-          const emb = i >= 0 ? a.embeddingOf(it.path, i) : null;
-          if (emb) { rows.push(emb); refs.push({ path: it.path, label: l, time: rec.time }); }
-        }
-      }
-    }
-    this.lookalikes = { key, rows, refs };
-    return this.lookalikes;
+  /** Which classifier the crop embeddings come from: examples of another are never compared. */
+  embeddingModel() {
+    return this.stub ? 'stub' : this.settings.get('animalsModel');
   }
 
   /**
-   * The crop she has named that animal i of p looks most like, at
-   * LOOKALIKE_MIN or more (another photo's): { label, path, similarity,
-   * when } or null.
+   * Her examples (examples.js) made again for the open folder's photos whose
+   * crops are known: each animal of her answer on a box of the record, with
+   * the box's embedding. Coalesced: once after a burst of changes.
+   */
+  syncExamples() {
+    if (this.examplesQueued) return;
+    this.examplesQueued = true;
+    Promise.all([this.answers.load(), this.examplesStore.load()]).then(() => setTimeout(() => {
+      this.examplesQueued = false;
+      if (!this.active) return;
+      const a = this.analysis, model = this.embeddingModel(), photos = [];
+      for (const it of this.folder.items) {
+        const key = this.answers.keys.get(pathKey(it.path));
+        const rec = a.record(it.path);
+        if (!key || !rec || rec.error || !Array.isArray(rec.animals)) continue;
+        // Not yet known which crops it has: what the store holds for it stays.
+        if (rec.animals.length && !a.embeddings.has(pathKey(it.path))) continue;
+        const own = this.answers.of(it.path);
+        if (!own) { photos.push({ key, model, entries: null }); continue; }
+        const entries = [];
+        for (const l of this.answerOf(it.path).labels) {
+          for (const box of l.boxes || []) {
+            const i = rec.animals.findIndex((x) => sameBox(x.box, box));
+            const emb = i >= 0 ? a.embeddingOf(it.path, i) : null;
+            if (!emb) continue;
+            const e = { box: rec.animals[i].box.slice(), name: l.common || l.scientific, at: own.at, time: rec.time || null, file: it.name, emb };
+            if (l.rank) { e.scientific = l.scientific; e.rank = l.rank; }
+            entries.push(e);
+          }
+        }
+        photos.push({ key, model, entries });
+      }
+      this.examplesStore.sync(photos);
+    }, 0));
+  }
+
+  /**
+   * The crop she has named (in any folder: examples.js) that animal i of p
+   * looks most like, at LOOKALIKE_MIN or more, another photo's:
+   * { label, file, similarity, when } or null.
    */
   lookalike(p, i) {
     const wl = bro.vision.wildlife;
     const q = this.analysis.embeddingOf(p, i);
     if (!q || typeof wl.nearest !== 'function') return null;
-    const ex = this.examples();
-    const others = ex.refs.map((r, j) => j).filter((j) => pathKey(ex.refs[j].path) !== pathKey(p));
-    if (!others.length) return null;
-    const hit = wl.nearest(q, others.map((j) => ex.rows[j]), 1, { minSimilarity: LOOKALIKE_MIN })[0];
+    const own = this.answers.keys.get(pathKey(p));
+    const ex = this.examplesStore.like(this.embeddingModel(), q.length).filter((e) => e.key !== own);
+    if (!ex.length) return null;
+    const hit = wl.nearest(q, ex.map((e) => e.emb), 1, { minSimilarity: LOOKALIKE_MIN })[0];
     if (!hit) return null;
-    const ref = ex.refs[others[hit.index]];
-    return { label: ref.label, path: ref.path, similarity: hit.similarity, when: formatDate(ref.time) };
+    const e = ex[hit.index];
+    const label = answerLabels({ answer: { animals: [{ name: e.name, scientific: e.scientific, rank: e.rank }] } })[0];
+    return { label, file: e.file, similarity: hit.similarity, when: e.time ? formatDate(e.time) : 'another photo' };
   }
 
   /** A photo's names as its tile shows them ('Mallard, Great Egret'; '' for none). */
