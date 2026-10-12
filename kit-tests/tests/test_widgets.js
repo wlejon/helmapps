@@ -268,6 +268,18 @@ toast('Bye');
 advanceTime(5000);
 eq(document.querySelectorAll('.toast:not(.leaving)').length, 0, 'toasts leave on their own');
 
+// A key: one toast per source, the latest in the last one's place.
+let which = '';
+toast('Other');
+for (const n of ['one', 'two', 'three']) toast(`Saved ${n}`, { key: 'saves', action: 'Undo', onAction: () => { which = n; } });
+advanceTime(16);
+const live = () => Array.from(document.querySelectorAll('.toast:not(.leaving) .toast-text')).map((e) => e.textContent);
+eq(live(), ['Other', 'Saved three'], 'three saves are one toast beside the other source\'s');
+clickEl(document.querySelector('.toast[data-toast-key="saves"] .btn'));
+eq(which, 'three', 'its action is the latest\'s');
+advanceTime(7000);
+eq(document.querySelectorAll('.toast:not(.leaving)').length, 0, 'and they leave');
+
 // ---- Controls ---------------------------------------------------------------
 let sw = null;
 const s = new Switch({ onChange: (v) => { sw = v; } });

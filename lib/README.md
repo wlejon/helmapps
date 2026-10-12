@@ -53,9 +53,9 @@ carry one under a second line (`{ sub, meter }`).
 | `list.js` | `VirtualList` | Any collection: list with columns and sortable headers, an icon grid, or a sideways strip (`orientation: 'horizontal'`); selection, rubber band, keyboard, type-ahead, context menu, drag (and Alt+arrow) to reorder (`reorderable`, `onReorder`). Handles 100k items; a hidden list paints nothing. |
 | `menu.js` | `menu` (the `Menu` instance) | Context menus and drop-downs, with submenus and keyboard navigation. |
 | `dialog.js` | `Dialog`, `confirmDialog`, `alertDialog`, `promptDialog` | Modal questions. Promise-based; never `alert()`/`confirm()`/`prompt()`. |
-| `toast.js` | `toast` | Brief in-app messages with an optional Undo. |
+| `toast.js` | `toast` | Brief in-app messages with an optional Undo. `key`: one toast per source, a new one replacing the last in its place (a run of saves is one toast). |
 | `controls.js` | `Switch`, `Checkbox`, `Slider`, `Segmented`, `Select`, `Progress` | Form controls with `.el`, `set()`, `onChange`. |
-| `combobox.js` | `Combobox` | A text field with suggestions as you type (`suggest(text)` → items): arrows, Enter (Shift+Enter passed on), Tab completes, Escape; free text allowed. |
+| `combobox.js` | `Combobox` | A text field with suggestions as you type (`suggest(text)` → items): arrows, Enter (Shift+Enter passed on), Tab completes, Escape; free text allowed. For a short fixed list, bro's native `<input list>` + `<datalist>` also works; Combobox is for computed or fuzzy suggestions with details. |
 | `format.js` | `formatBytes`, `formatCount`, `formatNumber`, `formatPercent`, `formatTime`, `formatDate`, `formatDateLong`, `formatDuration`, `formatRelative` | Displaying values the same way everywhere. |
 | `files.js` | `userDirs`, `kindOf`, `mimeOf`, `iconFor`, `openFile`, `openApp`, `defaultAppFor`, `appsFor`, `addRecent`, `statOrNull`, `exists`, `isDirectory`, `isHidden`, path helpers | User folders, file kinds and icons, opening files with their default app. |
 | `tooltip.js` | `installTooltips` | `data-tip="…"` (and `data-keys`) on any element. `startApp` installs it. |
