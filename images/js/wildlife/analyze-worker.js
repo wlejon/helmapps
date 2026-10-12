@@ -5,13 +5,15 @@
  * dispose. bro.models is main-realm only, so the page finds the paths and
  * sends them.
  *
- *   { id, op: 'config', opts }   -> { id, config, hash, taxa }   reads files only, never weights;
- *                                   taxa: the lists' names of genera and up (readTaxa), for labels()
+ *   { id, op: 'config', opts }   -> { id, config, hash, taxa, names }   reads files only, never weights;
+ *                                   taxa: the lists' names of genera and up (readTaxa), for labels();
+ *                                   names: every name of the lists (nameEntries), for her corrections
  *   { id, op: 'open', opts }     -> { id, device, cached }  loads the models (once per opts)
  *   { id, op: 'analyze', image, source } -> { id, result }  analyze()'s answer, in source pixels
  *   { id, op: 'dispose' }        -> { id }                  frees the models
  *   opts: { detector, classifier, species, model, cacheDir }
- *     or, in a test only, { stub: table, taxa, maxClassify } (js/wildlife/stub.js)
+ *     or, in a test only, { stub: table, taxa, maxClassify, names } (js/wildlife/stub.js; names:
+ *     more species rows for the suggestions)
  *
  * Any request may answer { id, error } (a missing file answers it with `code`).
  */
@@ -35,6 +37,19 @@ function taxa(o) {
   try { return bro.vision.wildlife.readTaxa(o.species || []); } catch (_) { return {}; }
 }
 
+/** Every name of the lists (nameEntries), for her corrections' suggestions; a stub's from its table (and `names` rows). */
+function names(o) {
+  const wl = bro.vision.wildlife;
+  if (typeof wl.nameEntries !== 'function') return [];
+  try {
+    if (o.stub && (o.taxa || !o.species)) {
+      const rows = [...o.stub.flatMap((e) => e.species || []), ...(o.names || [])];
+      return wl.nameEntries([{ species: rows, taxa: o.taxa || {} }]);
+    }
+    return wl.nameEntries(o.species || []);
+  } catch (_) { return []; }
+}
+
 function open(o) {
   const key = JSON.stringify(o);
   if (analyzer && analyzer.key === key) return analyzer;
@@ -56,7 +71,7 @@ self.onmessage = (e) => {
   try {
     if (m.op === 'config') {
       const c = config(m.opts);
-      reply = { id: m.id, config: c, hash: configHash(c), taxa: taxa(m.opts) };
+      reply = { id: m.id, config: c, hash: configHash(c), taxa: taxa(m.opts), names: names(m.opts) };
     } else if (m.op === 'open') {
       const a = open(m.opts);
       reply = { id: m.id, device: a.device, cached: !!a.cached };

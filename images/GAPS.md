@@ -47,6 +47,40 @@ beyond saying so in the window. Kit-level gaps shared by every app are in
   pid/time name (`lib/test.js` `fixtureDir`).
 - **Belongs in:** brokit
 
+## No `<datalist>` suggestions
+- **Where:** bro (HTML)
+- **Expected:** `<input list=...>` with a `<datalist>` shows its options.
+- **Actual:** only the `HTMLDataListElement` name exists (no `input.list`,
+  no options, no popup). The name field uses the kit's `Combobox` instead,
+  which it would anyway: its matching is fuzzy and the lists are thousands
+  of names.
+- **Belongs in:** bro
+
+## brokit `fs` gaps met writing the answers store
+- **Where:** brokit (`fs`), bro (strings)
+- **Actual:** `fs.fsyncSync` is missing (the store writes temp + rename
+  and syncs only where it exists); `fs.writeSync(fd, string)` throws (it
+  takes a typed array, so the store encodes first);
+  `String.prototype.normalize('NFD')` returns the string unchanged, so
+  accents are not folded away in name matching (the species lists are
+  ASCII, so nothing shows it yet).
+- **Belongs in:** brokit, bro
+
+## Fixed while building corrections (your answers)
+- A key whose keydown the page cancelled still typed its character: N
+  opened the name field and an "n" landed in it. bro now drops the text
+  input of a cancelled keydown (tests/events/test_key_text_after_cancelled_keydown.js).
+- A press moved the focus before the page saw the mousedown, so a
+  suggestion list under the field could not keep the field focused: the
+  field blurred and the edit was cancelled before the click. bro now
+  dispatches mousedown first and moves the focus only as its default
+  action, as browsers do (tests/events/test_mousedown_prevent_focus.js).
+- `bro.vision.wildlife.nameEntries()` / `nameIndex()`: every name a person
+  can give an animal (species rows, their groups) and a matcher over them,
+  so the app does not carry its own copy of the lists' names.
+- The kit has a `Combobox` (`lib/combobox.js`): a text field with a list
+  of suggestions, free text allowed.
+
 ## Fixed while building Find Animals
 - `bro.vision.wildlife.locate()` without a species list now names the
   list as missing when `bro.models` has no `species` folder (bro d35b63cb).

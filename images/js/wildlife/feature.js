@@ -45,9 +45,12 @@ import { Progress } from '/lib/controls.js';
 import { formatBytes, formatNumber } from '/lib/format.js';
 import { Analysis } from './analysis.js';
 import { wildlifeSupported, canFetch, locateModels, bytesOf, ModelDownload } from './models.js';
-import { decorateTile, detailsSection, labelKey, labelText } from './labels.js';
+import { decorateTile, detailsSection, labelKey, labelText, countedText } from './labels.js';
 import { Isolate } from './isolate.js';
 import { pathKey } from './records.js';
+import { Answers } from './answers.js';
+import { AnswerEditor, EDITOR_SETTINGS } from './editor.js';
+import { answerLabels, fold } from './mine.js';
 
 export const WILDLIFE_SETTINGS = {
   findAnimals: { type: 'bool', default: true },
@@ -55,6 +58,7 @@ export const WILDLIFE_SETTINGS = {
   animalsModel: { type: 'string', default: 'bioclip-2' },  // bioclip-2 | bioclip
   // A list file in the species folder, or '' for bro.vision.wildlife's default lists.
   animalsSpeciesList: { type: 'string', default: '' },
+  ...EDITOR_SETTINGS,
 };
 
 /** The Animals filter that shows the photos with an animal but no name (filter is otherwise a label key). */
@@ -70,9 +74,12 @@ export class WildlifeFeature {
    * their labels changed; onDetails(): the details panel's photo may have new answers.
    * keep(): paths the filter must not take away (the photo on screen, the
    * strip's selection); hold(): true while nothing shown may go (Select
-   * Subject, Stabilize).
+   * Subject, Stabilize). dataDir: where her answers are kept (answers.js);
+   * current(): the photo on screen or selected; openDetails(): show the
+   * details panel; goTo(path): show a photo; shownItems(): what the grid shows.
    */
-  constructor({ settings, commands, folder, viewer, viewHost, mode, cacheDir, onItems, onDetails, keep = null, hold = null }) {
+  constructor({ settings, commands, folder, viewer, viewHost, mode, cacheDir, dataDir, onItems, onDetails, keep = null, hold = null,
+    current = () => '', openDetails = () => {}, goTo = () => {}, shownItems = () => [] }) {
     this.settings = settings;
     this.commands = commands;
     this.folder = folder;
@@ -92,9 +99,25 @@ export class WildlifeFeature {
     this.download = null;          // a ModelDownload while one is wanted
     this.seen = { dir: '', version: -1 };
     this.cache = { key: '', items: null };
-    this.answers = { version: -1, taxa: null, map: new Map() };   // answerOf's, per analysis version
+    this.known = null;             // answerOf's, per analysis and answers version
     this.analysis = new Analysis({ cacheDir, onChange: () => this.analysisChanged() });
     this.isolate = viewer && viewHost ? new Isolate({ viewer, host: viewHost }) : null;
+    // Her answers win over the identifier's everywhere (answerOf); kept apart from the analysis.
+    this.answers = new Answers({ dataDir, cacheDir, onChange: () => this.analysisChanged() });
+    this.editor = new AnswerEditor({ feature: this, settings, current, openDetails, goTo, shownItems });
+    this.index = { names: null, index: null };   // nameIndex() over analysis.names
+    this.detailsStale = false;
+    this.query = '';                               // the search field's text
+    this.searchInput = h('input', { type: 'search', placeholder: 'Search names', 'aria-label': 'Search names and files', spellcheck: 'false' });
+    this.searchInput.addEventListener('input', () => this.setQuery(this.searchInput.value));
+    this.searchInput.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape' && e.key !== 'Enter') return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === 'Escape' && this.searchInput.value) { this.searchInput.value = ''; this.setQuery(''); }
+      this.searchInput.blur();
+    });
+    this.searchEl = h('label.search-field.iv-search.hidden', icon('search'), this.searchInput);
 
     this.text = h('span.iv-animals-text.ellipsis');
     this.progress = new Progress(0);
@@ -129,6 +152,8 @@ export class WildlifeFeature {
       this.showStatus();
       return;
     }
+    // Her answers are found by each file's identity: read it for the folder's photos (in the background).
+    this.answers.setFolder(f.items.map((it) => it.path));
     const opts = this.analyzerOpts();
     if (!opts) {
       this.analysis.stop();
@@ -155,16 +180,18 @@ export class WildlifeFeature {
 
   stubOpts() {
     const s = this.stub;
-    return { stub: s.table, ...(s.taxa ? { taxa: s.taxa } : {}), ...(s.maxClassify ? { maxClassify: s.maxClassify } : {}) };
+    return { stub: s.table, ...(s.taxa ? { taxa: s.taxa } : {}), ...(s.maxClassify ? { maxClassify: s.maxClassify } : {}),
+      ...(s.names ? { names: s.names } : {}) };
   }
 
   /**
    * TEST ONLY: answer with js/wildlife/stub.js instead of the models
    * (requireModels: still look for them first; taxa: the names of genera
-   * and up, as a list's taxa map; maxClassify: boxes classified a photo).
+   * and up, as a list's taxa map; maxClassify: boxes classified a photo;
+   * names: more species rows for her corrections' suggestions).
    */
-  useStub(table, { requireModels = false, taxa = null, maxClassify = 0 } = {}) {
-    this.stub = { table, requireModels, taxa, maxClassify };
+  useStub(table, { requireModels = false, taxa = null, maxClassify = 0, names = null } = {}) {
+    this.stub = { table, requireModels, taxa, maxClassify, names };
     this.folderChanged({ force: true });
   }
 
@@ -172,7 +199,31 @@ export class WildlifeFeature {
     this.cache.key = '';
     this.showStatus();
     if (this.onItems) this.onItems();
+    this.detailsChanged();
+  }
+
+  /** The details panel's photo may show something new; not while she is typing a name there. */
+  detailsChanged() {
+    if (this.editor && this.editor.active) { this.detailsStale = true; return; }
+    this.detailsStale = false;
     if (this.onDetails) this.onDetails();
+  }
+
+  /** Whether she is typing a name for `file` in the details (it is not drawn again under her); another file's edit is dropped. */
+  editingFor(file) {
+    const ed = this.editor.editing;
+    if (!ed) return false;
+    if (pathKey(ed.path) === pathKey(file)) return true;
+    this.editor.abandon();
+    return false;
+  }
+
+  /** bro.vision.wildlife.nameIndex over the lists' names (her corrections' suggestions), or null. */
+  nameIndex() {
+    const names = this.analysis.names;
+    if (!names || !names.length || typeof bro.vision.wildlife.nameIndex !== 'function') return null;
+    if (this.index.names !== names) this.index = { names, index: bro.vision.wildlife.nameIndex(names) };
+    return this.index.index;
   }
 
   // ---- what is shown -----------------------------------------------------------------
@@ -184,25 +235,77 @@ export class WildlifeFeature {
    * animal). Kept until the analysis changes.
    */
   answerOf(p) {
-    const a = this.analysis;
-    if (this.answers.version !== a.version || this.answers.taxa !== a.taxa) {
-      this.answers = { version: a.version, taxa: a.taxa, map: new Map() };
+    const a = this.analysis, mine = this.answers;
+    const c = this.known;
+    if (!c || c.version !== a.version || c.taxa !== a.taxa || c.mine !== mine.version) {
+      this.known = { version: a.version, taxa: a.taxa, mine: mine.version, map: new Map() };
     }
     const k = pathKey(p);
-    const have = this.answers.map.get(k);
+    const have = this.known.map.get(k);
     if (have) return have;
     const rec = a.record(p), b = a.burstOf(p);
-    const labels = rec || b ? bro.vision.wildlife.labels(rec, b, { taxa: a.taxa }) : [];
+    const theirs = rec || b ? bro.vision.wildlife.labels(rec, b, { taxa: a.taxa }) : [];
+    let labels = theirs;
+    let animal = !!(b && b.animalCount > 0) || !!(rec && !rec.error && rec.animal);
+    let empty = !!rec && !rec.error && !animal;
+    // Her answer wins: her names (no animal: none), whatever the identifier said.
+    const own = mine.of(p);
+    if (own) {
+      labels = answerLabels(own, theirs);
+      animal = labels.length > 0;
+      empty = !animal;
+    }
     for (const l of labels) this.names.set(labelKey(l), labelText(l));
-    const animal = !!(b && b.animalCount > 0) || !!(rec && !rec.error && rec.animal);
-    const ans = { burst: b, labels, keys: new Set(labels.map(labelKey)), animal, empty: !!rec && !rec.error && !animal };
-    this.answers.map.set(k, ans);
+    const ans = { burst: b, labels, theirs, mine: own, keys: new Set(labels.map(labelKey)), animal, empty };
+    this.known.map.set(k, ans);
     return ans;
   }
 
   /** A photo's names as its tile shows them ('Mallard, Great Egret'; '' for none). */
   tagOf(p) {
-    return this.answerOf(p).labels.map(labelText).join(', ');
+    return this.answerOf(p).labels.map(countedText).join(', ');
+  }
+
+  /**
+   * A photo's names for another view (Select Subject, Stabilize, a status):
+   * [{ text, mine }], hers when she answered ('No animal' for none).
+   */
+  namesOf(p) {
+    if (!this.active || !p) return [];
+    const ans = this.answerOf(p);
+    if (ans.mine && ans.mine.answer.none) return [{ text: 'No animal', mine: true }];
+    return ans.labels.map((l) => ({ text: countedText(l), mine: !!l.mine }));
+  }
+
+  /** The status bar's words for the photo on screen: "Mallard ×4, Great Egret · yours". */
+  statusOf(p) {
+    const n = this.namesOf(p);
+    if (!n.length) return '';
+    return `${n.map((x) => x.text).join(', ')}${n[0].mine ? ' · yours' : ''}`;
+  }
+
+  // ---- search ------------------------------------------------------------------------
+
+  /** Show only the photos whose file name or animal names hold every word of `q`. */
+  setQuery(q) {
+    const next = fold(q);
+    if (this.searchInput.value !== q) this.searchInput.value = q;
+    if (next === this.query) return;
+    this.query = next;
+    this.cache.key = '';
+    if (this.onItems) this.onItems();
+  }
+
+  /**
+   * Whether a photo matches the search: the whole text inside its file name,
+   * or each word the start of a word of its file name or one of its names
+   * (common, scientific, hers): 'jay' finds Blue Jay, 'd_01' only d_01.jpg.
+   */
+  matches(it, labels) {
+    if (!this.query) return true;
+    if (fold(it.name).includes(this.query)) return true;
+    const words = fold([it.name, ...labels.flatMap((l) => [l.common, l.scientific, labelText(l)])].join(' ')).split(' ');
+    return this.query.split(' ').every((w) => words.some((h) => h.startsWith(w)));
   }
 
   /** The filter's name on the button and in the status bar. */
@@ -236,26 +339,31 @@ export class WildlifeFeature {
     if (this.hold && this.hold()) {
       if (!this.held) { this.held = new Set((this.lastShown || folderItems).map((it) => it.path)); this.heldSeq++; }
     } else this.held = null;
-    if (!this.active || (!a.results.size && !this.filter)) return (this.lastShown = folderItems);
+    if (!this.active || (!a.results.size && !this.filter && !this.query && !this.answers.size)) return (this.lastShown = folderItems);
     const showEmpty = this.settings.get('showNoAnimals');
     const keep = new Set(this.keep ? this.keep().filter(Boolean) : []);
-    const key = `${a.version}|${this.filter}|${showEmpty}|${this.folder.version}|${this.held ? this.heldSeq : ''}|${[...keep].join('\n')}`;
+    const key = `${a.version}|${this.answers.version}|${this.filter}|${this.query}|${showEmpty}|${this.folder.version}|` +
+      `${this.held ? this.heldSeq : ''}|${[...keep].join('\n')}`;
     if (this.cache.key === key && this.cache.src === folderItems) return (this.lastShown = this.cache.items);
     const out = [];
     for (const it of folderItems) {
-      const { burst: b, labels, keys, animal, empty } = this.answerOf(it.path);
+      const { burst: b, labels, keys, animal, empty, mine } = this.answerOf(it.path);
       const stays = keep.has(it.path) || (this.held && this.held.has(it.path));
       if (!stays) {
         if (this.filter === UNIDENTIFIED ? !(animal && !labels.length) : this.filter && !keys.has(this.filter)) continue;
         if (!this.filter && !showEmpty && empty) continue;
+        if (!this.matches(it, labels)) continue;
       }
       const top = labels[0];
+      const sure = (l) => (l.mine ? 'yours' : `${Math.round(l.score * 100)}%`);
       out.push({
         name: it.name, path: it.path,
-        tag: top ? labelText(top) : '',
+        tag: top ? countedText(top) : '',
         conf: top ? Math.round(top.score * 100) : 0,
+        mine: !!mine,
+        none: !!(mine && mine.answer.none),
         more: Math.max(0, labels.length - 1),
-        names: labels.map((l) => `${labelText(l)} · ${Math.round(l.score * 100)}%`).join(', '),
+        names: mine && mine.answer.none ? 'No animal · yours' : labels.map((l) => `${countedText(l)} · ${sure(l)}`).join(', '),
         burst: b && b.count > 1 && pathKey(b.first) === pathKey(it.path) ? b.count : 0,
       });
     }
@@ -312,7 +420,19 @@ export class WildlifeFeature {
     const rec = a.record(p);
     const target = rec && !rec.error && rec.width && this.isolate && this.mode() === 'image' && this.isolate.onScreen(p)
       ? { path: p, size: [rec.width, rec.height] } : null;
-    return detailsSection(rec, a.burstOf(p), { pending: !rec && a.dir === this.folder.dir && a.total > 0, taxa: a.taxa, target });
+    const ans = this.answerOf(p);
+    // Her answer first when she gave one (the identifier's below it, as it said); else the
+    // identifier's names, each hers to correct, with her one-key actions under them.
+    const hers = this.editor.section(p, ans, target);
+    const theirs = detailsSection(rec, a.burstOf(p), {
+      pending: !rec && a.dir === this.folder.dir && a.total > 0, taxa: a.taxa, target,
+      edit: hers ? null : this.editor.hook(p),
+      actions: hers || !rec || rec.error ? null : this.editor.actions(p, ans),
+      titles: hers ? { burst: 'Identifier · burst', photo: 'Identifier · this photo', alone: 'Identifier' } : null,
+    });
+    if (hers) return theirs ? h('div.iv-details-group', hers, theirs) : hers;
+    if (!rec || rec.error) return h('div.iv-details-group', this.editor.emptySection(p), theirs);
+    return theirs;
   }
 
   /** Show only the photos naming a taxon (its labelKey), UNIDENTIFIED, or '' for all. */
@@ -369,6 +489,7 @@ export class WildlifeFeature {
     shown(this.cancelBtn, cancel);
     // The Animals menu, once there is anything to filter by.
     shown(this.filterBtn, on && (this.analysis.results.size > 0 || !!this.filter));
+    shown(this.searchEl, on);
     this.filterLabel.textContent = this.filterName() || 'Animals';
     this.filterBtn.classList.toggle('active', !!this.filter);
   }
@@ -405,6 +526,9 @@ export class WildlifeFeature {
     const browsing = () => this.active && (this.mode() === 'grid' || this.mode() === 'image') && !this.holding();
     const a = this.analysis;
     return [
+      ...this.editor.commandList({ browsing }),
+      { id: 'animals-search', label: 'Search Names', icon: 'search', keys: ['Mod+F'], enabled: browsing,
+        run: () => { this.searchInput.focus(); this.searchInput.select(); } },
       { id: 'animals-menu', label: 'Animals', icon: 'filter', enabled: () => browsing() && (a.results.size > 0 || !!this.filter),
         run: () => this.showMenu() },
       { id: 'animals-filter', label: 'Show Species', enabled: browsing, run: (key) => this.setFilter(key) },

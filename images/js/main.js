@@ -84,7 +84,7 @@ const viewer = new Viewer({
   onDraw: () => { if (burst) burst.tool.draw(); if (wild && wild.isolate) wild.isolate.draw(); },
 });
 viewer.el.dataset.bg = settings.get('background');
-const details = new Details({ extra: (file) => (wild ? wild.details(file) : null) });
+const details = new Details({ extra: (file) => (wild ? wild.details(file) : null), busy: (file) => !!wild && wild.editingFor(file) });
 const decoder = new Decoder({
   inUse: (pic) => viewer.pic === pic,
   onFull: (pic) => { if (viewer.pic === pic) viewer.schedule(); },
@@ -107,6 +107,8 @@ const grid = new VirtualList({
   padding: 0,
   key: (it) => it.path,
   label: (it) => it.name,
+  // Letters are the app's shortcuts (N names an animal, Y confirms, ...), not a jump by file name.
+  typeAhead: false,
   render: cellRenderer(thumbs, cells, (it, el) => wild.decorate(it, el)),
   onActivate: (items) => items[0] && openImage(items[0].path),
   onSelectionChange: (items) => {
@@ -195,6 +197,12 @@ burst = new BurstFeature({
 wild = new WildlifeFeature({
   settings, commands, folder, viewer, viewHost: viewArea, mode: () => state.mode,
   cacheDir: (typeof bro !== 'undefined' && bro.app && bro.app.cacheDir) || path.join(os.tmpdir(), 'helm-images'),
+  // Her answers are hers to keep: the data dir, never the cache.
+  dataDir: (typeof bro !== 'undefined' && bro.app && bro.app.dataDir) || path.join(os.homedir(), '.local', 'share', 'helm.images'),
+  current: () => (state.mode === 'image' || state.mode === 'grid' ? state.path : ''),
+  openDetails: () => { if (!settings.get('showDetails')) toggleSetting('showDetails'); },
+  goTo: (p) => goTo(p),
+  shownItems: () => shownItems(),
   onItems: () => itemsChanged(),
   onDetails: () => { if (settings.get('showDetails')) details.refresh(state.path); },
   // The filter never takes away the photo on screen or the frames selected around it,
@@ -280,7 +288,8 @@ commands.addAll([
 ]);
 
 // Buttons that act on the image on screen hide in the folder grid (js/chrome.js).
-const { titleEl, zoomButton, imageOnly, burstOnly, notBurst } = buildToolbar(toolbar, commands, { extra: wild.filterBtn });
+const { titleEl, zoomButton, imageOnly, burstOnly, notBurst } = buildToolbar(toolbar, commands,
+  { extra: h('div.iv-toolbar-animals', wild.searchEl, wild.filterBtn) });
 
 function toggleSetting(key) {
   settings.set(key, !settings.get(key));
@@ -344,6 +353,7 @@ function updateStatus() {
   const count = n === all ? formatCount(n, 'image') : `${formatNumber(n)} of ${formatCount(all, 'image')}`;
   if (m === 'grid') status.text.textContent = folder.error ? `Cannot read this folder: ${folder.error}` : count;
   else if (m === 'image' && state.error) status.text.textContent = state.error;
+  else if (m === 'image') status.text.textContent = wild.statusOf(state.path);
   else if (m === 'burst') status.text.textContent = burst.statusText();
   else status.text.textContent = '';
   for (const k of ['dims', 'zoom', 'pos']) status[k].classList.toggle('hidden', !status[k].textContent);
@@ -551,6 +561,17 @@ function step(dir) {
 function goIndex(i) {
   const it = shownItems()[i];
   if (it && it.path !== state.path) openImage(it.path);
+}
+
+/** Show a photo where she is: selected in the grid, else on screen. */
+function goTo(p) {
+  if (state.mode === 'grid') {
+    state.path = p;
+    grid.select([p]);
+    grid.focus();
+    updateStatus();
+    if (settings.get('showDetails')) details.show(p, null);
+  } else openImage(p);
 }
 
 // ---- file actions ------------------------------------------------------------------------

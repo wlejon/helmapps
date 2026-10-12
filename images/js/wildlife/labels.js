@@ -22,18 +22,21 @@ import { h } from '/lib/dom.js';
 import { icon } from '/lib/icons.js';
 import { formatPercent, formatNumber } from '/lib/format.js';
 import { section } from '../details.js';
+import { labelKey } from './mine.js';
 
 const path = require('path');
 
-/** A label's key: the filter and the counts tell taxa apart by rank and scientific name. */
-export const labelKey = (l) => `${l.rank}:${l.scientific}`;
+export { labelKey };
 
-/** A label's text: "Mallard", "Darners (Aeshnidae)". */
+/** A label's text: "Mallard", "Darners (Aeshnidae)"; her own words as she wrote them. */
 export const labelText = (l) => bro.vision.wildlife.formatLabel(l);
 
-/** Put an item's tags on a grid tile (or take them off). */
+/** A label's text with its count, when she gave one: "Mallard ×4". */
+export const countedText = (l) => (l.count > 1 ? `${labelText(l)} ×${l.count}` : labelText(l));
+
+/** Put an item's tags on a grid tile (or take them off). Her answer shows a quiet person mark where a score would be. */
 export function decorateTile(item, el) {
-  const show = !!(item.tag || item.burst);
+  const show = !!(item.tag || item.burst || item.none);
   if (!show) {
     if (el._tags) el._tags.classList.add('hidden');
     return;
@@ -45,9 +48,15 @@ export function decorateTile(item, el) {
   el._tags.classList.remove('hidden');
   const parts = [];
   if (item.tag) {
-    parts.push(h('span.iv-tag', { title: item.names || `${item.tag} · ${item.conf}%` },
-      h('span.iv-tag-name.ellipsis', item.tag), h('span.iv-tag-conf.num', `${item.conf}%`)));
+    const sure = item.mine
+      ? h('span.iv-tag-mine', { title: 'Your answer' }, icon('user', 'sm'))
+      : h('span.iv-tag-conf.num', `${item.conf}%`);
+    parts.push(h(`span.iv-tag${item.mine ? '.mine' : ''}`, { title: item.names || `${item.tag} · ${item.conf}%` },
+      h('span.iv-tag-name.ellipsis', item.tag), sure));
     if (item.more) parts.push(h('span.iv-tag.iv-tag-more.num', { title: item.names }, `+${item.more}`));
+  } else if (item.none) {
+    parts.push(h('span.iv-tag.mine', { title: 'Your answer: no animal' }, h('span.iv-tag-name.ellipsis', 'No animal'),
+      h('span.iv-tag-mine', icon('user', 'sm'))));
   }
   if (item.burst) parts.push(h('span.iv-tag.iv-tag-burst.num', { title: `A burst of ${item.burst} photos` }, icon('layers', 'sm'), String(item.burst)));
   el._tags.replaceChildren(...parts);
@@ -91,10 +100,12 @@ export function droppedText(rec) {
  * (rank and scientific name, frames of the burst), hoverable and clickable
  * when it has boxes in the photo on screen.
  */
-function animalItem({ name, score = null, meta = '', guess = '', boxes = [], target = null, dim = false }) {
+export function animalItem({ name, score = null, meta = '', guess = '', boxes = [], target = null, dim = false, mark = null,
+  edit = null, ref = null }) {
   const hit = !!(target && boxes.length);
   const el = h(`div.iv-animal${hit ? '.iv-animal-hit' : ''}${dim ? '.dim' : ''}`,
-    h('div.iv-animal-row', h('span.iv-animal-name.ellipsis', name), score != null ? h('span.iv-animal-score.num', pct(score)) : null),
+    h('div.iv-animal-row', h('span.iv-animal-name.ellipsis', name),
+      score != null ? h('span.iv-animal-score.num', pct(score)) : null, mark),
     meta ? h('div.iv-animal-meta.num', meta) : null,
     guess ? h('div.iv-animal-guess.num', guess) : null);
   el.title = [name, meta, guess].filter(Boolean).join(' · ');
@@ -102,6 +113,8 @@ function animalItem({ name, score = null, meta = '', guess = '', boxes = [], tar
     el._animal = { path: target.path, size: target.size, boxes };
     el.dataset.animal = `${target.path}|${JSON.stringify(boxes)}`;
   }
+  // Her corrections (editor.js): the name edits in place, the row confirms and removes.
+  if (edit && ref) edit(el, ref);
   return el;
 }
 
@@ -120,40 +133,46 @@ function animalSection(title, animals, rows) {
  * photo on screen ({ path, size: [w, h] of its record }) or null when its
  * animals cannot be isolated (the grid).
  */
-export function detailsSection(rec, burst, { pending = false, taxa = {}, target = null } = {}) {
-  if (!rec) return pending ? section('Animals', [['Status', 'Not looked at yet']]) : null;
-  if (rec.error) return section('Animals', [['Status', `Could not be read (${rec.error})`]]);
+export function detailsSection(rec, burst, { pending = false, taxa = {}, target = null, edit = null, actions = null,
+  titles = null } = {}) {
+  const t = { burst: 'Burst', photo: 'This photo', alone: 'Animals', ...(titles || {}) };
+  if (!rec) return pending ? section(t.alone, [['Status', 'Not looked at yet']]) : null;
+  if (rec.error) return section(t.alone, [['Status', `Could not be read (${rec.error})`]]);
   const wl = bro.vision.wildlife;
   const opts = { taxa };
   const parts = [];
   const meta = (l, extra) => [l.rank === 'species' ? l.scientific : RANK_NAMES[l.rank], ...extra].filter(Boolean).join(' · ');
+  // The names a photo shows are its burst's when the burst has any, else its own:
+  // those rows are the ones she corrects (ref.index into them); a crop no rank names adds one.
+  let named = false;
   if (burst && burst.count > 1) {
     const shown = wl.labels(rec, burst, opts);
     const fromBurst = shown.length && shown[0].from === 'burst' ? shown : [];
-    const items = fromBurst.map((l) => animalItem({
-      name: labelText(l), score: l.score, boxes: l.boxes, target,
+    named = fromBurst.length > 0;
+    const items = fromBurst.map((l, index) => animalItem({
+      name: labelText(l), score: l.score, boxes: l.boxes, target, edit, ref: { index, label: l },
       meta: meta(l, [l.frames ? `${l.frames} of ${burst.count} frames` : '',
         l.boxes.length ? (l.boxes.length > 1 ? `${l.boxes.length} here` : '') : 'not in this photo']),
     }));
     const s = burst.species;
     if (!items.length && burst.animalCount > 0) {
-      items.push(animalItem({ name: 'Not identified', guess: s ? `Possibly ${s.common} ${pct(s.share)}` : '' }));
+      items.push(animalItem({ name: 'Not identified', guess: s ? `Possibly ${s.common} ${pct(s.share)}` : '', edit, ref: { add: true } }));
     }
-    parts.push(animalSection('Burst', items, [
+    parts.push(animalSection(t.burst, items, [
       ['Animals', burst.animalCount ? '' : 'None found'],
       ['Photos', `${burst.count} over ${burst.durationS.toFixed(1)} s`],
       ['Sharpest frame', burst.keeper === rec.path ? 'This one' : path.basename(burst.keeper)],
     ]));
   }
   // This photo's own: every label, then each crop no rank is sure of.
-  const own = wl.labels(rec, null, opts).map((l) => animalItem({
-    name: labelText(l), score: l.score, boxes: l.boxes, target,
+  const own = wl.labels(rec, null, opts).map((l, index) => animalItem({
+    name: labelText(l), score: l.score, boxes: l.boxes, target, edit: named ? null : edit, ref: { index, label: l },
     meta: meta(l, [l.boxes.length > 1 ? `${l.boxes.length} here` : '']),
   }));
   for (const crop of cropsOf(rec)) {
     if (wl.labels({ animal: true, animals: [crop] }, null, opts).length) continue;
     own.push(animalItem({
-      name: 'Not identified', boxes: crop.box ? [crop.box] : [], target,
+      name: 'Not identified', boxes: crop.box ? [crop.box] : [], target, edit, ref: { add: true },
       meta: crop.label ? crop.label.replace(/^an? /, '') : '',
       guess: `Possibly ${crop.species.map((sp) => `${sp.common} ${pct(sp.score)}`).join(', ')}`,
     }));
@@ -167,6 +186,8 @@ export function detailsSection(rec, burst, { pending = false, taxa = {}, target 
   }
   rows.push(['Sharpness', [sharpText(rec.sharpness.subject) && `subject ${sharpText(rec.sharpness.subject)}`,
     sharpText(rec.sharpness.frame) && `frame ${sharpText(rec.sharpness.frame)}`].filter(Boolean).join(', ')]);
-  parts.push(animalSection(parts.length ? 'This photo' : 'Animals', own, rows));
+  parts.push(animalSection(parts.length ? t.photo : t.alone, own, rows));
+  // Her one-key actions (confirm, add, no animal) under the names she would correct.
+  if (actions) (parts[0].querySelector('.iv-animals-list') || parts[0].querySelector('.iv-details-title')).after(actions);
   return h('div.iv-details-group', ...parts);
 }

@@ -38,6 +38,13 @@ export const DARNER = { color: [40, 200, 200], label: 'a dragonfly',
     { common: 'Lance-tipped Darner', scientific: 'Aeshna constricta', score: 0.2, class: 'Insecta', order: 'Odonata', family: 'Aeshnidae' }] };
 export const SPARROW = { color: [200, 160, 110], label: 'a bird',
   species: [{ common: 'House Sparrow', scientific: 'Passer domesticus', score: 0.93, ...bird('Passeriformes', 'Passeridae') }] };
+/** A spider the stub is sure of (her corrections' "next to check" never lands on one). Not in TABLE. */
+export const SPIDER = { color: [140, 20, 170], label: 'a spider',
+  species: [{ common: 'Marbled Orbweaver', scientific: 'Araneus marmoreus', score: 0.93, class: 'Arachnida', order: 'Araneae', family: 'Araneidae' }] };
+/** More rows for the suggestions of her corrections (useStub's names): ducks, darners and a spider. */
+export const MORE_NAMES = [...MALLARD.species, ...DARNER.species, ...SPIDER.species,
+  { common: 'Summer Tanager', scientific: 'Piranga rubra', class: 'Aves', order: 'Passeriformes', family: 'Cardinalidae' }];
+
 /** The names of genera and up, as a species list's taxa map. */
 export const TAXA = { Aeshnidae: { rank: 'family', common: 'Darners' }, Anatidae: { rank: 'family', common: 'Ducks' } };
 

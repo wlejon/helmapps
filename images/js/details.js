@@ -15,12 +15,19 @@ const fs = require('fs');
 const path = require('path');
 
 export class Details {
-  constructor({ extra = null } = {}) {
+  /**
+   * extra(file): a feature's sections for the file (or null); busy(file):
+   * true while something in the panel is being typed into for that file
+   * (her correction of an animal's name), so the panel is not drawn again
+   * under her until refresh() says it may.
+   */
+  constructor({ extra = null, busy = null } = {}) {
     this.body = h('div.iv-details-body');
     this.el = h('aside.iv-details',
       h('div.iv-details-head', h('div.micro', 'Details')),
       this.body);
     this.extra = extra;
+    this.busy = busy;
     this.shownFor = null;
     this.stat = null;
     this.last = null;            // [file, pic, st] as last drawn
@@ -59,6 +66,7 @@ export class Details {
   }
 
   render(file, pic, st) {
+    if (this.busy && this.busy(file)) { this.last = [file, pic, st]; return; }
     const f = formatOf(file);
     const rows = [
       ['Name', path.basename(file)],

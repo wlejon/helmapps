@@ -7,6 +7,7 @@
  *   a.results   Map pathKey -> record (records.js; a.record(path) finds one)
  *   a.burstOf(path)   bro.vision.wildlife.groupBursts' burst holding it, or null
  *   a.taxa            the species lists' common names of genera and up (labels()' taxa)
+ *   a.names           every name of the lists (bro.vision.wildlife.nameEntries)
  *   a.progress()      { state, done, total, error }
  *   a.pause(); a.resume(); a.stop();
  *
@@ -57,6 +58,7 @@ export class Analysis {
     this.optsKey = '';
     this.hash = '';
     this.taxa = {};          // the species lists' names of genera and up (labels())
+    this.names = [];         // every name of the lists (nameEntries), for her corrections
     this.opened = '';        // the opts key the models were loaded with
     this.results = new Map();
     this.bursts = [];
@@ -114,6 +116,7 @@ export class Analysis {
         if (gen !== this.gen) return;
         this.hash = c.hash;
         this.taxa = c.taxa || {};
+        this.names = c.names || [];
       }
       if (gen !== this.gen) return;
       // Records not written yet go first: the store worker takes requests in order.

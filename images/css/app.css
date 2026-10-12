@@ -109,6 +109,33 @@
 .iv-animal-score { flex: none; color: var(--t3); }
 .iv-animal-meta { font-size: var(--fs-cap); color: var(--t3); overflow-wrap: anywhere; }
 .iv-animal-guess { font-size: var(--fs-cap); color: var(--t4); overflow-wrap: anywhere; }
+
+/* Her corrections (js/wildlife/editor.js): a name is a click to correct, a
+   row's check and cross show on hover or focus, her answer is marked quietly. */
+.iv-animal[data-edit] { outline: none; }
+.iv-animal[data-edit]:focus-visible, .iv-animal[data-edit]:focus { background: var(--well-2); }
+.iv-animal-edit { flex: 0 1 auto; cursor: text; }
+.iv-animal-edit:hover { color: var(--accent-text); }
+.iv-animal-row .iv-animal-score { margin-left: auto; }
+.iv-animal-acts { display: flex; gap: 2px; flex: none; margin-left: auto; opacity: 0; align-self: center; transition: opacity var(--d-state) var(--ease-std); }
+.iv-animal-score + .iv-animal-acts, .iv-animal-mine + .iv-animal-acts { margin-left: 0; }
+.iv-animal:hover .iv-animal-acts, .iv-animal:focus .iv-animal-acts, .iv-animal:focus-within .iv-animal-acts { opacity: 1; }
+.iv-animal-act { width: 20px; height: 20px; }
+.iv-animal-count { flex: none; color: var(--t2); }
+.iv-animal-mine { flex: none; display: inline-flex; align-items: center; gap: 2px; margin-left: auto; color: var(--t4); font-size: var(--fs-cap); }
+.iv-animal-mine .icon { width: 12px; height: 12px; }
+.iv-animal.editing { background: var(--well); }
+.iv-animal.editing .combobox { flex: 1; }
+.iv-animal.editing .field { height: 26px; }
+.iv-answer-hint { font-size: var(--fs-cap); color: var(--t4); }
+.iv-answer-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1); }
+.iv-answer-actions .btn.small { height: 22px; }
+.iv-answer-scope { flex-basis: 100%; }
+.iv-answer-scope button { flex: 1; height: 22px; font-size: var(--fs-cap); }
+.iv-tag.mine .iv-tag-mine { display: inline-flex; flex: none; color: var(--t4); }
+.iv-tag.mine .iv-tag-mine .icon { width: 11px; height: 11px; }
+.iv-toolbar-animals { display: flex; align-items: center; gap: var(--s2); min-width: 0; }
+.iv-search { width: 180px; height: 26px; }
 /* Everything but the animal darkened, over the photo; it lets the pointer through. */
 .iv-isolate { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
 

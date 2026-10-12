@@ -130,6 +130,48 @@ are grouped into bursts (`groupBursts`).
 - Select Subject (S) selects the photo's Find Animals burst in the strip
   when it has one, so Stabilize's frames are the bursts the grid shows.
 
+### Your answers
+
+The identifier is a first pass; whoever took the photos is the answer
+sheet. Her answer replaces the identifier's for that photo everywhere: the
+Animals menu and its counts, the search, the details, the tile tags and the
+status bar. It is marked quietly as hers (a person mark on the tile,
+"yours" in the details) and is never overwritten by analysing again or by
+a changed model, list or setting.
+
+| Key | |
+|---|---|
+| N, or a click on a name | Correct the name: a field with suggestions from every species list (common and scientific names) and the groups ("Darners (Aeshnidae)"); prefixes, words in any order and one typo match. Free text is kept as typed. "4 Mallard" is four of them. Enter saves, Escape cancels, Tab completes. |
+| F2 | The same on the focused animal row |
+| Y, or a row's check | The shown names are correct (*Correct* in the details) |
+| A | Add an animal |
+| X, or a row's cross | Remove this one (her answer keeps the rest) |
+| Shift+N | No animal in this photo |
+| U | Next to check: the next photo with an animal and no answer of hers (never one with a spider) |
+| Mod+F | Search by file name or any name |
+
+*Revert to identifier* (in the details) drops her answer. Every change is a
+toast with Undo. In a burst the details offer *This photo* or *Whole burst*;
+Enter takes the one chosen, Shift+Enter (Shift+Y for a confirm) the other,
+and her last choice is remembered (`answerScope`).
+
+Her answers are in `<bro.app.dataDir>/wildlife/answers.json` (not the cache
+dir): `{ format: 'helm.images.answers', version: 1, answers: [record] }`,
+written as a temporary file and a rename. A record is
+
+    { key, name, answer: { animals: [{ name, scientific?, rank?, count? }], none?: true },
+      confirmed?: true, by: 'user', at, scope: 'photo' | 'burst' }
+
+keyed by the file, not its path: `<size>:<SHA-256 of the first and last 64
+KiB>` (first 32 hex digits), so a folder moved or copied keeps its answers.
+The path to key index is in the cache dir (`wildlife/file-keys.json`); a
+file is hashed again only when its size or mtime changed. A file that
+cannot be read is kept beside it (`answers.json.unreadable-<time>`), never
+written over.
+
+Spiders show in the grid as any other animal but are never highlighted,
+and Next to check skips them (Araneae, or Arachnida generally).
+
 The models come from `bro.models` (`owlv2`, `bioclip-2`, and the `species`
 folder holding `upper-midwest.json`, `upper-midwest-herps/`,
 `upper-midwest-arthropods/` and `pets/`). Where one is missing, the status
@@ -233,6 +275,8 @@ worker (`js/burst/track-worker.js`), previews and export on another
 | `js/wildlife/analysis.js` | One folder's analysis: cache, queue, the workers, bursts (`groupBursts`) |
 | `js/wildlife/models.js` | Which models, where (`bro.models`), and downloading the missing ones |
 | `js/wildlife/records.js` / `labels.js` | The record, its cache file and settings hash; the tile tags and the details sections |
+| `js/wildlife/answers.js` / `answers-worker.js` | Her answers: the store in the data dir, file keys, writing it durably |
+| `js/wildlife/editor.js` / `mine.js` | Correcting names in the details (the commands, the field, burst scope); her answer as labels, name text, spiders |
 | `js/wildlife/isolate.js` / `isolate-worker.js` | An animal isolated on hover (soft box, then SAM 2.1's mask) and zoomed to on a click |
 | `js/wildlife/store-worker.js` / `decode-worker.js` / `analyze-worker.js` | The cache, decoding and sharpness, the models |
 | `js/wildlife/stub.js` | TEST ONLY: a colour key standing in for the models (`app.wildlife.useStub`) |
@@ -265,7 +309,11 @@ worker (`js/burst/track-worker.js`), previews and export on another
 `test_animals.js`, `test_animals_multi.js` (several animals a photo and a
 burst, names above species, "+N more", isolating and zooming to an animal
 with a SAM stand-in) and `test_animals_download.js` drive Find Animals with
-the test stub; `test_animals_models.js` runs the real models and skips without
+the test stub, as do `test_animals_answers.js` (correcting: names, counts,
+add, remove, no animal, confirm, revert, burst scope, a restart through
+`answers_restart.js`) and `test_animals_answers_more.js` (groups mixing
+guesses and her answers, counts, search, tiles, Next to check and spiders,
+analysing again, a copied folder); `test_animals_models.js` runs the real models and skips without
 them (`BRO_MODELS=<folder with owlv2, bioclip-2, species> scripts/run_tests.sh
 images animals`). `IV_PERF_DIR=<photos> IV_PERF_ANIMALS=1` makes `test_perf`
 also time Find Animals over a real folder.
