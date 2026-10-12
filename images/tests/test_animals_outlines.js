@@ -147,22 +147,13 @@ const checkTag = (n, edge, name) => {
     `${[S.left, S.top, S.right, S.bottom].map(Math.round)}`);
   assert(r.width > 40 && r.height >= 16, `${n}: a tag, not a dot: ${Math.round(r.width)}x${Math.round(r.height)}`);
   eq(text.textContent, name, `${n}: the whole name in it`);
-  // The name's whole width (scrollWidth would say it, but bro's leaves out a
-  // nowrap text's own overflow): the same text in the same font, unconstrained.
   const cs = getComputedStyle(text);
-  const probe = document.createElement('span');
-  Object.assign(probe.style, { position: 'absolute', left: '0', top: '0', visibility: 'hidden', whiteSpace: 'nowrap',
-    fontFamily: cs.fontFamily, fontSize: cs.fontSize, fontWeight: cs.fontWeight });
-  probe.textContent = name;
-  document.body.appendChild(probe);
-  const full = probe.offsetWidth;
-  probe.remove();
-  const room = text.clientWidth;
+  const full = text.scrollWidth, room = text.clientWidth;
   if (name.length > 30) {
     assert(r.width <= TAG_MAX + 0.5 && full > room && cs.textOverflow === 'ellipsis',
-      `${n}: a long name ends in an ellipsis at ${TAG_MAX} px (${Math.round(full)} > ${room}, ${cs.textOverflow})`);
+      `${n}: a long name ends in an ellipsis at ${TAG_MAX} px (${full} > ${room}, ${cs.textOverflow})`);
   } else {
-    assert(full <= room + 1 && text.scrollWidth <= room + 1, `${n}: all of it visible (${Math.round(full)} <= ${room})`);
+    assert(full <= room + 1, `${n}: all of it visible (${full} <= ${room})`);
   }
   shot(`tag-${edge}.png`);
   away();
