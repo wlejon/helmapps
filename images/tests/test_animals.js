@@ -115,7 +115,8 @@ waitFor(() => /Not identified/.test(document.querySelector('.iv-details').textCo
 const frog = detailAnimals();
 eq(frog.length, 1, 'one animal, a burst of one has no burst section');
 eq([frog[0].name, frog[0].score, frog[0].meta], ['Not identified', '', 'frog'], 'no name, what the detector called it');
-eq(frog[0].guess, 'Possibly Green Frog 50%, American Toad 30%', 'the guesses');
+// Of the frog box's classes, renormalised there (0.5 and 0.3 of 0.8).
+eq(frog[0].guess, 'Possibly Green Frog 63%, American Toad 38%', 'the guesses');
 assert(frog[0].hit, 'it isolates like a named one');
 assert(!/Lithobates clamitans/.test(document.querySelector('.iv-details').textContent), 'no scientific name for a guess');
 press('mod+i');

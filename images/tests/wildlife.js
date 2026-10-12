@@ -41,6 +41,18 @@ export const SPARROW = { color: [200, 160, 110], label: 'a bird',
 /** A spider the stub is sure of (her corrections' "next to check" never lands on one). Not in TABLE. */
 export const SPIDER = { color: [140, 20, 170], label: 'a spider',
   species: [{ common: 'Marbled Orbweaver', scientific: 'Araneus marmoreus', score: 0.93, class: 'Arachnida', order: 'Araneae', family: 'Araneidae' }] };
+/** A box the detector called a bird that the classifier is unsure of, its ranking over every species leaning to mammals and a turtle. Not in TABLE. */
+export const ODD_BIRD = { color: [200, 120, 220], label: 'a bird',
+  species: [{ common: 'American Dipper', scientific: 'Cinclus mexicanus', score: 0.58, ...bird('Passeriformes', 'Cinclidae') },
+    { common: 'North American Beaver', scientific: 'Castor canadensis', score: 0.11, class: 'Mammalia', order: 'Rodentia', family: 'Castoridae' },
+    { common: 'North American River Otter', scientific: 'Lontra canadensis', score: 0.064, class: 'Mammalia', order: 'Carnivora', family: 'Mustelidae' },
+    { common: 'Spotted Sandpiper', scientific: 'Actitis macularius', score: 0.05, ...bird('Charadriiformes', 'Scolopacidae') },
+    { common: 'Spiny Softshell Turtle', scientific: 'Apalone spinifera', score: 0.03, class: 'Testudines', order: 'Testudines', family: 'Trionychidae' },
+    { common: 'Virginia Rail', scientific: 'Rallus limicola', score: 0.0001, ...bird('Gruiformes', 'Rallidae') }] };
+/** A bird whose name is far longer than a name tag. Not in TABLE. */
+export const LONG = { color: [235, 150, 30], label: 'a bird',
+  species: [{ common: 'Exceptionally Long Named Northern Marsh Whistling Duck', scientific: 'Dendrocygna longissima', score: 0.95,
+    ...bird('Anseriformes', 'Anatidae') }] };
 /** More rows for the suggestions of her corrections (useStub's names): ducks, darners and a spider. */
 export const MORE_NAMES = [...MALLARD.species, ...DARNER.species, ...SPIDER.species,
   { common: 'Summer Tanager', scientific: 'Piranga rubra', class: 'Aves', order: 'Passeriformes', family: 'Cardinalidae' }];

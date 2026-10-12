@@ -33,6 +33,8 @@ const dir = fixtureDir({
 });
 const W = app.wildlife;
 W.useStub(stubTable([...TABLE, FROG]), { taxa: TAXA, names: MORE_NAMES });
+// Every outline shown (off by default: test_animals_outlines).
+app.settings.set('showOutlines', true);
 app.openPath(dir);
 waitFor(() => app.state.mode === 'grid' && app.folder.items.length === 6, 'the folder');
 analysed(app, waitFor);
@@ -67,7 +69,8 @@ eq(menuCount('Uncertain'), '3', 'the burst\'s frog frames and the lone frog');
 chooseMenu('Uncertain');
 eq(gridNames(), 'k_01.jpg,k_02.jpg,u_01.jpg', 'a named jay beside an unsure frog is uncertain too; k_03 (the jay alone) is not');
 eq(item('k_01.jpg').tag, 'Green Frog?', 'its best guess as a suggestion');
-assert(item('k_01.jpg').guess && /Uncertain: Green Frog\? 50%/.test(item('k_01.jpg').names), `its tooltip: ${item('k_01.jpg').names}`);
+// Its suggestions are of the frog box's classes, renormalised there (0.5 / 0.8).
+assert(item('k_01.jpg').guess && /Uncertain: Green Frog\? 63%/.test(item('k_01.jpg').names), `its tooltip: ${item('k_01.jpg').names}`);
 eq(item('k_01.jpg').found, '1 bird, 1 frog', 'what the detector found, at a glance');
 if (process.env.IV_SHOTS) { advanceTime(500); screenshot(path.join(process.env.IV_SHOTS, 'grid-uncertain.png')); }
 clickEl(btn);
@@ -99,7 +102,7 @@ press('mod+i');
 // A click on it: the picker. Nothing of hers yet, so no "looks like".
 clickEl(outline('sure'));
 waitFor(() => O.state().picker, 'the picker');
-eq(chips(), ['sure:Blue Jay sure', 'guess:Eastern Bluebird 5%'], 'the sure name, then its other guesses');
+eq(chips(), ['sure:Blue Jay sure', 'guess:Eastern Bluebird 5.1%'], 'the sure name, then its other guesses');
 assert(document.activeElement === document.querySelector('.iv-picker .combobox-input'), 'the field has the focus');
 press('escape');
 waitFor(() => !O.state().picker, 'Escape closes it');
@@ -111,7 +114,8 @@ waitFor(() => O.state().boxes.length === 2, 'two outlines');
 eq(O.state().boxes.map((b) => `${b.kind}:${b.name}`).sort(), ['sure:Blue Jay', 'uncertain:Green Frog?'], 'the jay sure, the frog uncertain');
 clickEl(outline('uncertain'));
 waitFor(() => O.state().picker, 'the frog\'s picker');
-eq(chips(), ['guess:Green Frog 50%', 'guess:American Toad 30%'], 'its top guesses');
+eq(chips(), ['here:Blue Jay in this photo', 'guess:Green Frog 63%', 'guess:American Toad 38%'],
+  'the name already in the photo, then its top guesses');
 eq(document.querySelector('.iv-picker .iv-answer-hint').textContent, 'Enter: this photo · Shift+Enter: same animal, whole burst (3)',
   'this photo or the same animal in the burst');
 type('leopard frog');
@@ -133,7 +137,8 @@ open('k_02.jpg');
 waitFor(() => O.state().boxes.length === 2, 'k_02\'s outlines');
 clickEl(named('Blue Jay'));
 waitFor(() => O.state().picker, 'the jay\'s picker');
-eq(chips().slice(0, 2), ['guess:Blue Jay 92%', 'guess:Eastern Bluebird 5%'], 'hers already: no sure chip, the guesses');
+eq(chips().slice(0, 3), ['here:leopard frog in this photo', 'guess:Blue Jay 95%', 'guess:Eastern Bluebird 5.1%'],
+  'hers already: no sure chip; her other name in the photo, the guesses');
 clickEl(document.querySelectorAll('.iv-picker .iv-chip.guess')[1]);
 waitFor(() => animals('k_02.jpg')[0] === 'Eastern Bluebird', 'a chip names it');
 eq([animals('k_01.jpg'), mine('k_03.jpg')], [['Eastern Bluebird', 'leopard frog'], null],
@@ -142,7 +147,9 @@ eq([animals('k_01.jpg'), mine('k_03.jpg')], [['Eastern Bluebird', 'leopard frog'
 waitFor(() => named('Eastern Bluebird'), 'its outline says so');
 clickEl(named('Eastern Bluebird'));
 waitFor(() => O.state().picker, 'the picker again');
-clickEl(chipEl('sure') || chipEl('guess'), 'shift');
+// Blue Jay: k_03's name in the burst (a 'here' chip), the crop's best guess.
+clickEl(Array.from(document.querySelectorAll('.iv-picker .iv-chip')).find((c) => c.querySelector('.iv-chip-text').textContent === 'Blue Jay'),
+  'shift');
 waitFor(() => animals('k_02.jpg')[0] !== 'Eastern Bluebird', 'Shift: this photo only');
 eq([animals('k_02.jpg')[0], animals('k_01.jpg')[0]], ['Blue Jay', 'Eastern Bluebird'], 'k_01 keeps its name');
 

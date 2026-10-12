@@ -33,6 +33,8 @@ export function buildToolbar(toolbar, commands, { extra = null } = {}) {
   inBurst(toolbar.button('burst-export'));
   only(toolbar.button('subject'));
   only(toolbar.button('stabilize'));
+  // Find Animals' outlines over the photo (off by default: the photo is for looking).
+  if (commands.has('animals-outlines')) only(toolbar.button('animals-outlines'));
   only(toolbar.sep());
   only(toolbar.button('zoom-out'));
   const zoomButton = only(toolbar.add(h('button.btn.ghost.small.iv-zoom.num', { 'data-tip': 'Zoom', 'data-command': 'zoom-menu',

@@ -38,6 +38,7 @@ const W = app.wildlife;
 const a = W.analysis;
 const O = W.outlines;
 W.useStub(stubTable(TABLE));
+app.settings.set('showOutlines', true);   // every outline (off by default)
 // The photo on screen answered, then a pause while the picker opens: most of the folder still to come.
 waitFor(() => a.record(first) && O.state().boxes.length === 1, 'the photo on screen analysed, its outline');
 a.pause();

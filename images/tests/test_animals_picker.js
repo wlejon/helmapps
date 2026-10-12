@@ -21,6 +21,7 @@ const dir = fixtureDir({
 });
 const W = app.wildlife;
 W.useStub(stubTable([...TABLE, FROG]), { taxa: TAXA, names: MORE_NAMES });
+app.settings.set('showOutlines', true);   // every outline (off by default)
 app.openPath(dir);
 waitFor(() => app.state.mode === 'grid' && app.folder.items.length === 2, 'the folder');
 analysed(app, waitFor);

@@ -48,11 +48,13 @@ export function decorateTile(item, el) {
   el._tags.classList.remove('hidden');
   const parts = [];
   if (item.tag) {
+    // No score for a guess without one (never "0%").
     const sure = item.mine
       ? h('span.iv-tag-mine', { title: 'Your answer' }, icon('user', 'sm'))
-      : h('span.iv-tag-conf.num', `${item.conf}%`);
+      : item.conf ? h('span.iv-tag-conf.num', `${item.conf}%`) : null;
     // Hers, the identifier's sure name, or (in the Uncertain group) its best guess.
-    const title = [item.names || `${item.tag} · ${item.conf}%`, item.found ? `found ${item.found}` : ''].filter(Boolean).join(' · ');
+    const title = [item.names || (item.conf ? `${item.tag} · ${item.conf}%` : item.tag), item.found ? `found ${item.found}` : '']
+      .filter(Boolean).join(' · ');
     parts.push(h(`span.iv-tag${item.mine ? '.mine' : ''}${item.guess ? '.guess' : ''}`, { title },
       h('span.iv-tag-name.ellipsis', item.tag), sure));
     if (item.more) parts.push(h('span.iv-tag.iv-tag-more.num', { title: item.names }, `+${item.more}`));
@@ -65,6 +67,35 @@ export function decorateTile(item, el) {
 }
 
 const pct = (x) => formatPercent(x, x >= 0.995 || x < 0.1 ? 1 : 0);
+
+/** A score as shown ("9.2%", "58%"), or '' when that rounds to 0: a 0% is never shown. */
+export function percentText(x) {
+  if (!(x > 0)) return '';
+  const t = pct(x);
+  return /^0(\.0)?%$/.test(t) ? '' : t;
+}
+
+/**
+ * What to suggest for a crop, best first: [{ common, scientific, score }].
+ * Its top over its query's classes (analyze()'s `queryTop`: a box the
+ * detector called a bird suggests birds); a record from before queryTop,
+ * its species of those classes. A guess whose percent rounds to 0 is left out.
+ */
+export function suggestionsOf(crop, n = 3) {
+  if (!crop) return [];
+  let list = crop.queryTop;
+  if (!Array.isArray(list)) {
+    const classes = crop.query || crop.label ? bro.vision.wildlife.queryClasses(crop.query || crop.label) : null;
+    list = (crop.species || []).filter((s) => !classes || !s.class || classes.includes(s.class));
+  }
+  return list.filter((s) => percentText(s.score)).slice(0, n);
+}
+
+/** "Possibly Mallard 58%, Gadwall 9.2%" for a crop ('' when there is nothing to suggest). */
+export function possiblyText(crop) {
+  const s = suggestionsOf(crop);
+  return s.length ? `Possibly ${s.map((sp) => `${sp.common || sp.scientific} ${percentText(sp.score)}`).join(', ')}` : '';
+}
 const sharpText = (s) => (s ? formatNumber(Math.round(s.tenengrad)) : '');
 const RANK_NAMES = { species: 'Species', genus: 'Genus', family: 'Family', order: 'Order', class: 'Class' };
 
@@ -158,7 +189,8 @@ export function detailsSection(rec, burst, { pending = false, taxa = {}, target 
     }));
     const s = burst.species;
     if (!items.length && burst.animalCount > 0) {
-      items.push(animalItem({ name: 'Not identified', guess: s ? `Possibly ${s.common} ${pct(s.share)}` : '', edit, ref: { add: true } }));
+      items.push(animalItem({ name: 'Not identified', guess: s && percentText(s.share) ? `Possibly ${s.common} ${percentText(s.share)}` : '',
+        edit, ref: { add: true } }));
     }
     parts.push(animalSection(t.burst, items, [
       ['Animals', burst.animalCount ? '' : 'None found'],
@@ -176,7 +208,7 @@ export function detailsSection(rec, burst, { pending = false, taxa = {}, target 
     own.push(animalItem({
       name: 'Not identified', boxes: crop.box ? [crop.box] : [], target, edit, ref: { add: true },
       meta: crop.label ? crop.label.replace(/^an? /, '') : '',
-      guess: `Possibly ${crop.species.map((sp) => `${sp.common} ${pct(sp.score)}`).join(', ')}`,
+      guess: possiblyText(crop),
     }));
   }
   const dropped = droppedText(rec);

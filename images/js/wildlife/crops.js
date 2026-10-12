@@ -7,7 +7,7 @@
  * animal when it overlaps enough).
  */
 
-import { plural } from './labels.js';
+import { plural, suggestionsOf } from './labels.js';
 import { animalKey } from './mine.js';
 import { formatNumber } from '/lib/format.js';
 
@@ -41,7 +41,8 @@ export function bestMatch(box, boxes, min = IOU_MIN) {
 
 /**
  * The record's classified crops: [{ i (its index in record.animals), box,
- * query, species (top K), sure (a name of its own at the threshold) }].
+ * query, species (top K), queryTop (its suggestions; null in an older
+ * record), sure (a name of its own at the threshold) }].
  */
 export function cropList(rec, taxa = {}) {
   if (!rec || rec.error || !rec.animal || !Array.isArray(rec.animals)) return [];
@@ -49,7 +50,7 @@ export function cropList(rec, taxa = {}) {
   const out = [];
   rec.animals.forEach((a, i) => {
     if (!a || !a.box || !a.species || !a.species.length) return;
-    out.push({ i, box: a.box, query: a.label || '', species: a.species,
+    out.push({ i, box: a.box, query: a.label || '', species: a.species, queryTop: a.queryTop || null,
       sure: wl.labels({ animal: true, animals: [a] }, null, { taxa }).length > 0 });
   });
   return out;
@@ -75,10 +76,16 @@ export function uncertainCrops(rec, labels, taxa, mine) {
   return cropList(rec, taxa).filter((c) => !c.sure && !labelOfBox(labels, c.box));
 }
 
-/** The best guess for an uncertain crop: its top species ('Blue Jay'). */
+/** The best guess for an uncertain crop: its top suggestion ('Blue Jay'; labels.js suggestionsOf), or ''. */
 export function guessOf(crop) {
-  const s = crop && crop.species && crop.species[0];
+  const s = suggestionsOf(crop, 1)[0];
   return s ? s.common || s.scientific : '';
+}
+
+/** That guess's score, or 0. */
+export function guessScore(crop) {
+  const s = suggestionsOf(crop, 1)[0];
+  return s ? s.score : 0;
 }
 
 /** What the detector found, counted by query: "3 birds, 1 dog" ('' for nothing). */

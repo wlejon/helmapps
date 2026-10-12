@@ -12,7 +12,7 @@
  * photo is an animal: its bounding box a detection (best first: the
  * biggest), the entry's `species` its answer, and its genera, families,
  * orders and classes bro.vision.wildlife.taxaScores of them, as analyze()
- * ranks a crop. The first `maxClassify` are classified (`animals`), the
+ * ranks a crop, and its `queryTop` (queryTopOf). The first `maxClassify` are classified (`animals`), the
  * rest counted (`animalsDropped`). No patch: no animal. The result has
  * analyze()'s shape (docs/vision-api.js, Wildlife), in the source photo's
  * pixels; with `embeddings`, each animal's is stubEmbedding of its colour.
@@ -58,6 +58,20 @@ function taxaOf(rows) {
   const out = {};
   for (const r of Object.keys(t)) out[r] = t[r].map((e) => ({ ...e, score: r4(e.score) }));
   return out;
+}
+
+/**
+ * A crop's suggestions as analyze() keeps them (`queryTop`): its rows of
+ * its query's classes (every row when none is), their scores renormalised
+ * over those rows (a softmax over a subset is the same odds), top 5.
+ */
+function queryTopOf(rows, query) {
+  const classes = bro.vision.wildlife.queryClasses(query);
+  let sub = classes ? rows.filter((s) => classes.includes(s.class)) : rows;
+  if (!sub.length) sub = rows;
+  const z = sub.reduce((s, r) => s + r.score, 0) || 1;
+  return sub.slice().sort((a, b) => b.score - a.score).slice(0, 5)
+    .map((s) => ({ common: s.common, scientific: s.scientific, score: r4(s.score / z) }));
 }
 
 /**
@@ -110,7 +124,7 @@ export function stubAnalyze(table, image, { source, maxClassify = 8, embeddings 
     };
     const species = speciesRows(f.entry);
     const animal = { box, score: detections[i].score, label: detections[i].label, subject, species,
-      taxa: taxaOf(species), candidates: 'all' };
+      taxa: taxaOf(species), candidates: 'all', queryTop: queryTopOf(species, detections[i].label) };
     if (embeddings) animal.embedding = stubEmbedding(f.entry.color);
     animals.push(animal);
   }

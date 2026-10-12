@@ -361,7 +361,8 @@ function updateStatus() {
   else if (m === 'burst') status.text.textContent = burst.statusText();
   else status.text.textContent = '';
   for (const k of ['dims', 'zoom', 'pos']) status[k].classList.toggle('hidden', !status[k].textContent);
-  for (const el of imageOnly) el.classList.toggle('hidden', m !== 'image');
+  // The outlines button only where Find Animals runs.
+  for (const el of imageOnly) el.classList.toggle('hidden', m !== 'image' || (el.dataset.command === 'animals-outlines' && !wild.active));
   for (const el of burstOnly) el.classList.toggle('hidden', m !== 'burst');
   for (const el of notBurst) el.classList.toggle('hidden', m === 'burst');
   wild.showStatus();

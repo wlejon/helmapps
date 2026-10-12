@@ -17,7 +17,8 @@
  *
  * The config hash covers everything a record depends on: the record schema,
  * the image sizes, and bro.vision.wildlife.config() (models with their
- * revisions and sizes, threshold, queries, top K, margin, species list). A
+ * revisions and sizes, threshold, queries, top K, margin, which boxes are
+ * kept (nms), the per-crop suggestions (queryTop), species list). A
  * record is reused only when the photo's key and the hash both match.
  */
 

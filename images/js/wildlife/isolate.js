@@ -1,9 +1,10 @@
 /**
  * Isolating an animal on request: while the pointer is on an animal of the
  * details panel (labels.js `.iv-animal-hit`), everything in the photo on
- * screen but that animal's boxes is darkened; a click on it zooms the view
- * to its boxes. Never on its own: only while hovered, gone as the pointer
- * leaves.
+ * screen but that animal's boxes is darkened, and its boxes show (onFocus:
+ * outlines.js); a click on it opens its picker (onPick), a double click
+ * zooms the view to its boxes (a click, without onPick). Never on its own:
+ * only while hovered, gone as the pointer leaves.
  *
  * The darkening has a soft-edged hole per box at once, and the animal's own
  * shape once SAM 2.1 has segmented it from the box (isolate-worker.js, a
@@ -51,8 +52,10 @@ function tokenColor(token) {
 const boxKey = (path, box) => `${pathKey(path)}|${box.join(',')}`;
 
 export class Isolate {
-  constructor({ viewer, host }) {
+  constructor({ viewer, host, onFocus = null, onPick = null }) {
     this.viewer = viewer;
+    this.onFocus = onFocus;       // (animal | null): the animal isolated now changed (outlines.js shows its boxes)
+    this.onPick = onPick;         // (animal): a click on it (outlines.js opens its picker); without it a click zooms
     this.canvas = h('canvas.iv-isolate.hidden');
     host.append(this.canvas);
     this.current = null;          // { key, path, size, boxes }
@@ -65,10 +68,21 @@ export class Isolate {
     // Delegated: the details panel is drawn again as answers land, so its elements come and go.
     window.addEventListener('mouseover', (e) => this.onOver(e), true);
     window.addEventListener('mouseout', (e) => { if (!e.relatedTarget) this.hide(); }, true);
-    window.addEventListener('click', (e) => {
+    const hitOf = (e) => {
       const el = e.target && e.target.closest ? e.target.closest('.iv-animal-hit') : null;
-      if (el && el._animal) this.zoomTo(el._animal);
+      return el && el._animal ? el._animal : null;
+    };
+    window.addEventListener('click', (e) => {
+      const a = hitOf(e);
+      if (!a) return;
+      if (this.onPick) this.onPick(a); else this.zoomTo(a);
     });
+    window.addEventListener('dblclick', (e) => { const a = hitOf(e); if (a && this.onPick) this.zoomTo(a); });
+  }
+
+  /** The animal isolated now, or null: the outlines show its boxes. */
+  focusChanged() {
+    if (this.onFocus) this.onFocus(this.current ? { path: this.current.path, boxes: this.current.boxes } : null);
   }
 
   /** TEST ONLY: masks from an ellipse in the box instead of SAM (isolate-worker.js 'stub'). */
@@ -94,12 +108,14 @@ export class Isolate {
     this.canvas.classList.remove('hidden');
     this.draw();
     for (const box of animal.boxes) this.mask(animal.path, animal.size, box);
+    this.focusChanged();
   }
 
   hide() {
     if (!this.current) return;
     this.current = null;
     this.draw();
+    this.focusChanged();
   }
 
   /** What is isolated now (tests). */
@@ -168,7 +184,7 @@ export class Isolate {
   draw() {
     const c = this.canvas;
     const cur = this.current;
-    if (cur && !this.onScreen(cur.path)) this.current = null;
+    if (cur && !this.onScreen(cur.path)) { this.current = null; this.focusChanged(); }
     if (!this.current) {
       if (!c.classList.contains('hidden')) {
         c.classList.add('hidden');

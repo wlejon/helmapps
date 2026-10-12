@@ -45,7 +45,7 @@ import { Progress } from '/lib/controls.js';
 import { formatBytes, formatNumber } from '/lib/format.js';
 import { Analysis } from './analysis.js';
 import { wildlifeSupported, canFetch, locateModels, bytesOf, ModelDownload } from './models.js';
-import { decorateTile, detailsSection, labelKey, labelText, countedText } from './labels.js';
+import { decorateTile, detailsSection, labelKey, labelText, countedText, percentText } from './labels.js';
 import { Isolate } from './isolate.js';
 import { pathKey } from './records.js';
 import { Answers } from './answers.js';
@@ -53,7 +53,7 @@ import { AnswerEditor, EDITOR_SETTINGS } from './editor.js';
 import { answerLabels, fold } from './mine.js';
 import { Examples } from './examples.js';
 import { Outlines } from './outlines.js';
-import { uncertainCrops, guessOf, countsText, sameBox } from './crops.js';
+import { uncertainCrops, guessOf, guessScore, countsText, sameBox } from './crops.js';
 import { formatDate } from '/lib/format.js';
 
 export const WILDLIFE_SETTINGS = {
@@ -62,8 +62,9 @@ export const WILDLIFE_SETTINGS = {
   animalsModel: { type: 'string', default: 'bioclip-2' },  // bioclip-2 | bioclip
   // A list file in the species folder, or '' for bro.vision.wildlife's default lists.
   animalsSpeciesList: { type: 'string', default: '' },
-  // The animals' outlines on the photo, a click to name one (outlines.js).
-  showOutlines: { type: 'bool', default: true },
+  // Every animal's outline on the photo, a click to name one (outlines.js). Off: the photo
+  // is for looking; an animal's box shows only while its details row is hovered or its picker open.
+  showOutlines: { type: 'bool', default: false },
   ...EDITOR_SETTINGS,
 };
 
@@ -132,7 +133,10 @@ export class WildlifeFeature {
     this.touched = new Set();      // pathKeys changed since the last flush (null: any)
     this.flushQueued = false;
     this.analysis = new Analysis({ cacheDir, onChange: (_, paths) => this.analysisChanged(paths) });
-    this.isolate = viewer && viewHost ? new Isolate({ viewer, host: viewHost }) : null;
+    // An animal of the details under the pointer shows its boxes; a click on it opens its picker.
+    this.isolate = viewer && viewHost ? new Isolate({ viewer, host: viewHost,
+      onFocus: (a) => { if (this.outlines) this.outlines.setFocus(a); },
+      onPick: (a) => { if (this.outlines && a.boxes.length) this.outlines.openBox(a.path, a.boxes[0]); } }) : null;
     this.outlines = viewer && viewHost ? new Outlines({ viewer, host: viewHost, feature: this }) : null;
     // Her answers win over the identifier's everywhere (answerOf); kept apart from the analysis.
     this.answers = new Answers({ dataDir, cacheDir, onChange: (_, paths) => this.analysisChanged(paths) });
@@ -526,12 +530,14 @@ export class WildlifeFeature {
       };
       // In the Uncertain group each photo shows its best guess as a suggestion ("Blue Jay?").
       if (uncertainView && uncertain.length) {
+        // Its suggestions (labels.js suggestionsOf: of the box's query's classes, none that rounds to 0%).
         const g = uncertain[0];
+        const guessText = (c) => (guessOf(c) ? `${guessOf(c)}?` : 'Not identified');
         item.guess = true;
-        item.tag = `${guessOf(g)}?`;
-        item.conf = Math.round(g.species[0].score * 100);
+        item.tag = guessText(g);
+        item.conf = Math.round(guessScore(g) * 100) || null;
         item.more = Math.max(0, uncertain.length - 1);
-        names = `Uncertain: ${uncertain.map((c) => `${guessOf(c)}? ${Math.round(c.species[0].score * 100)}%`).join(', ')}` +
+        names = `Uncertain: ${uncertain.map((c) => [guessText(c), percentText(guessScore(c))].filter(Boolean).join(' ')).join(', ')}` +
           (labels.length ? ` · named: ${labels.map(countedText).join(', ')}` : '');
       }
       item.names = names;
@@ -709,7 +715,7 @@ export class WildlifeFeature {
       { id: 'animals-menu', label: 'Animals', icon: 'filter', enabled: () => browsing() && (a.results.size > 0 || !!this.filter),
         run: () => this.showMenu() },
       { id: 'animals-filter', label: 'Show Species', enabled: browsing, run: (key) => this.setFilter(key) },
-      { id: 'animals-outlines', label: 'Show Animal Outlines', keys: ['O'], enabled: () => this.active && !this.holding(),
+      { id: 'animals-outlines', label: 'Show Animal Outlines', icon: 'eye', keys: ['O'], enabled: () => this.active && !this.holding(),
         checked: () => this.settings.get('showOutlines'),
         run: () => { this.settings.set('showOutlines', !this.settings.get('showOutlines')); if (this.outlines) this.outlines.draw(); } },
       { id: 'animals-show-empty', label: 'Show Photos Without Animals', enabled: () => this.active && !this.holding(),

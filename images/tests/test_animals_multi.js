@@ -10,11 +10,11 @@
 //  - four sparrows with two classified a photo: "+2 more birds";
 //  - hovering an animal in the details darkens the rest of the photo (a
 //    soft box at once, then the mask the SAM stub makes, kept for the
-//    session), following the zoom, gone when the pointer leaves; a click
-//    zooms the view to its boxes.
+//    session), following the zoom, gone when the pointer leaves; a double
+//    click zooms the view to its boxes.
 // Runs the same with the models installed or not.
 
-import { app, waitFor, eq, center, clickEl, menuLabels, chooseMenu, fixtureDir, press } from '/lib/test.js';
+import { app, waitFor, eq, center, clickEl, dblClickEl, menuLabels, chooseMenu, fixtureDir, press } from '/lib/test.js';
 import { photo, stubTable, analysed, names, detailAnimals, EGRET, MALLARD, DARNER, SPARROW, TAXA } from '/app/tests/wildlife.js';
 import { shown } from '/app/tests/images.js';
 
@@ -146,8 +146,9 @@ hover(mallards.el);
 eq(iso.state().phase, 'mask', 'back: the masks at once');
 eq(iso.segments - before, 2, 'nothing segmented again');
 
-// A click zooms the view to the mallards' boxes, with a margin.
-clickEl(mallards.el);
+// A double click zooms the view to the mallards' boxes, with a margin (a click opens the picker).
+dblClickEl(mallards.el);
+app.wildlife.outlines.close();
 const v = app.viewer.model();
 assert(!v.fit && v.scale > v.fitScale, `zoomed in: ${v.scale} over fit ${v.fitScale}`);
 {

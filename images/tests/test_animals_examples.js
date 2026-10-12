@@ -30,6 +30,7 @@ const W = app.wildlife;
 const O = W.outlines;
 const store = W.examplesStore;
 W.useStub(stubTable(TABLE), { taxa: TAXA, names: MORE_NAMES });
+app.settings.set('showOutlines', true);   // every outline (off by default)
 
 const openFolder = (dir, n) => {
   app.openPath(dir);
