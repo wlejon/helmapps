@@ -200,6 +200,12 @@ textarea.field { height: auto; padding: 6px var(--s2); line-height: 1.5; resize:
 .search-field input { flex: 1; min-width: 0; background: none; border: none; color: var(--t1); user-select: text; cursor: text; }
 .search-field .icon { width: 15px; height: 15px; }
 
+/* A field that suggests as you type (lib/combobox.js); its list is a .menu. */
+.combobox { display: flex; min-width: 0; }
+.combobox-input { flex: 1; width: 100%; }
+.combobox-item .combobox-detail { flex: none; max-width: 50%; margin-left: var(--s4); overflow: hidden; text-overflow: ellipsis; color: var(--t3); font-size: var(--fs-cap); font-style: italic; }
+.combobox-item.active .combobox-detail { color: var(--on-accent); }
+
 /* Checkbox --------------------------------------------------------------- */
 
 .checkbox {
