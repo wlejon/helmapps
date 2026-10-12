@@ -364,11 +364,14 @@ export class Analysis {
         g.every((r) => !landed.has(pathKey(r.path)) && was.get(pathKey(r.path)) === old);
       const b = same ? old : wl.groupBursts(g, { gapS: GAP_S })[0];
       if (!same && touched) {
+        const olds = new Set();
         for (const r of g) {
-          touched.add(pathKey(r.path));
-          const o = was.get(pathKey(r.path));
-          if (o) for (const p of o.photos) touched.add(pathKey(p));
+          const k = pathKey(r.path);
+          touched.add(k);
+          const o = was.get(k);
+          if (o) olds.add(o);
         }
+        for (const o of olds) for (const p of o.photos) touched.add(pathKey(p));
       }
       this.bursts.push(b);
       for (const p of b.photos) this.byPath.set(pathKey(p), b);
