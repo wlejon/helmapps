@@ -1,0 +1,19 @@
+{
+    "id": "helm.colorpicker",
+    "name": "Color Picker",
+    "version": "0.1.0",
+    "description": "Inspect colors, convert Oklch/sRGB formats, and verify WCAG & APCA contrast",
+    "icon": "assets/icon.svg",
+    "categories": ["Graphics", "Utility", "Development"],
+    "keywords": ["color", "picker", "contrast", "wcag", "apca", "oklch", "oklab", "hex", "palette", "eyedropper"],
+    "singleInstance": true,
+    "permissions": ["wl"],
+    "app": ".",
+    "width": 1060,
+    "height": 720,
+    "minWidth": 680,
+    "minHeight": 480,
+    "resizable": true,
+    "splash": false,
+    "watch": false
+}
