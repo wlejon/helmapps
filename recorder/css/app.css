@@ -1,0 +1,284 @@
+/* =============================================================================
+   Sound Recorder (helm.recorder)
+   Uses only helm kit tokens from /lib/css/tokens.css.
+   ============================================================================= */
+
+.rec-left-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0px;
+  min-width: 0;
+  min-height: 0;
+  background: var(--surface-1);
+}
+
+.rec-list-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s2) var(--s3);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.rec-list-bar .search-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.rec-right-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0px;
+  min-width: 0;
+  min-height: 0;
+  background: var(--surface-0);
+  overflow-y: auto;
+}
+
+.rec-stage {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0px;
+  gap: var(--s4);
+  padding: var(--s5) var(--s6);
+  min-height: 0;
+}
+
+/* Header card: recording status or selected clip title + meta --------------- */
+
+.rec-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s4);
+}
+
+.rec-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  min-width: 0;
+  flex: 1;
+}
+
+.rec-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-width: 0;
+}
+
+.rec-live-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--r-chip);
+  background: var(--danger);
+  flex: none;
+}
+
+.rec-live-dot.paused {
+  background: var(--warn);
+}
+
+.rec-timer {
+  font-size: var(--fs-display);
+  font-weight: 700;
+  color: var(--t1);
+  line-height: 1.1;
+}
+
+.rec-meta-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  color: var(--t3);
+  font-size: var(--fs-cap);
+}
+
+/* Waveform box & marker flags ----------------------------------------------- */
+
+.rec-waveform-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s4);
+  border-radius: var(--r-card);
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+}
+
+.rec-waveform-box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  outline: none;
+}
+
+.rec-waveform-box:focus-visible {
+  box-shadow: var(--focus-ring);
+  border-radius: var(--r-ctl);
+}
+
+.rec-waveform-canvas {
+  width: 100%;
+  height: 164px;
+  display: block;
+  border-radius: var(--r-ctl);
+  background: var(--sink);
+  cursor: pointer;
+}
+
+.rec-waveform-flags {
+  position: relative;
+  height: 24px;
+  width: 100%;
+  overflow: hidden;
+}
+
+.rec-marker-flag {
+  position: absolute;
+  top: 2px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  height: 20px;
+  padding: 0 var(--s2);
+  border-radius: var(--r-chip);
+  background: var(--well-3);
+  border: 1px solid var(--rim);
+  color: var(--t2);
+  font-size: var(--fs-micro);
+  font-weight: 500;
+  white-space: nowrap;
+  max-width: 140px;
+}
+
+.rec-marker-flag:hover {
+  background: var(--accent-soft);
+  color: var(--t1);
+  border-color: var(--accent-line);
+}
+
+.rec-marker-flag-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-chip);
+  background: var(--warn);
+  flex: none;
+}
+
+.rec-marker-flag-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Transport bar (Record / Pause / Stop / Play / Seek / Speed) --------------- */
+
+.rec-transport {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--s3);
+}
+
+.rec-transport-main {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.rec-transport-time {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s1);
+  font-size: var(--fs-title);
+  font-weight: 600;
+  color: var(--t1);
+}
+
+.rec-transport-right {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+/* Inspector panels: Markers & Transcript ------------------------------------ */
+
+.rec-panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s4);
+  flex: 1 1 0px;
+  min-height: 160px;
+}
+
+.rec-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-card);
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  min-height: 0;
+}
+
+.rec-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  padding-bottom: var(--s1);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.rec-marker-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  overflow-y: auto;
+  flex: 1 1 0px;
+  min-height: 0;
+}
+
+.rec-marker-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  padding: var(--s1) var(--s2);
+  border-radius: var(--r-ctl);
+  background: var(--well);
+  color: var(--t2);
+  text-align: left;
+  transition: background var(--d-quick) var(--ease-std), color var(--d-quick) var(--ease-std);
+}
+
+.rec-marker-pill:hover {
+  background: var(--accent-soft);
+  color: var(--t1);
+}
+
+.rec-marker-pill-time {
+  font-size: var(--fs-cap);
+  font-weight: 600;
+  color: var(--accent-text);
+}
+
+.rec-transcript-body {
+  flex: 1 1 0px;
+  overflow-y: auto;
+  color: var(--t2);
+  font-size: var(--fs-body);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.rec-transcript-empty {
+  color: var(--t4);
+  font-size: var(--fs-cap);
+}

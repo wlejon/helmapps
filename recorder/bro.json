@@ -1,0 +1,22 @@
+{
+    "id": "helm.recorder",
+    "name": "Sound Recorder",
+    "version": "0.1.0",
+    "description": "Record voice memos and audio clips with waveform markers",
+    "icon": "assets/icon.svg",
+    "categories": ["Audio", "AudioVideo", "Recorder", "Utility"],
+    "keywords": ["audio", "voice", "record", "microphone", "wav", "memo"],
+    "singleInstance": true,
+    "fileTypes": [
+        { "name": "WAV Audio", "mimeTypes": ["audio/wav", "audio/x-wav"], "extensions": ["wav"] }
+    ],
+    "permissions": [],
+    "app": ".",
+    "width": 1060,
+    "height": 700,
+    "minWidth": 560,
+    "minHeight": 380,
+    "resizable": true,
+    "splash": false,
+    "watch": false
+}
