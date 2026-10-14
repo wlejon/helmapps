@@ -2,7 +2,7 @@
 // Paste conflict (Keep Both), Undo/Redo, live filesystem watch, permanent delete
 // confirmation, and graceful fallback when bro.vfs is disabled.
 
-import { app, waitFor, settle, eq, press,
+import { app, waitFor, settle, eq, press, rightClickEl, menuLabels, chooseMenu,
   currentDialog, dialogButton, answerPrompt, fixtureDir, mod } from '/lib/test.js';
 
 const fs = require('fs');
@@ -114,5 +114,26 @@ assert(!document.querySelector('.files-banner').classList.contains('hidden'), 'r
 
 app.setDisableVfs(false);
 settle(50);
+
+// 9. Archive integration: Compress to .zip, context menu items, and Extract Here.
+const keepRow = Array.from(document.querySelectorAll('.vlist-row')).find((el) => el.textContent.includes('keep.txt'));
+assert(keepRow, 'keep.txt row exists');
+rightClickEl(keepRow);
+assert(menuLabels().includes('Compress to .zip…'), 'context menu offers Compress to .zip…');
+chooseMenu('Compress to .zip…');
+waitFor(() => currentDialog(), 'Compress to .zip prompt opened');
+answerPrompt('bundled.zip');
+waitFor(() => !currentDialog() && names().includes('bundled.zip'), 'bundled.zip created and listed');
+assert(fs.existsSync(path.join(dir, 'bundled.zip')), 'bundled.zip exists on disk');
+
+const zipRow = Array.from(document.querySelectorAll('.vlist-row')).find((el) => el.textContent.includes('bundled.zip'));
+assert(zipRow, 'bundled.zip row exists');
+rightClickEl(zipRow);
+assert(menuLabels().includes('Open in Archive Manager'), 'context menu for .zip offers Open in Archive Manager');
+assert(menuLabels().includes('Extract Here'), 'context menu for .zip offers Extract Here');
+chooseMenu('Extract Here');
+waitFor(() => names().includes('bundled') && fs.existsSync(path.join(dir, 'bundled', 'keep.txt')),
+  'Extract Here extracted bundled.zip into bundled/ subfolder');
+eq(fs.readFileSync(path.join(dir, 'bundled', 'keep.txt'), 'utf8'), 'stay here', 'extracted keep.txt content matches');
 
 console.log('test_ops PASSED');

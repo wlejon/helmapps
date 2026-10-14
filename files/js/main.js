@@ -26,6 +26,7 @@ import { TransferManager } from './transfer.js';
 import { TrashManager } from './trash.js';
 import { Inspector } from './inspector.js';
 import { SearchController } from './search.js';
+import { ArchiveActions, isArchiveItem } from './archive-actions.js';
 
 const fs = require('fs');
 const path = require('path');
@@ -134,6 +135,11 @@ const inspector = new Inspector({
   thumbs: views.thumbs,
 });
 
+const archiveActions = new ArchiveActions({
+  state,
+  model,
+});
+
 const search = new SearchController({
   state,
   settings,
@@ -236,8 +242,17 @@ commands.addAll([
     checked: () => sidebar.isBookmarked(state.currentPath),
     run: () => sidebar.toggleBookmark(state.currentPath) },
   { id: 'open', label: 'Open', icon: 'external-link',
-    enabled: () => selected().length === 1 && (selected()[0].isDirectory || !!api('apps')),
+    enabled: () => selected().length === 1 && (selected()[0].isDirectory || isArchiveItem(selected()[0]) || !!api('apps')),
     run: () => activateItem(selected()[0]) },
+  { id: 'open-in-archives', label: 'Open in Archive Manager', icon: 'file-archive',
+    enabled: () => !inTrash() && selected().length === 1 && isArchiveItem(selected()[0]),
+    run: () => archiveActions.openInArchives(selected()[0]) },
+  { id: 'extract-here', label: 'Extract Here', icon: 'download',
+    enabled: () => hasVfs() && !inTrash() && selected().length === 1 && isArchiveItem(selected()[0]),
+    run: () => archiveActions.extractHere(selected()[0]) },
+  { id: 'compress-zip', label: 'Compress to .zip…', icon: 'file-archive',
+    enabled: () => hasVfs() && !inTrash() && selected().length > 0,
+    run: () => archiveActions.compressToZip(selected()) },
   { id: 'copy-path', label: 'Copy Path', icon: 'link', keys: ['Mod+Shift+C'],
     enabled: () => selected().length > 0,
     run: copySelectedPaths },
@@ -428,10 +443,13 @@ function showContextMenu(e, items) {
 
   const single = items.length === 1 ? items[0] : null;
   const openWithSub = single ? buildOpenWithSubmenu(single) : null;
+  const singleArchive = single && isArchiveItem(single);
 
   menu.show([
     { heading: single ? single.name : formatCount(items.length, 'item') },
     single ? commands.item('open', { label: single.isDirectory ? 'Open Folder' : 'Open' }) : null,
+    singleArchive ? commands.item('open-in-archives') : null,
+    singleArchive ? commands.item('extract-here') : null,
     openWithSub ? { label: 'Open With', icon: 'apps', submenu: openWithSub } : null,
     single && single.isDirectory ? {
       label: sidebar.isBookmarked(single.path) ? 'Remove Bookmark' : 'Bookmark Folder',
@@ -442,6 +460,7 @@ function showContextMenu(e, items) {
     commands.item('cut'),
     commands.item('copy'),
     commands.item('duplicate'),
+    commands.item('compress-zip'),
     commands.item('copy-path'),
     single ? commands.item('rename') : null,
     { separator: true },
@@ -539,6 +558,7 @@ app.expose({
   transfer,
   trash,
   inspector,
+  archiveActions,
   openPath,
   show,
   handleLaunchArgs,

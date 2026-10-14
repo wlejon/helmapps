@@ -1,0 +1,36 @@
+{
+    "id": "helm.archives",
+    "name": "Archive Manager",
+    "version": "0.1.0",
+    "description": "Create, inspect, and extract zip and tar archives",
+    "icon": "assets/icon.svg",
+    "categories": ["Utility", "Archiving", "Compression"],
+    "keywords": ["archive", "zip", "tar", "gzip", "tgz", "extract", "compress"],
+    "singleInstance": true,
+    "fileTypes": [
+        {
+            "name": "ZIP Archive",
+            "mimeTypes": ["application/zip"],
+            "extensions": ["zip"]
+        },
+        {
+            "name": "TAR Archive",
+            "mimeTypes": ["application/x-tar"],
+            "extensions": ["tar"]
+        },
+        {
+            "name": "Compressed TAR Archive",
+            "mimeTypes": ["application/gzip", "application/x-compressed-tar"],
+            "extensions": ["tar.gz", "tgz", "gz"]
+        }
+    ],
+    "permissions": [],
+    "app": ".",
+    "width": 1020,
+    "height": 680,
+    "minWidth": 560,
+    "minHeight": 360,
+    "resizable": true,
+    "splash": false,
+    "watch": false
+}

@@ -1,0 +1,243 @@
+/* =============================================================================
+   Archive Manager (helm.archives) styles
+   Strictly uses design tokens from /lib/css/tokens.css
+   ============================================================================= */
+
+.archives-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 0px;
+  gap: var(--s5);
+  padding: var(--s8);
+  overflow-y: auto;
+}
+
+.archives-welcome-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+  max-width: 460px;
+  padding: var(--s6);
+  border-radius: var(--r-card);
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  text-align: center;
+}
+
+.archives-welcome-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2);
+  margin-top: var(--s2);
+}
+
+.archives-recent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  width: 100%;
+  max-width: 460px;
+}
+
+.archives-recent-list {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--r-card);
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  padding: var(--s1);
+}
+
+.archives-recent-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s2) var(--s3);
+  border-radius: var(--r-ctl);
+  color: var(--t2);
+  text-align: left;
+}
+
+.archives-recent-row:hover {
+  background: var(--well-2);
+  color: var(--t1);
+}
+
+.archives-recent-row .icon {
+  color: var(--accent-text);
+}
+
+.archives-recent-meta {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.archives-recent-path {
+  font-size: var(--fs-cap);
+  color: var(--t3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Inspector / Quick Preview pane */
+
+.inspector-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0px;
+  min-height: 0;
+  background: var(--surface-1);
+  border-left: 1px solid var(--hairline);
+  overflow-y: auto;
+}
+
+.inspector-header {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s4);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.inspector-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-ctl);
+  background: var(--well-2);
+  color: var(--accent-text);
+  flex: none;
+}
+
+.inspector-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.inspector-title {
+  font-size: var(--fs-title);
+  font-weight: 600;
+  color: var(--t1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspector-subtitle {
+  font-size: var(--fs-cap);
+  color: var(--t3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspector-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  padding: var(--s3) var(--s4);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.inspector-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+  font-size: var(--fs-cap);
+  padding: 2px 0;
+}
+
+.inspector-label {
+  color: var(--t3);
+  flex: none;
+}
+
+.inspector-value {
+  color: var(--t1);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspector-preview-section {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0px;
+  min-height: 0;
+  padding: var(--s3) var(--s4);
+  gap: var(--s2);
+}
+
+.inspector-preview-box {
+  flex: 1 1 0px;
+  min-height: 120px;
+  padding: var(--s3);
+  border-radius: var(--r-ctl);
+  background: var(--surface-0);
+  border: 1px solid var(--hairline);
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-cap);
+  line-height: 1.5;
+  color: var(--t2);
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+}
+
+.inspector-image-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 0px;
+  min-height: 120px;
+  padding: var(--s3);
+  border-radius: var(--r-ctl);
+  background: var(--surface-0);
+  border: 1px solid var(--hairline);
+  overflow: hidden;
+}
+
+.inspector-image-wrap img {
+  max-width: 100%;
+  max-height: 240px;
+  object-fit: contain;
+  border-radius: var(--r-sm);
+}
+
+.dialog-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.dialog-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+}
+
+.dialog-field-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.dialog-field-row .field {
+  flex: 1;
+}
