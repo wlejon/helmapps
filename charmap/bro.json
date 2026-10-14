@@ -1,0 +1,19 @@
+{
+    "id": "helm.charmap",
+    "name": "Character Map",
+    "version": "0.1.0",
+    "description": "Browse and copy Unicode characters, symbols, and encodings",
+    "icon": "assets/icon.svg",
+    "categories": ["Utility", "Accessory"],
+    "keywords": ["unicode", "character", "symbol", "glyph", "emoji", "arrows", "math", "utf8"],
+    "singleInstance": true,
+    "permissions": [],
+    "app": ".",
+    "width": 1080,
+    "height": 720,
+    "minWidth": 640,
+    "minHeight": 420,
+    "resizable": true,
+    "splash": false,
+    "watch": false
+}
