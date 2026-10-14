@@ -1,0 +1,39 @@
+{
+    "id": "helm.texteditor",
+    "name": "Text Editor",
+    "version": "0.1.0",
+    "description": "Edit plain text, notes, and configuration files",
+    "icon": "assets/icon.svg",
+    "categories": ["Utility", "TextEditor", "Development"],
+    "keywords": ["text", "editor", "notes", "code", "plain"],
+    "singleInstance": true,
+    "fileTypes": [
+        {
+            "name": "Text Files",
+            "mimeTypes": [
+                "text/plain",
+                "text/markdown",
+                "application/json",
+                "text/javascript",
+                "text/css",
+                "text/html"
+            ],
+            "extensions": [
+                "txt", "md", "json", "js", "css", "html", "ini", "conf",
+                "cfg", "yaml", "yml", "toml", "sh", "py", "c", "cpp", "h", "log"
+            ]
+        }
+    ],
+    "actions": [
+        { "id": "new-window", "name": "New Window", "args": ["--new-window"] }
+    ],
+    "permissions": [],
+    "app": ".",
+    "width": 1000,
+    "height": 700,
+    "minWidth": 520,
+    "minHeight": 340,
+    "resizable": true,
+    "splash": false,
+    "watch": false
+}

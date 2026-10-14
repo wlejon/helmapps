@@ -1,0 +1,19 @@
+{
+    "id": "helm.monitor",
+    "name": "System Monitor",
+    "version": "0.1.0",
+    "description": "Monitor running processes, system performance, and file systems",
+    "icon": "assets/icon.svg",
+    "categories": ["System", "Monitor", "Utility"],
+    "keywords": ["system", "monitor", "processes", "cpu", "memory", "network", "disk", "gpu", "task"],
+    "singleInstance": true,
+    "permissions": [],
+    "app": ".",
+    "width": 1060,
+    "height": 720,
+    "minWidth": 600,
+    "minHeight": 420,
+    "resizable": true,
+    "splash": false,
+    "watch": false
+}

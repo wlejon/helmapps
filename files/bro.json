@@ -1,0 +1,25 @@
+{
+    "id": "helm.files",
+    "name": "Files",
+    "version": "0.1.0",
+    "description": "Browse, organize, and manage files and folders",
+    "icon": "assets/icon.svg",
+    "categories": ["System", "FileManager", "Utility"],
+    "keywords": ["files", "folders", "browser", "explorer", "manager"],
+    "singleInstance": true,
+    "fileTypes": [
+        { "name": "Folder", "mimeTypes": ["inode/directory"] }
+    ],
+    "actions": [
+        { "id": "new-window", "name": "New Window", "args": ["--new-window"] }
+    ],
+    "permissions": [],
+    "app": ".",
+    "width": 1080,
+    "height": 720,
+    "minWidth": 560,
+    "minHeight": 380,
+    "resizable": true,
+    "splash": false,
+    "watch": false
+}

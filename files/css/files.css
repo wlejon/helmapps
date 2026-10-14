@@ -1,0 +1,283 @@
+/* =============================================================================
+   helm.files: styles beyond /lib/kit.css
+   Uses only tokens from /lib/css/tokens.css.
+   ============================================================================= */
+
+/* Toolbar breadcrumbs and location field */
+.files-crumbs-wrap {
+  display: flex;
+  align-items: center;
+  flex: 1 1 120px;
+  min-width: 80px;
+  height: 30px;
+  padding: 0 var(--s1);
+  border-radius: var(--r-ctl);
+  background: var(--well);
+  border: 1px solid var(--hairline);
+  overflow: hidden;
+  cursor: text;
+}
+
+.files-crumbs-wrap:hover {
+  background: var(--well-2);
+  border-color: var(--rim);
+}
+
+.files-crumbs-wrap.editing {
+  padding: 0;
+  background: transparent;
+  border-color: transparent;
+}
+
+.files-path-input {
+  width: 100%;
+  height: 30px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-cap);
+}
+
+/* Search bar in toolbar */
+.toolbar .files-search {
+  width: 210px;
+  position: relative;
+}
+
+.files-search-clear {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--r-sm);
+}
+
+/* Toolbar zoom slider */
+.files-zoom-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  width: 88px;
+  padding: 0 var(--s1);
+}
+
+.files-zoom-wrap .icon {
+  width: 14px;
+  height: 14px;
+  color: var(--t3);
+}
+
+/* Banner bar (Trash header, Search results header, Read-only / missing vfs banner) */
+.files-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s2) var(--s4);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--hairline);
+  font-size: var(--fs-body);
+  color: var(--t2);
+}
+
+.files-banner .icon {
+  color: var(--t3);
+}
+
+.files-banner-title {
+  font-weight: 600;
+  color: var(--t1);
+}
+
+.files-banner-sub {
+  color: var(--t3);
+  font-size: var(--fs-cap);
+}
+
+/* Grid cells */
+.vgrid-cell {
+  justify-content: flex-start;
+  padding: var(--s2);
+  gap: var(--s1);
+  user-select: none;
+}
+
+.files-grid-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  flex: 1 1 0px;
+  min-height: 0;
+  border-radius: var(--r-ctl);
+  overflow: hidden;
+  position: relative;
+}
+
+.files-grid-thumb .icon {
+  width: 42%;
+  height: 42%;
+  min-width: 28px;
+  min-height: 28px;
+  max-width: 96px;
+  max-height: 96px;
+  color: var(--t2);
+  stroke-width: 1.5;
+}
+
+.files-grid-thumb.is-folder .icon {
+  color: var(--accent-text);
+}
+
+.files-grid-thumb img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--r-sm);
+  box-shadow: var(--depth-1);
+}
+
+.files-grid-name {
+  width: 100%;
+  max-height: 2.6em;
+  font-size: var(--fs-cap);
+  line-height: 1.3;
+  color: var(--t1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.vgrid-cell.selected .files-grid-name {
+  color: var(--t1);
+  font-weight: 500;
+}
+
+/* List view cells */
+.vlist-row.is-hidden-item,
+.vgrid-cell.is-hidden-item {
+  opacity: 0.6;
+}
+
+.vlist-row.is-cut-item,
+.vgrid-cell.is-cut-item {
+  opacity: 0.45;
+}
+
+.vlist-row .col-name-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-width: 0;
+  flex: 1;
+}
+
+.vlist-row .col-name-wrap .folder-icon {
+  color: var(--accent-text);
+}
+
+.files-rel-hint {
+  color: var(--t4);
+  font-size: var(--fs-micro);
+  margin-left: var(--s2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Drop target highlight */
+.drop-target {
+  background: var(--accent-soft) !important;
+  box-shadow: inset 0 0 0 2px var(--accent-line) !important;
+}
+
+/* Drag ghost */
+.files-drag-ghost {
+  position: fixed;
+  z-index: var(--z-tooltip);
+  pointer-events: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s1) var(--s3);
+  border-radius: var(--r-ctl);
+  background: var(--surface-3);
+  border: 1px solid var(--accent-line);
+  box-shadow: var(--depth-2);
+  color: var(--t1);
+  font-size: var(--fs-cap);
+  font-weight: 500;
+}
+
+/* Statusbar transfer progress */
+.files-status-transfer {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-width: 180px;
+}
+
+.files-status-transfer .progress {
+  width: 96px;
+}
+
+/* Properties dialog */
+.files-props-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  padding-bottom: var(--s3);
+  border-bottom: 1px solid var(--hairline);
+  margin-bottom: var(--s3);
+}
+
+.files-props-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  flex: none;
+  border-radius: var(--r-card);
+  background: var(--well-2);
+  border: 1px solid var(--rim);
+  overflow: hidden;
+}
+
+.files-props-preview .icon {
+  width: 32px;
+  height: 32px;
+  color: var(--accent-text);
+}
+
+.files-props-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.files-props-grid {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  row-gap: var(--s2);
+  column-gap: var(--s3);
+  font-size: var(--fs-body);
+}
+
+.files-props-label {
+  color: var(--t3);
+  font-size: var(--fs-cap);
+}
+
+.files-props-val {
+  color: var(--t1);
+  word-break: break-all;
+}
+
+/* Conflict dialog */
+.files-conflict-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  margin-top: var(--s2);
+  padding: var(--s3);
+  border-radius: var(--r-ctl);
+  background: var(--well);
+  border: 1px solid var(--hairline);
+}

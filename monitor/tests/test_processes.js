@@ -1,0 +1,198 @@
+// End-to-end tests for the Processes page (Acceptance Tests #4, #5, #6, #7, #8).
+
+import {
+  app,
+  waitFor,
+  eq,
+  press,
+  clickEl,
+  rightClickEl,
+  menuLabels,
+  chooseMenu,
+  currentDialog,
+  dialogButton,
+  fixtureDir,
+  mod,
+} from '/lib/test.js';
+
+const fs = require('fs');
+const path = require('path');
+
+function runTick(nowMs = Date.now()) {
+  let done = false;
+  app.tick(nowMs).then(() => { done = true; });
+  waitFor(() => done, 'sampler tick to finish');
+}
+
+function makePidStat({ pid, name, state = 'S', ppid = 1, utime = 100, stime = 50, threads = 2, starttime = 1000, rssPages = 1000 }) {
+  return `${pid} (${name}) ${state} ${ppid} ${pid} ${pid} 0 -1 4194304 10 0 0 0 ${utime} ${stime} 0 0 20 0 ${threads} 0 ${starttime} 104857600 ${rssPages} 18446744073709551615 0 0 0 0 0 0 0 0 0 0 0 0 17 0 0 0 0 0 0\n`;
+}
+
+// Stop automatic background timer during deterministic test steps
+app.sampler.stop();
+
+// ---- Acceptance Test #7: Platform without /proc (Windows) or non-proc root ---
+const emptyRoot = fixtureDir({});
+app.setRoot(emptyRoot);
+runTick(1000);
+
+eq(app.procSampler.supported, false, 'without /proc, procSampler.supported is false');
+eq(app.processesView.unsupportedEl.classList.contains('hidden'), false, 'Processes shows empty state when /proc is absent');
+assert(
+  app.processesView.unsupportedEl.textContent.includes('needs bro support'),
+  'empty state explains that platform process data needs bro support'
+);
+
+// File Systems page lists volumes where bro.vfs is available
+if (typeof bro !== 'undefined' && bro.vfs && typeof bro.vfs.volumes === 'function') {
+  waitFor(() => app.filesystemsView.loaded, 'File Systems volumes to load');
+  assert(app.filesystemsView.volumes.length > 0, 'File Systems lists mounted volumes');
+}
+
+// ---- Build fake /proc with fixtureDir() -------------------------------------
+const fakeRoot = fixtureDir({
+  'etc/passwd': 'root:x:0:0:root:/root:/bin/bash\njonny:x:1000:1000:Jonny:/home/jonny:/bin/bash\n',
+  'proc/stat': [
+    'cpu  1000 0 500 8500 0 0 0 0 0 0',
+    'cpu0 500 0 250 4250 0 0 0 0 0 0',
+    'cpu1 500 0 250 4250 0 0 0 0 0 0',
+  ].join('\n'),
+  'proc/meminfo': [
+    'MemTotal:       8000000 kB',
+    'MemFree:        2000000 kB',
+    'MemAvailable:   5000000 kB',
+    'SwapTotal:      2000000 kB',
+    'SwapFree:       1500000 kB',
+  ].join('\n'),
+  'proc/loadavg': '0.50 0.40 0.30 1/200 500\n',
+  'proc/uptime': '1200.00 2000.00\n',
+  'proc/101/stat': makePidStat({ pid: 101, name: 'alpha-srv', state: 'R', ppid: 1, utime: 100, stime: 50, threads: 4, rssPages: 2000 }),
+  'proc/101/cmdline': '/usr/bin/alpha-srv\0--port=8080\0',
+  'proc/101/status': 'Name:\talpha-srv\nUid:\t1000\t1000\t1000\t1000\nVmRSS:\t8000 kB\nThreads:\t4\n',
+  'proc/202/stat': makePidStat({ pid: 202, name: 'beta-worker', state: 'S', ppid: 101, utime: 200, stime: 100, threads: 8, rssPages: 8000 }),
+  'proc/202/cmdline': '/usr/bin/beta-worker\0--jobs=4\0',
+  'proc/202/status': 'Name:\tbeta-worker\nUid:\t0\t0\t0\t0\nVmRSS:\t32000 kB\nThreads:\t8\n',
+});
+
+app.setPage('processes');
+app.setRoot(fakeRoot);
+runTick(2000);
+
+eq(app.procSampler.supported, true, 'fake /proc is supported');
+eq(app.list.items.length, 2, 'two processes listed on first tick');
+
+// Advance /proc/stat by +1000 total jiffies; PID 101 uses +250 ticks (25%), PID 202 uses +50 ticks (5%)
+fs.writeFileSync(path.join(fakeRoot, 'proc/stat'), [
+  'cpu  1300 0 600 9100 0 0 0 0 0 0',
+  'cpu0 700 0 300 4500 0 0 0 0 0 0',
+  'cpu1 600 0 300 4600 0 0 0 0 0 0',
+].join('\n'));
+fs.writeFileSync(path.join(fakeRoot, 'proc/101/stat'),
+  makePidStat({ pid: 101, name: 'alpha-srv', state: 'R', ppid: 1, utime: 300, stime: 100, threads: 4, rssPages: 2000 }));
+fs.writeFileSync(path.join(fakeRoot, 'proc/202/stat'),
+  makePidStat({ pid: 202, name: 'beta-worker', state: 'S', ppid: 101, utime: 230, stime: 120, threads: 8, rssPages: 8000 }));
+
+runTick(3000);
+
+// Default sort is CPU descending -> alpha-srv (25%) first, beta-worker (5%) second
+eq(app.list.items.map((p) => p.pid), [101, 202], 'sorted by CPU descending by default');
+eq(app.list.items[0].cpu, 25, 'PID 101 CPU % is 25%');
+eq(app.list.items[1].cpu, 5, 'PID 202 CPU % is 5%');
+eq(app.list.items[0].user, 'jonny', 'PID 101 UID 1000 mapped to username jonny');
+eq(app.list.items[1].user, 'root', 'PID 202 UID 0 mapped to root');
+
+// ---- Acceptance Test #4: PID disappears, new PID appears, selection kept -----
+waitFor(() => document.querySelectorAll('.vlist-row').length === 2, 'two DOM rows rendered');
+const row101 = Array.from(document.querySelectorAll('.vlist-row')).find((r) => r.textContent.includes('alpha-srv'));
+clickEl(row101);
+eq(app.list.selectedItems().map((p) => p.pid), [101], 'PID 101 is selected');
+
+// Remove PID 202 and add PID 303
+fs.rmSync(path.join(fakeRoot, 'proc/202'), { recursive: true, force: true });
+fs.mkdirSync(path.join(fakeRoot, 'proc/303'), { recursive: true });
+fs.writeFileSync(path.join(fakeRoot, 'proc/303/stat'),
+  makePidStat({ pid: 303, name: 'gamma-daemon', state: 'S', ppid: 101, utime: 50, stime: 50, threads: 1, rssPages: 16000 }));
+fs.writeFileSync(path.join(fakeRoot, 'proc/303/cmdline'), '/usr/sbin/gamma-daemon\0--foreground\0');
+fs.writeFileSync(path.join(fakeRoot, 'proc/303/status'), 'Name:\tgamma-daemon\nUid:\t1000\t1000\t1000\t1000\n');
+fs.writeFileSync(path.join(fakeRoot, 'proc/stat'), [
+  'cpu  1500 0 700 9800 0 0 0 0 0 0',
+  'cpu0 800 0 350 4850 0 0 0 0 0 0',
+  'cpu1 700 0 350 4950 0 0 0 0 0 0',
+].join('\n'));
+fs.writeFileSync(path.join(fakeRoot, 'proc/101/stat'),
+  makePidStat({ pid: 101, name: 'alpha-srv', state: 'R', ppid: 1, utime: 450, stime: 150, threads: 4, rssPages: 2000 }));
+
+runTick(4000);
+
+eq(app.list.items.map((p) => p.pid), [101, 303], 'PID 202 left the list and PID 303 appeared');
+eq(app.list.selectedItems().map((p) => p.pid), [101], 'selection on PID 101 is preserved across ticks');
+
+// ---- Acceptance Test #5: Sort by Memory when header clicked, sort persists ---
+const findMemHeader = () => Array.from(document.querySelectorAll('.list-header .col')).find((c) => c.textContent.startsWith('Memory'));
+clickEl(findMemHeader());
+const firstSortDir = app.settings.get('sort');
+eq(firstSortDir.id, 'memory', 'sort setting id persisted as memory');
+if (firstSortDir.dir === 1) {
+  eq(app.list.items.map((p) => p.pid), [101, 303], 'sorted by Memory ascending');
+  clickEl(findMemHeader());
+}
+eq(app.list.items.map((p) => p.pid), [303, 101], 'sorted by Memory descending (gamma-daemon 64 MB first)');
+eq(app.settings.get('sort'), { id: 'memory', dir: -1 }, 'Memory sort order persisted in settings');
+
+// ---- Acceptance Test #6: Filter narrows to matching names, cmdlines, PIDs ----
+app.setFilter('gamma');
+eq(app.list.items.map((p) => p.pid), [303], 'filter matches process name');
+
+app.setFilter('8080');
+eq(app.list.items.map((p) => p.pid), [101], 'filter matches command line argument');
+
+app.setFilter('303');
+eq(app.list.items.map((p) => p.pid), [303], 'filter matches PID');
+
+app.setFilter('');
+eq(app.list.items.length, 2, 'clearing filter restores all processes');
+
+// ---- Tree mode (by parent PID) -----------------------------------------------
+// Currently sorted by Memory descending ([303, 101]), where 303 is a child of 101 (ppid=101).
+// Turning on Tree Mode puts parent 101 at depth 0 followed by child 303 at depth 1.
+press(`${mod}+t`);
+eq(app.settings.get('treeMode'), true, 'Mod+T toggles treeMode on');
+eq(app.list.items.map((p) => [p.pid, p.depth]), [[101, 0], [303, 1]], 'tree mode places child under parent with depth 1');
+press(`${mod}+t`);
+eq(app.settings.get('treeMode'), false, 'Mod+T toggles treeMode off');
+
+// ---- Context menu & Process Properties dialog --------------------------------
+const row = Array.from(document.querySelectorAll('.vlist-row')).find((r) => r.textContent.includes('alpha-srv'));
+rightClickEl(row);
+const labels = menuLabels();
+assert(labels.includes('Properties'), 'context menu includes Properties');
+assert(labels.includes('Copy Command Line'), 'context menu includes Copy Command Line');
+assert(labels.some((l) => l.includes('End Process') && l.includes('needs bro support')), 'End Process shows needs bro support');
+assert(labels.some((l) => l.includes('Kill Process') && l.includes('needs bro support')), 'Kill Process shows needs bro support');
+
+chooseMenu('Properties');
+waitFor(() => currentDialog(), 'Process Properties dialog to open');
+assert(currentDialog().el.textContent.includes('--port=8080'), 'Properties dialog shows command line');
+dialogButton('Close');
+waitFor(() => !currentDialog(), 'Process Properties dialog to close');
+
+// ---- Acceptance Test #8: On Linux, real sampler sees its own process ---------
+if (process.platform === 'linux') {
+  app.setRoot('/');
+  runTick(5000);
+  let selfPid = typeof process.pid === 'number' ? process.pid : null;
+  if (!selfPid) {
+    try {
+      selfPid = parseInt(fs.readlinkSync('/proc/self'), 10);
+    } catch (_) {}
+  }
+  assert(selfPid > 0, 'resolved own PID on Linux');
+  assert(
+    app.procSampler.processes.some((p) => p.pid === selfPid),
+    `real sampler on Linux sees own process (PID ${selfPid})`
+  );
+} else {
+  console.log(`Acceptance Test #8 (real /proc/self) skipped on ${process.platform}`);
+}
+
+console.log('test_processes PASSED');

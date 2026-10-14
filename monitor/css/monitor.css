@@ -1,0 +1,373 @@
+/* System Monitor: layout and charts using helm kit tokens only. */
+
+/* Toolbar extras */
+.mon-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.mon-interval-label {
+  font-size: var(--fs-cap);
+  color: var(--t3);
+  margin-right: var(--s1);
+}
+
+/* Processes page */
+.mon-page-processes {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0px;
+  min-height: 0;
+  min-width: 0;
+}
+
+.mon-proc-name {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-width: 0;
+  width: 100%;
+}
+
+.mon-tree-indent {
+  display: inline-block;
+  flex: none;
+  height: 1px;
+}
+
+.mon-tree-branch {
+  flex: none;
+  color: var(--t4);
+  font-size: var(--fs-cap);
+  margin-right: 2px;
+}
+
+.mon-proc-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 6px;
+  border-radius: var(--r-chip);
+  background: var(--well-2);
+  color: var(--t3);
+  font-size: var(--fs-micro);
+  font-weight: 500;
+}
+
+.mon-proc-badge.running {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.mon-proc-badge.zombie,
+.mon-proc-badge.stopped {
+  background: var(--danger-soft);
+  color: var(--danger-text);
+}
+
+.mon-high-cpu {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+/* Performance page */
+.mon-page-perf {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  flex: 1 1 0px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--s5) var(--s6);
+}
+
+.mon-perf-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--s4);
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-card);
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+}
+
+.mon-perf-cpu-model {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-width: 0;
+}
+
+.mon-perf-cpu-model .icon {
+  color: var(--accent-text);
+}
+
+.mon-perf-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--s5);
+  flex-wrap: wrap;
+}
+
+.mon-perf-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.mon-perf-stat-label {
+  font-size: var(--fs-micro);
+  color: var(--t3);
+  font-weight: 600;
+  letter-spacing: var(--track-micro);
+}
+
+.mon-perf-stat-val {
+  font-size: var(--fs-body);
+  font-weight: 600;
+  color: var(--t1);
+}
+
+.mon-perf-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: var(--s4);
+}
+
+.mon-chart-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s4);
+  border-radius: var(--r-card);
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  min-width: 0;
+}
+
+.mon-chart-card.wide {
+  grid-column: 1 / -1;
+}
+
+.mon-chart-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+
+.mon-chart-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-width: 0;
+}
+
+.mon-chart-title {
+  font-size: var(--fs-title);
+  font-weight: 600;
+  color: var(--t1);
+}
+
+.mon-chart-sub {
+  font-size: var(--fs-cap);
+  color: var(--t3);
+}
+
+.mon-chart-readout {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+  flex: none;
+}
+
+.mon-chart-val {
+  font-size: var(--fs-head);
+  font-weight: 600;
+  color: var(--t1);
+}
+
+.mon-chart-val-sec {
+  font-size: var(--fs-cap);
+  color: var(--t2);
+}
+
+.mon-canvas-wrap {
+  position: relative;
+  width: 100%;
+  height: 112px;
+  border-radius: var(--r-ctl);
+  background: var(--sink);
+  border: 1px solid var(--hairline);
+  overflow: hidden;
+}
+
+.mon-canvas-wrap canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Per-core small multiples */
+.mon-cores-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: var(--s2);
+  margin-top: var(--s1);
+}
+
+.mon-core-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--s2);
+  border-radius: var(--r-ctl);
+  background: var(--sink);
+  border: 1px solid var(--hairline);
+}
+
+.mon-core-top {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--fs-micro);
+  color: var(--t3);
+}
+
+.mon-core-val {
+  color: var(--t1);
+  font-weight: 600;
+}
+
+.mon-core-canvas-wrap {
+  width: 100%;
+  height: 36px;
+}
+
+.mon-core-canvas-wrap canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Legend dots */
+.mon-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  font-size: var(--fs-cap);
+  color: var(--t3);
+}
+
+.mon-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mon-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-chip);
+  background: var(--accent);
+}
+
+.mon-dot.secondary {
+  background: var(--ok);
+}
+
+.mon-dot.warn {
+  background: var(--warn);
+}
+
+/* File Systems page */
+.mon-page-fs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  flex: 1 1 0px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--s5) var(--s6);
+}
+
+.mon-fs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--s3);
+}
+
+.mon-fs-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s4);
+  border-radius: var(--r-card);
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  transition: background var(--d-quick) var(--ease-std), border-color var(--d-quick) var(--ease-std);
+}
+
+.mon-fs-card:hover {
+  background: var(--surface-3);
+  border-color: var(--rim-strong);
+}
+
+.mon-fs-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+
+.mon-fs-title-group {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  min-width: 0;
+}
+
+.mon-fs-title-group .icon {
+  color: var(--accent-text);
+}
+
+.mon-fs-names {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mon-fs-stats {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--fs-cap);
+  color: var(--t2);
+}
+
+.mon-fs-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--s1);
+}
+
+/* Properties dialog table */
+.mon-props-grid {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: var(--s2) var(--s4);
+  font-size: var(--fs-body);
+}
+
+.mon-props-label {
+  color: var(--t3);
+  font-weight: 500;
+}
+
+.mon-props-val {
+  color: var(--t1);
+  word-break: break-all;
+}

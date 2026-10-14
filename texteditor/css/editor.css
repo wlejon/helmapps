@@ -1,0 +1,232 @@
+/* =============================================================================
+   Text Editor: app-specific styles using only /lib/css/tokens.css tokens
+   ============================================================================= */
+
+/* Tab strip row with trailing "+" new-tab button */
+.te-tabbar {
+  display: flex;
+  align-items: center;
+  flex: none;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--hairline);
+  padding-right: var(--s2);
+}
+
+.te-tabbar .tabstrip {
+  flex: 1;
+  min-width: 0;
+  border-bottom: none;
+}
+
+.te-new-tab {
+  flex: none;
+  margin-left: var(--s1);
+}
+
+/* Info / warning banners (read-only, external change, crash recovery) */
+.te-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  flex: none;
+  min-height: 36px;
+  padding: var(--s1) var(--s3);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--hairline);
+  color: var(--t1);
+  font-size: var(--fs-body);
+}
+
+.te-banner.warn {
+  background: var(--surface-2);
+  box-shadow: inset 3px 0 0 var(--warn);
+}
+
+.te-banner.readonly {
+  background: var(--surface-2);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.te-banner .icon {
+  color: var(--warn);
+  flex: none;
+}
+
+.te-banner.readonly .icon {
+  color: var(--accent-text);
+}
+
+.te-banner-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.te-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  flex: none;
+}
+
+/* Find and Replace bar */
+.te-findbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  flex: none;
+  padding: var(--s2) var(--s3);
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.te-find-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  flex-wrap: nowrap;
+}
+
+.te-find-input {
+  width: 240px;
+  flex: 0 1 260px;
+}
+
+.te-find-toggles {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--r-ctl);
+  background: var(--sink);
+  box-shadow: inset 0 0 0 1px var(--rim);
+}
+
+.te-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  min-width: 28px;
+  padding: 0 var(--s2);
+  border-radius: var(--r-sm);
+  color: var(--t3);
+  font-size: var(--fs-cap);
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+.te-toggle-btn:hover {
+  color: var(--t1);
+  background: var(--well-2);
+}
+
+.te-toggle-btn.active {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.te-find-count {
+  min-width: 72px;
+  padding: 0 var(--s2);
+  color: var(--t3);
+  font-size: var(--fs-cap);
+  text-align: right;
+}
+
+.te-find-count.empty {
+  color: var(--danger-text);
+}
+
+/* Main editor surface: synchronized gutter + per-document <textarea> */
+.te-stage {
+  position: relative;
+  display: flex;
+  flex: 1 1 0px;
+  min-width: 0;
+  min-height: 0;
+  background: var(--surface-0);
+  overflow: hidden;
+}
+
+.te-doc-view {
+  position: relative;
+  display: flex;
+  flex: 1 1 0px;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.te-gutter {
+  position: relative;
+  flex: none;
+  min-width: 48px;
+  padding: var(--s3) var(--s2) var(--s3) var(--s3);
+  background: var(--surface-1);
+  border-right: 1px solid var(--hairline);
+  color: var(--t4);
+  text-align: right;
+  overflow: hidden;
+  user-select: none;
+}
+
+.te-gutter-inner {
+  position: relative;
+  white-space: pre;
+  font-variant-numeric: tabular-nums;
+}
+
+.te-textarea {
+  flex: 1 1 0px;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  padding: var(--s3) var(--s4);
+  background: var(--surface-0);
+  border: none;
+  color: var(--t1);
+  resize: none;
+  overflow: auto;
+  user-select: text;
+  cursor: text;
+}
+
+.te-textarea.nowrap {
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+.te-textarea.wrap {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.te-textarea[readonly] {
+  color: var(--t2);
+}
+
+/* Statusbar items */
+.statusbar .te-status-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  height: 20px;
+  padding: 0 var(--s2);
+  border-radius: var(--r-sm);
+  color: var(--t3);
+  font-size: var(--fs-cap);
+}
+
+.statusbar button.te-status-item:hover {
+  background: var(--well-2);
+  color: var(--t1);
+}
+
+.statusbar .te-status-sep {
+  width: 1px;
+  height: 14px;
+  background: var(--hairline);
+}
