@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#252c4a"/>
+      <stop offset="1" stop-color="#14182b"/>
+    </linearGradient>
+    <linearGradient id="acc" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6e9eff"/>
+      <stop offset="1" stop-color="#4e73df"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="16" fill="url(#bg)"/>
+  <!-- Crop corners -->
+  <path d="M16 24v-6a2 2 0 0 1 2-2h6M40 16h6a2 2 0 0 1 2 2v6M48 40v6a2 2 0 0 1-2 2h-6M24 48h-6a2 2 0 0 1-2-2v-6"
+        fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="3" stroke-linecap="round"/>
+  <!-- Camera body -->
+  <rect x="20" y="24" width="24" height="18" rx="4" fill="url(#acc)"/>
+  <path d="M26 24l2-3h8l2 3" fill="url(#acc)"/>
+  <circle cx="32" cy="33" r="5" fill="#14182b"/>
+  <circle cx="32" cy="33" r="2.5" fill="#9bc0ff"/>
+</svg>

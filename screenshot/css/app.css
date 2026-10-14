@@ -1,0 +1,234 @@
+/* =============================================================================
+   Screenshot (helm.screenshot) — app stylesheet
+   Uses only design tokens from /lib/css/tokens.css.
+   ============================================================================= */
+
+/* Home view --------------------------------------------------------------- */
+
+.ss-home {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--s5);
+  flex: 1 1 0px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--s6) var(--s8);
+}
+
+.ss-home-inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s5);
+  width: 100%;
+  max-width: 640px;
+}
+
+.ss-home-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+}
+
+.ss-modes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--s3);
+}
+
+.ss-mode-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2);
+  padding: var(--s5) var(--s3);
+  border-radius: var(--r-card);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--rim);
+  color: var(--t2);
+  text-align: center;
+  transition: background var(--d-quick) var(--ease-std),
+              box-shadow var(--d-state) var(--ease-std),
+              color var(--d-quick) var(--ease-std);
+}
+
+.ss-mode-card:hover {
+  background: var(--well-3);
+  color: var(--t1);
+}
+
+.ss-mode-card.active {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1.5px var(--accent-line);
+  color: var(--t1);
+}
+
+.ss-mode-card.active .icon {
+  color: var(--accent-text);
+}
+
+.ss-mode-card:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+.ss-mode-card:disabled {
+  opacity: 0.4;
+}
+
+.ss-mode-title {
+  font-size: var(--fs-title);
+  font-weight: 600;
+  color: var(--t1);
+}
+
+.ss-mode-sub {
+  font-size: var(--fs-cap);
+  color: var(--t3);
+}
+
+.ss-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--s3);
+}
+
+.ss-take-btn {
+  height: 36px;
+  padding: 0 var(--s5);
+  font-size: var(--fs-title);
+}
+
+.ss-unavail {
+  border-radius: var(--r-card);
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  padding: var(--s4);
+}
+
+/* Result & annotation view ------------------------------------------------ */
+
+.ss-result {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0px;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+}
+
+.ss-toolstrip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  padding: var(--s1) var(--s3);
+  min-height: 40px;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.ss-swatches {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  padding: 2px;
+}
+
+.ss-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--r-chip);
+  box-shadow: inset 0 0 0 1px var(--rim-strong);
+  transition: transform var(--d-quick) var(--ease-std),
+              box-shadow var(--d-quick) var(--ease-std);
+}
+
+.ss-swatch:hover {
+  transform: scale(1.12);
+}
+
+.ss-swatch.active {
+  box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 4px var(--accent);
+}
+
+.ss-swatch:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+.ss-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 0px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: var(--s4);
+  background: var(--sink);
+}
+
+.ss-canvas {
+  display: block;
+  box-shadow: var(--depth-2);
+  border-radius: var(--r-sm);
+  cursor: crosshair;
+}
+
+.ss-canvas.tool-select {
+  cursor: default;
+}
+
+/* Region selection overlay ------------------------------------------------ */
+
+.ss-region-overlay {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-dialog);
+  background: var(--surface-0);
+  overflow: hidden;
+  cursor: crosshair;
+  outline: none;
+}
+
+.ss-region-canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: block;
+}
+
+.ss-region-pill {
+  position: absolute;
+  pointer-events: none;
+  padding: 2px var(--s2);
+  border-radius: var(--r-sm);
+  background: var(--surface-3);
+  color: var(--t1);
+  font-size: var(--fs-cap);
+  font-weight: 600;
+  box-shadow: var(--depth-1);
+  white-space: nowrap;
+}
+
+.ss-region-bar {
+  position: absolute;
+  bottom: var(--s4);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s2) var(--s3);
+  border-radius: var(--r-panel);
+  background: var(--surface-3);
+  box-shadow: var(--depth-2);
+  color: var(--t2);
+  font-size: var(--fs-cap);
+}

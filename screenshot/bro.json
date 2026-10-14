@@ -1,0 +1,30 @@
+{
+    "id": "helm.screenshot",
+    "name": "Screenshot",
+    "version": "0.1.0",
+    "description": "Capture the screen or a region, annotate, and save or copy",
+    "icon": "assets/icon.svg",
+    "categories": ["Utility", "Graphics"],
+    "keywords": ["screenshot", "capture", "snip", "region", "annotate", "screen"],
+    "singleInstance": true,
+    "fileTypes": [
+        {
+            "name": "Images",
+            "mimeTypes": ["image/png", "image/jpeg", "image/webp"],
+            "extensions": ["png", "jpg", "jpeg", "webp"]
+        }
+    ],
+    "actions": [
+        { "id": "full", "name": "Capture Full Screen", "args": ["--full"] },
+        { "id": "region", "name": "Capture Region", "args": ["--region"] }
+    ],
+    "permissions": ["wl"],
+    "app": ".",
+    "width": 980,
+    "height": 700,
+    "minWidth": 520,
+    "minHeight": 380,
+    "resizable": true,
+    "splash": false,
+    "watch": false
+}
