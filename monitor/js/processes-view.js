@@ -7,8 +7,8 @@ import { h } from '/lib/dom.js';
 import { icon } from '/lib/icons.js';
 import { emptyState } from '/lib/layout.js';
 import { VirtualList } from '/lib/list.js';
-import { Dialog } from '/lib/dialog.js';
-import { formatBytes, formatNumber, formatDuration } from '/lib/format.js';
+import { Dialog, confirmDialog } from '/lib/dialog.js';
+import { formatBytes, formatCount, formatNumber, formatDuration } from '/lib/format.js';
 
 const TERM_ICON = icon('terminal');
 
@@ -128,7 +128,7 @@ export class ProcessesView {
     this.unsupportedEl = emptyState({
       icon: 'activity',
       title: 'Process and performance data on this platform needs bro support',
-      hint: 'Process inspection reads /proc on Linux. A cross-platform process API is not in brokit yet.',
+      hint: 'Process inspection reads /proc on Linux or bro.sys.processes when available.',
     });
     this.unsupportedEl.classList.add('hidden');
 
@@ -266,15 +266,33 @@ export class ProcessesView {
     this.list.setItems(ordered);
   }
 
+  async confirmKillDialog(procs) {
+    if (!procs || !procs.length) return false;
+    const targetLabel = procs.length === 1
+      ? `“${procs[0].name}” (PID ${procs[0].pid})`
+      : formatCount(procs.length, 'process', 'processes');
+    return confirmDialog({
+      title: `Force kill ${targetLabel}?`,
+      body: 'Killing a process (SIGKILL) terminates it immediately without saving open data.',
+      ok: 'Kill Process',
+      danger: true,
+    });
+  }
+
   async showPropertiesDialog(proc, procSampler, sysSampler) {
     if (!proc) return null;
     const details = await procSampler.getProcessDetails(proc.pid);
     const st = details.status || {};
     const clkTck = 100;
     const startSec = (details.starttime || 0) / clkTck;
-    const elapsedSec = sysSampler && sysSampler.uptimeSec > startSec
+    const elapsedSec = sysSampler && startSec > 0 && sysSampler.uptimeSec > startSec
       ? Math.max(0, sysSampler.uptimeSec - startSec)
       : 0;
+    const cpuTimeSec = details.cpuTimeMs != null
+      ? details.cpuTimeMs / 1000
+      : proc.cpuTimeMs != null
+        ? proc.cpuTimeMs / 1000
+        : ((details.utime || 0) + (details.stime || 0)) / clkTck;
 
     const rows = [
       ['Name', details.name || proc.name],
@@ -284,7 +302,7 @@ export class ProcessesView {
       ['State', details.stateLabel || proc.stateLabel || details.state || '—'],
       ['Command Line', details.cmdline || proc.cmdline || '—'],
       ['Working Folder', details.cwd || '—'],
-      ['CPU Time', formatDuration(((details.utime || 0) + (details.stime || 0)) / clkTck)],
+      ['CPU Time', formatDuration(cpuTimeSec)],
       ['Running For', elapsedSec > 0 ? formatDuration(elapsedSec) : '—'],
       ['Threads', formatNumber(details.threads || proc.threads || 1)],
       ['Nice / Priority', `${details.nice ?? 0} / ${details.priority ?? 0}`],

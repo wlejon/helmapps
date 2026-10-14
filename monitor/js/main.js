@@ -10,7 +10,7 @@
  */
 
 import { startApp } from '/lib/app.js';
-import { h } from '/lib/dom.js';
+import { h, api } from '/lib/dom.js';
 import { icon } from '/lib/icons.js';
 import { appFrame, Toolbar, Sidebar } from '/lib/layout.js';
 import { menu } from '/lib/menu.js';
@@ -32,6 +32,7 @@ import {
   parsePidStatus,
   parsePidCmdline,
   computeProcCpuPct,
+  computeSysProcCpuPct,
 } from './sampler.js';
 import { ProcessesView } from './processes-view.js';
 import { ResourcesView } from './resources-view.js';
@@ -53,6 +54,7 @@ const { commands, settings } = app;
 const state = {
   page: settings.get('page') || 'processes',
   root: '/',
+  sysApi: undefined,
   tickCount: 0,
 };
 
@@ -260,19 +262,20 @@ commands.addAll([
   },
   {
     id: 'end-process',
-    label: 'End Process (needs bro support)',
+    label: 'End Process',
     icon: 'stop',
     keys: ['Delete'],
-    enabled: () => false,
-    run: () => {},
+    enabled: () => state.page === 'processes' && selectedProcs().length >= 1 && canSignalProcesses(),
+    run: () => endSelectedProcesses(),
   },
   {
     id: 'kill-process',
-    label: 'Kill Process (needs bro support)',
+    label: 'Kill Process',
     icon: 'x-circle',
+    keys: ['Shift+Delete'],
     danger: true,
-    enabled: () => false,
-    run: () => {},
+    enabled: () => state.page === 'processes' && selectedProcs().length >= 1 && canSignalProcesses(),
+    run: () => killSelectedProcesses(),
   },
   {
     id: 'refresh',
@@ -299,6 +302,71 @@ toolbar.add(h('div.mon-toolbar-group',
 ));
 toolbar.button('refresh');
 
+function getSysApi() {
+  return state.sysApi !== undefined ? state.sysApi : api('sys');
+}
+
+function canSignalProcesses() {
+  const s = getSysApi();
+  return Boolean(s && (typeof s.processes?.kill === 'function' || typeof s.killProcess === 'function'));
+}
+
+function sendProcessSignal(pid, sig) {
+  const s = getSysApi();
+  if (!s) throw new Error('bro.sys is not available');
+  if (typeof s.processes?.kill === 'function') {
+    return s.processes.kill(pid, sig);
+  }
+  if (typeof s.killProcess === 'function') {
+    return s.killProcess(pid, sig);
+  }
+  throw new Error('killProcess is not available');
+}
+
+async function endSelectedProcesses() {
+  const procs = selectedProcs();
+  if (!procs.length || !canSignalProcesses()) return false;
+  try {
+    for (const p of procs) {
+      sendProcessSignal(p.pid, 15);
+    }
+    toast(
+      procs.length === 1
+        ? `Ended ${procs[0].name} (PID ${procs[0].pid})`
+        : `Ended ${formatCount(procs.length, 'process', 'processes')}`,
+      { icon: 'stop', key: 'proc-signal' }
+    );
+    await sampler.tick();
+    return true;
+  } catch (err) {
+    toast(`Could not end process: ${err.message}`, { error: true, key: 'proc-signal' });
+    return false;
+  }
+}
+
+async function killSelectedProcesses() {
+  const procs = selectedProcs();
+  if (!procs.length || !canSignalProcesses()) return false;
+  const ok = await processesView.confirmKillDialog(procs);
+  if (!ok) return false;
+  try {
+    for (const p of procs) {
+      sendProcessSignal(p.pid, 9);
+    }
+    toast(
+      procs.length === 1
+        ? `Killed ${procs[0].name} (PID ${procs[0].pid})`
+        : `Killed ${formatCount(procs.length, 'process', 'processes')}`,
+      { icon: 'x-circle', key: 'proc-signal' }
+    );
+    await sampler.tick();
+    return true;
+  } catch (err) {
+    toast(`Could not kill process: ${err.message}`, { error: true, key: 'proc-signal' });
+    return false;
+  }
+}
+
 function showProcessContextMenu(e, items) {
   if (!items || !items.length) {
     menu.show([
@@ -307,13 +375,14 @@ function showProcessContextMenu(e, items) {
     ], e.clientX, e.clientY);
     return;
   }
+  const canKill = canSignalProcesses();
   menu.show([
     { heading: items.length === 1 ? `${items[0].name} (${items[0].pid})` : formatCount(items.length, 'process', 'processes') },
     commands.item('proc-properties'),
     commands.item('copy-cmdline'),
     { separator: true },
-    commands.item('end-process'),
-    commands.item('kill-process'),
+    commands.item('end-process', canKill ? {} : { label: 'End Process (needs bro support)' }),
+    commands.item('kill-process', canKill ? {} : { label: 'Kill Process (needs bro support)' }),
     { separator: true },
     commands.item('toggle-tree'),
   ], e.clientX, e.clientY);
@@ -359,6 +428,12 @@ function setRoot(rootDir) {
   sampler.setRoot(state.root);
 }
 
+function setSysApi(sysApi) {
+  state.sysApi = sysApi;
+  sampler.setSysApi(sysApi);
+  toolbar.refresh();
+}
+
 // Pause sampling while the window is hidden or minimised
 document.addEventListener('visibilitychange', () => {
   sampler.setPaused(document.hidden || document.visibilityState === 'hidden');
@@ -394,7 +469,11 @@ app.expose({
   searchInput,
   setPage,
   setRoot,
+  setSysApi,
   setFilter,
+  endSelectedProcesses,
+  killSelectedProcesses,
+  canSignalProcesses,
   tick: (nowMs) => sampler.tick(nowMs),
   parsers: {
     parseProcStat,
@@ -409,5 +488,6 @@ app.expose({
     parsePidStatus,
     parsePidCmdline,
     computeProcCpuPct,
+    computeSysProcCpuPct,
   },
 });

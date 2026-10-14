@@ -1,0 +1,171 @@
+/* =============================================================================
+   Logs: severity badges, search bar controls, and entry detail drawer.
+   All colours, sizes, and radii come from /lib/css/tokens.css.
+   ============================================================================= */
+
+.sev-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 18px;
+  padding: 0 var(--s1);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-micro);
+  font-weight: 600;
+  letter-spacing: var(--track-micro);
+  font-variant-numeric: tabular-nums;
+}
+
+.sev-error {
+  background: var(--danger-soft);
+  color: var(--danger-text);
+}
+
+.sev-warn {
+  background: var(--well-3);
+  color: var(--warn);
+}
+
+.sev-info {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.sev-debug {
+  background: var(--well-2);
+  color: var(--t3);
+}
+
+.vlist-row.row-error .logs-msg {
+  color: var(--danger-text);
+}
+
+.vlist-row.row-warn .logs-msg {
+  color: var(--warn);
+}
+
+.logs-msg {
+  font-size: var(--fs-cap);
+  color: var(--t1);
+}
+
+.logs-has-details {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 4px;
+  margin-left: var(--s1);
+  border-radius: var(--r-sm);
+  background: var(--well-2);
+  color: var(--t3);
+  font-size: var(--fs-micro);
+}
+
+.toolbar .search-field.logs-search {
+  width: 240px;
+  padding-right: 4px;
+}
+
+.logs-regex-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: var(--r-sm);
+  color: var(--t3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  font-weight: 600;
+}
+
+.logs-regex-btn:hover {
+  background: var(--well-2);
+  color: var(--t1);
+}
+
+.logs-regex-btn.active {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+/* Detail Drawer ---------------------------------------------------------- */
+
+.logs-drawer {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  height: 220px;
+  background: var(--surface-1);
+  border-top: 1px solid var(--hairline);
+}
+
+.logs-drawer-head {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: var(--s3);
+  height: 36px;
+  padding: 0 var(--s3);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.logs-drawer-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.logs-drawer-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0px;
+  min-height: 0;
+  gap: var(--s2);
+  padding: var(--s3);
+  overflow-y: auto;
+}
+
+.logs-drawer-message {
+  font-size: var(--fs-body);
+  font-weight: 500;
+  color: var(--t1);
+  word-break: break-word;
+}
+
+.logs-drawer-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+}
+
+.logs-pre {
+  padding: var(--s2) var(--s3);
+  border-radius: var(--r-ctl);
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  color: var(--t2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-cap);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.statusbar-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ok);
+  font-weight: 500;
+}
+
+.statusbar-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--r-chip);
+  background: var(--ok);
+}

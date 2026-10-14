@@ -162,13 +162,14 @@ press(`${mod}+t`);
 eq(app.settings.get('treeMode'), false, 'Mod+T toggles treeMode off');
 
 // ---- Context menu & Process Properties dialog --------------------------------
+app.setSysApi(null);
 const row = Array.from(document.querySelectorAll('.vlist-row')).find((r) => r.textContent.includes('alpha-srv'));
 rightClickEl(row);
-const labels = menuLabels();
-assert(labels.includes('Properties'), 'context menu includes Properties');
-assert(labels.includes('Copy Command Line'), 'context menu includes Copy Command Line');
-assert(labels.some((l) => l.includes('End Process') && l.includes('needs bro support')), 'End Process shows needs bro support');
-assert(labels.some((l) => l.includes('Kill Process') && l.includes('needs bro support')), 'Kill Process shows needs bro support');
+const labelsNoSys = menuLabels();
+assert(labelsNoSys.includes('Properties'), 'context menu includes Properties');
+assert(labelsNoSys.includes('Copy Command Line'), 'context menu includes Copy Command Line');
+assert(labelsNoSys.some((l) => l.includes('End Process') && l.includes('needs bro support')), 'End Process shows needs bro support when bro.sys is absent');
+assert(labelsNoSys.some((l) => l.includes('Kill Process') && l.includes('needs bro support')), 'Kill Process shows needs bro support when bro.sys is absent');
 
 chooseMenu('Properties');
 waitFor(() => currentDialog(), 'Process Properties dialog to open');
@@ -176,23 +177,106 @@ assert(currentDialog().el.textContent.includes('--port=8080'), 'Properties dialo
 dialogButton('Close');
 waitFor(() => !currentDialog(), 'Process Properties dialog to close');
 
-// ---- Acceptance Test #8: On Linux, real sampler sees its own process ---------
-if (process.platform === 'linux') {
-  app.setRoot('/');
-  runTick(5000);
-  let selfPid = typeof process.pid === 'number' ? process.pid : null;
-  if (!selfPid) {
-    try {
-      selfPid = parseInt(fs.readlinkSync('/proc/self'), 10);
-    } catch (_) {}
+// ---- End Process (SIGTERM/15) & Kill Process (SIGKILL/9) ---------------------
+const killedSignals = [];
+let mockProcList = [
+  {
+    pid: 501,
+    ppid: 1,
+    name: 'win-render.exe',
+    cmdline: 'C:\\App\\win-render.exe --gpu',
+    state: 'R',
+    user: 'jonny',
+    uid: 1000,
+    rssBytes: 64 * 1024 * 1024,
+    vszBytes: 128 * 1024 * 1024,
+    userTimeMs: 200,
+    kernelTimeMs: 100,
+    threads: 6,
+  },
+  {
+    pid: 502,
+    ppid: 501,
+    name: 'win-helper.exe',
+    cmdline: 'C:\\App\\win-helper.exe',
+    state: 'S',
+    user: 'jonny',
+    uid: 1000,
+    rssBytes: 16 * 1024 * 1024,
+    vszBytes: 32 * 1024 * 1024,
+    cpuTimeMs: 50,
+    threads: 2,
+  },
+];
+
+const mockSys = {
+  processes: {
+    list: () => mockProcList,
+    kill: (pid, sig) => {
+      killedSignals.push({ pid, sig });
+      return true;
+    },
+  },
+};
+
+app.setSysApi(mockSys);
+// Select PID 101 in the current /proc view and test End Process (Delete -> SIGTERM=15)
+const rowForSignal = Array.from(document.querySelectorAll('.vlist-row')).find((r) => r.textContent.includes('alpha-srv'));
+clickEl(rowForSignal);
+eq(app.list.selectedItems().map((p) => p.pid), [101], 'PID 101 selected for signal test');
+
+press('Delete');
+waitFor(() => killedSignals.length === 1, 'Delete key triggers End Process (SIGTERM)');
+eq(killedSignals[0], { pid: 101, sig: 15 }, 'End Process sends signal 15 (SIGTERM)');
+
+// Test Kill Process (Shift+Delete -> confirmation dialog -> SIGKILL=9)
+press('Shift+Delete');
+waitFor(() => currentDialog(), 'Kill Process confirmation dialog opens on Shift+Delete');
+assert(currentDialog().el.textContent.includes('alpha-srv'), 'confirmation dialog names the target process');
+dialogButton('Kill Process');
+waitFor(() => !currentDialog() && killedSignals.length === 2, 'confirming Kill Process sends signal');
+eq(killedSignals[1], { pid: 101, sig: 9 }, 'Kill Process sends signal 9 (SIGKILL)');
+
+// ---- bro.sys.processes fallback when /proc is absent -------------------------
+app.processesView.setSort({ id: 'cpu', dir: -1 });
+app.setRoot(emptyRoot);
+app.setSysApi(mockSys);
+runTick(10000);
+
+eq(app.procSampler.supported, true, 'bro.sys.processes fallback marks procSampler.supported = true');
+eq(app.list.items.length, 2, 'two processes loaded from bro.sys.processes fallback');
+
+// Advance 1000 ms wall-clock: PID 501 uses +300 ms (200+100 -> 400+200 = 30% CPU), PID 502 uses +50 ms (50 -> 100 = 5% CPU)
+mockProcList = [
+  {
+    ...mockProcList[0],
+    userTimeMs: 400,
+    kernelTimeMs: 200,
+  },
+  {
+    ...mockProcList[1],
+    cpuTimeMs: 100,
+  },
+];
+runTick(11000);
+
+eq(app.list.items.map((p) => p.pid), [501, 502], 'bro.sys.processes sorted by CPU descending');
+eq(app.list.items[0].cpu, 30, 'PID 501 CPU % computed from userTimeMs+kernelTimeMs delta (30%)');
+eq(app.list.items[1].cpu, 5, 'PID 502 CPU % computed from cpuTimeMs delta (5%)');
+
+// ---- Acceptance Test #8: Real system sampler sees live processes -------------
+app.setSysApi(undefined);
+app.setRoot('/');
+runTick(12000);
+if (process.platform === 'linux' || (typeof bro !== 'undefined' && bro.sys && typeof bro.sys.processes?.list === 'function')) {
+  eq(app.procSampler.supported, true, 'real system sampler is supported');
+  assert(app.procSampler.processes.length > 0, 'real system sampler sees running processes');
+  if (typeof process.pid === 'number' && process.pid > 0) {
+    assert(
+      app.procSampler.processes.some((p) => p.pid === process.pid),
+      `real sampler sees own process (PID ${process.pid})`
+    );
   }
-  assert(selfPid > 0, 'resolved own PID on Linux');
-  assert(
-    app.procSampler.processes.some((p) => p.pid === selfPid),
-    `real sampler on Linux sees own process (PID ${selfPid})`
-  );
-} else {
-  console.log(`Acceptance Test #8 (real /proc/self) skipped on ${process.platform}`);
 }
 
 console.log('test_processes PASSED');

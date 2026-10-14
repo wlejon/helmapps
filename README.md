@@ -11,11 +11,20 @@ library exposed as `bro.<x>`), never into the app.
 | [term](term/) | `helm.term` | Terminal: tabs, splits, profiles and shell integration over bro's `<terminal>` element |
 | [remote](remote/) | `helm.remote` | Remote desktop viewer: a helm session over broremote, shown in bro's `<remoteview>` (hardware decode, zero-copy on Windows), with keyboard and pointer capture and audio both ways |
 | [diskusage](diskusage/) | `helm.diskusage` | Disk usage analyzer, and the kit's reference app |
+| [files](files/) | `helm.files` | File manager with dual-pane browsing, tabs, search (`bro.search`), undo/redo journal, and XDG trash (`bro.vfs`) |
+| [texteditor](texteditor/) | `helm.texteditor` | Multi-tab plain-text and code editor with line numbers, regex find/replace, and atomic session recovery |
 | [images](images/) | `helm.images` | Image viewer and organizer with gallery, burst stabilization and wildlife tagging |
 | [music](music/) | `helm.music` | Music library and player with tag scanner, album grid, queue and lyrics |
+| [monitor](monitor/) | `helm.monitor` | System monitor: live processes (`/proc` and `bro.sys.processes`), CPU/memory/I/O/GPU performance graphs, and file systems |
+| [disks](disks/) | `helm.disks` | Disks and volumes utility: physical drive topology, visual partition layout map, live disk I/O rates, and volume inspection |
+| [logs](logs/) | `helm.logs` | System and application log viewer: desktop/app/system logs, JSONL & syslog parser, regex search, and live tailing |
+| [archives](archives/) | `helm.archives` | Archive manager: inspect, extract, and create `.zip`, `.tar`, and `.tar.gz` archives |
+| [recorder](recorder/) | `helm.recorder` | Voice and audio recorder with live waveform/spectrum meter, markers, non-destructive trim, and WAV export |
+| [screenshot](screenshot/) | `helm.screenshot` | Screen and region capture (`bro.wl.captureOutput`), non-destructive annotations and export |
 | [calculator](calculator/) | `helm.calculator` | Basic, scientific and programmer calculator with persistent history tape |
 | [clock](clock/) | `helm.clock` | World clocks, countdown timers, high-precision stopwatch and alarms |
-| [screenshot](screenshot/) | `helm.screenshot` | Screen and region capture (`bro.wl.captureOutput`), non-destructive annotations and export |
+| [charmap](charmap/) | `helm.charmap` | Unicode character map and symbol browser with UTF-8/UTF-16/HTML/CSS/JS encoding inspector |
+| [colorpicker](colorpicker/) | `helm.colorpicker` | Oklch/Oklab/sRGB color picker, palette manager, and WCAG 2.1 + APCA contrast checker |
 
 ## Building an app
 

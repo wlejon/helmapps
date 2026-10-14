@@ -9,11 +9,11 @@ reads [`../AGENTS.md`](../AGENTS.md).
 
 | Brief | Folder | id | Size | Notes |
 |---|---|---|---|---|
-| [files.md](files.md) | `files/` | `helm.files` | ~4000 | The biggest and most important. Everything else links to it. |
+| [files.md](files.md) (done) | `files/` | `helm.files` | ~4000 | The biggest and most important. Everything else links to it. |
 | [images.md](images.md) (done) | `images/` | `helm.images` | ~2000 | |
-| [texteditor.md](texteditor.md) | `texteditor/` | `helm.texteditor` | ~2500 | Built on `<textarea>`, no syntax highlighting |
+| [texteditor.md](texteditor.md) (done) | `texteditor/` | `helm.texteditor` | ~2500 | Built on `<textarea>`, no syntax highlighting |
 | [music.md](music.md) (done) | `music/` | `helm.music` | ~3000 | Parses tags in JS; no MPRIS server yet |
-| [monitor.md](monitor.md) | `monitor/` | `helm.monitor` | ~2500 | Linux `/proc`; Windows degrades |
+| [monitor.md](monitor.md) (done) | `monitor/` | `helm.monitor` | ~2500 | Linux `/proc` + cross-platform `bro.sys.processes` (`listProcesses`, `killProcess`) |
 | [screenshot.md](screenshot.md) (done) | `screenshot/` | `helm.screenshot` | ~2000 | Needs the `wl` permission |
 | [calculator.md](calculator.md) (done) | `calculator/` | `helm.calculator` | ~1500 | No platform APIs, a good first run |
 | [clock.md](clock.md) (done) | `clock/` | `helm.clock` | ~2000 | Alarms only while open |
@@ -22,6 +22,17 @@ reads [`../AGENTS.md`](../AGENTS.md).
 Sizes are lines of app code plus tests, roughly what one agent produces in
 one pass.
 
+## Wave 1b: utilities built on existing bro & Web APIs
+
+| Status | Folder | id | Size | Notes |
+|---|---|---|---|---|
+| (done) | `archives/` | `helm.archives` | ~2000 | `.zip`, `.tar`, `.tar.gz`/`.tgz` via `DecompressionStream` / `CompressionStream` |
+| (done) | `recorder/` | `helm.recorder` | ~1800 | Voice & audio recorder via `bro.audio.capture` with live waveform, markers, trim, WAV export |
+| (done) | `charmap/` | `helm.charmap` | ~1800 | Unicode character map, glyph inspector, and multi-format encoding copy |
+| (done) | `colorpicker/` | `helm.colorpicker` | ~1800 | Oklch/Oklab/sRGB color picker, screen eyedropper (`bro.wl`), and WCAG/APCA contrast checker |
+| (done) | `disks/` | `helm.disks` | ~1800 | Physical drive & partition layout map (`bro.vfs.volumes` + `/sys/block` + `/proc/diskstats`) |
+| (done) | `logs/` | `helm.logs` | ~1800 | Desktop, app (`bro.app`), and `/var/log` viewer with JSONL/syslog parser, regex search, and live tailing |
+
 ## Wave 2: blocked on bro, so not briefed yet
 
 | App | Blocked on |
@@ -29,9 +40,7 @@ one pass.
 | Document viewer (PDF) | No PDF renderer in the stack |
 | Video player | `<video>` plays WebM/VP9 only, and brovideo decodes on Windows only |
 | Mail | brokit has no TLS client socket (fetch does HTTPS only) |
-| Archive manager | Not blocked for zip and tar(.gz): `DecompressionStream('deflate-raw')` and `'gzip'` exist, and the containers are parsed in JS. 7z/rar/xz are blocked. A good Wave 1b brief. |
 | App Center | No JS API for `bro --install` / `--uninstall` / `--list-apps` (the CLI exists) |
-| Log viewer | No journald API, and shelling out to `journalctl` is not allowed |
 | Passwords and keys | `bro.cred` Secret Service is privileged and its API needs a review for an app UI |
 | Fonts | No font-enumeration API |
 

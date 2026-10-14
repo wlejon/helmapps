@@ -153,6 +153,25 @@ export function computeProcCpuPct(prev, curr, totalJiffiesDelta) {
   return Math.min(100, Math.max(0, (dTicks / totalJiffiesDelta) * 100));
 }
 
+/**
+ * Compute per-process CPU % from bro.sys.processes cpuTimeMs (userTimeMs + kernelTimeMs)
+ * deltas over elapsed wall-clock milliseconds.
+ */
+export function computeSysProcCpuPct(prev, curr, elapsedMs) {
+  if (!elapsedMs || elapsedMs <= 0 || prev == null || curr == null) return 0;
+  const extractMs = (v) => {
+    if (typeof v !== 'object') return Number(v);
+    if (Number.isFinite(v.cpuTimeMs)) return v.cpuTimeMs;
+    if (Number.isFinite(v.cpu_time_ms)) return v.cpu_time_ms;
+    return (Number(v.userTimeMs) || 0) + (Number(v.kernelTimeMs) || 0);
+  };
+  const t0 = extractMs(prev);
+  const t1 = extractMs(curr);
+  if (!Number.isFinite(t0) || !Number.isFinite(t1)) return 0;
+  const dMs = Math.max(0, t1 - t0);
+  return Math.min(100, Math.max(0, (dMs / elapsedMs) * 100));
+}
+
 async function readTextOrNull(filePath) {
   try {
     return await fs.promises.readFile(filePath, 'utf-8');
@@ -166,8 +185,9 @@ function nextTurn() {
 }
 
 export class ProcSampler {
-  constructor(root = '/') {
+  constructor(root = '/', sysApi = undefined) {
     this.root = root;
+    this.sysApi = sysApi;
     this.gen = 0;
     this.uidMap = new Map();
     this.passwdLoaded = false;
@@ -181,11 +201,41 @@ export class ProcSampler {
     this.reset();
   }
 
+  setSysApi(sysApi) {
+    this.gen++;
+    this.sysApi = sysApi;
+    this.reset();
+  }
+
   reset() {
     this.supported = false;
     this.processes = [];
-    this.prevTicks = new Map();     // pid -> { ticks, starttime }
+    this.prevSampleMs = 0;
+    this.prevTicks = new Map();     // pid -> { ticks, starttime, cpuTimeMs }
     this.staticCache = new Map();   // pid -> { starttime, cmdline, user, uid, status }
+  }
+
+  _getSysListFn() {
+    if (this.sysApi !== undefined) {
+      if (!this.sysApi) return null;
+      if (typeof this.sysApi.processes?.list === 'function') {
+        return () => this.sysApi.processes.list();
+      }
+      if (typeof this.sysApi.listProcesses === 'function') {
+        return () => this.sysApi.listProcesses();
+      }
+      return null;
+    }
+    if (this.root !== '/') return null;
+    if (typeof bro !== 'undefined' && bro.sys && bro.sys.available !== false) {
+      if (typeof bro.sys.processes?.list === 'function') {
+        return () => bro.sys.processes.list();
+      }
+      if (typeof bro.sys.listProcesses === 'function') {
+        return () => bro.sys.listProcesses();
+      }
+    }
+    return null;
   }
 
   async _ensureUidMap(myGen) {
@@ -223,16 +273,22 @@ export class ProcSampler {
   }
 
   /**
-   * Sample all numeric PIDs under `${this.root}/proc`.
+   * Sample all numeric PIDs under `${this.root}/proc`, falling back to
+   * `bro.sys.processes.list()` / `bro.sys.listProcesses()` when `/proc` is absent.
    * @param {number} totalJiffiesDelta  delta of total CPU jiffies from SysSampler
+   * @param {number} nowMs              sample timestamp in milliseconds
    */
-  async sample(totalJiffiesDelta = 0) {
+  async sample(totalJiffiesDelta = 0, nowMs = Date.now()) {
     const myGen = this.gen;
     const procDir = path.join(this.root, 'proc');
     let names;
     try {
       names = await fs.promises.readdir(procDir);
     } catch (_) {
+      const listFn = this._getSysListFn();
+      if (listFn) {
+        return await this._sampleSysProcesses(listFn, nowMs, myGen);
+      }
       if (this.gen === myGen) {
         this.supported = false;
         this.processes = [];
@@ -289,6 +345,84 @@ export class ProcSampler {
     }
     for (const k of Array.from(this.staticCache.keys())) {
       if (!seen.has(k)) this.staticCache.delete(k);
+    }
+
+    this.processes = nextProcesses;
+    return this.processes;
+  }
+
+  async _sampleSysProcesses(listFn, nowMs, myGen) {
+    let raw;
+    try {
+      raw = await listFn();
+    } catch (_) {
+      if (this.gen === myGen) {
+        this.supported = false;
+        this.processes = [];
+        this.prevTicks.clear();
+      }
+      return this.processes;
+    }
+    if (this.gen !== myGen || !Array.isArray(raw)) return this.processes;
+
+    this.supported = true;
+    await this._ensureUidMap(myGen);
+    if (this.gen !== myGen) return this.processes;
+
+    const dtMs = this.prevSampleMs > 0 ? Math.max(0, nowMs - this.prevSampleMs) : 0;
+    this.prevSampleMs = nowMs;
+
+    const seen = new Set();
+    const nextProcesses = [];
+    for (let i = 0; i < raw.length; i++) {
+      const p = raw[i];
+      if (!p || !Number.isFinite(p.pid) || p.pid <= 0) continue;
+      const pid = p.pid;
+      seen.add(pid);
+
+      const cpuTimeMs = Number.isFinite(p.cpuTimeMs)
+        ? p.cpuTimeMs
+        : Number.isFinite(p.cpu_time_ms)
+          ? p.cpu_time_ms
+          : (Number(p.userTimeMs) || 0) + (Number(p.kernelTimeMs) || 0);
+
+      const prev = this.prevTicks.get(pid);
+      const cpuPct = prev && dtMs > 0
+        ? computeSysProcCpuPct(prev.cpuTimeMs, cpuTimeMs, dtMs)
+        : 0;
+      this.prevTicks.set(pid, { cpuTimeMs });
+
+      const stateCode = p.state || 'R';
+      const user = p.user
+        ? p.user
+        : (p.uid != null && p.uid > 0 ? this.userForUid(p.uid) : '—');
+      const memoryBytes = p.rssBytes ?? p.rss_bytes ?? 0;
+      const vsizeBytes = p.vszBytes ?? p.vsz_bytes ?? 0;
+      const cpuRounded = Math.round(cpuPct * 10) / 10;
+
+      nextProcesses.push({
+        pid,
+        ppid: p.ppid || 0,
+        name: p.name || String(pid),
+        cmdline: p.cmdline || p.name || String(pid),
+        user,
+        uid: p.uid ?? null,
+        cpu: cpuRounded,
+        cpuTimeMs,
+        memory: memoryBytes,
+        vsize: vsizeBytes,
+        swap: 0,
+        threads: p.threads || 1,
+        state: stateCode,
+        stateLabel: STATE_NAMES[stateCode] || stateCode,
+        nice: 0,
+        starttime: 0,
+        depth: 0,
+      });
+    }
+
+    for (const k of Array.from(this.prevTicks.keys())) {
+      if (!seen.has(k)) this.prevTicks.delete(k);
     }
 
     this.processes = nextProcesses;

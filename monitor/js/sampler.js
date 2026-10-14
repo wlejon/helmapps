@@ -25,6 +25,7 @@ import {
   parsePidStatus,
   parsePidCmdline,
   computeProcCpuPct,
+  computeSysProcCpuPct,
 } from './proc-sampler.js';
 
 export {
@@ -45,6 +46,7 @@ export {
   parsePidStatus,
   parsePidCmdline,
   computeProcCpuPct,
+  computeSysProcCpuPct,
 };
 
 export class Sampler {
@@ -68,6 +70,13 @@ export class Sampler {
     this.root = root || '/';
     this.sys.setRoot(this.root);
     this.proc.setRoot(this.root);
+    this.tickCount = 0;
+  }
+
+  setSysApi(sysApi) {
+    this.gen++;
+    this.inFlight = null;
+    this.proc.setSysApi(sysApi);
     this.tickCount = 0;
   }
 
@@ -136,7 +145,7 @@ export class Sampler {
       try {
         await sys.sample(nowMs);
         if (this.gen !== myGen) return this;
-        await proc.sample(sys.lastJiffiesDelta);
+        await proc.sample(sys.lastJiffiesDelta, nowMs);
         if (this.gen !== myGen) return this;
         this.tickCount++;
         if (this.onTick) this.onTick(this);

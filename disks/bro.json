@@ -1,0 +1,19 @@
+{
+    "id": "helm.disks",
+    "name": "Disks",
+    "version": "0.1.0",
+    "description": "Inspect physical drives, partition layouts, and mounted volumes",
+    "icon": "assets/icon.svg",
+    "categories": ["System", "Filesystem", "Utility"],
+    "keywords": ["disk", "volume", "partition", "drive", "storage", "mount", "nvme", "ssd"],
+    "singleInstance": true,
+    "permissions": ["vfs", "sys"],
+    "app": ".",
+    "width": 1040,
+    "height": 680,
+    "minWidth": 600,
+    "minHeight": 420,
+    "resizable": true,
+    "splash": false,
+    "watch": false
+}

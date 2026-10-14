@@ -7,7 +7,7 @@
     "categories": ["System", "Monitor", "Utility"],
     "keywords": ["system", "monitor", "processes", "cpu", "memory", "network", "disk", "gpu", "task"],
     "singleInstance": true,
-    "permissions": [],
+    "permissions": ["sys"],
     "app": ".",
     "width": 1060,
     "height": 720,

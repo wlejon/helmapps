@@ -1,0 +1,26 @@
+{
+    "id": "helm.logs",
+    "name": "Logs",
+    "version": "0.1.0",
+    "description": "Inspect and filter application, desktop, and system logs",
+    "icon": "assets/icon.svg",
+    "categories": ["System", "Monitor", "Utility", "Development"],
+    "keywords": ["log", "logs", "syslog", "dmesg", "jsonl", "errors", "viewer", "tail"],
+    "singleInstance": true,
+    "fileTypes": [
+        {
+            "name": "Log Files",
+            "mimeTypes": ["text/x-log", "application/x-ndjson", "text/plain"],
+            "extensions": ["log", "jsonl", "txt"]
+        }
+    ],
+    "permissions": ["vfs"],
+    "app": ".",
+    "width": 1100,
+    "height": 720,
+    "minWidth": 640,
+    "minHeight": 420,
+    "resizable": true,
+    "splash": false,
+    "watch": false
+}

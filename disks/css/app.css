@@ -1,0 +1,266 @@
+/* Disks & Volumes: only what the helm app kit does not already draw. */
+
+.disks-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s5);
+  padding: var(--s5) var(--s6) var(--s6);
+}
+
+/* Drive header card ------------------------------------------------------- */
+
+.disks-drive-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  padding: var(--s4) var(--s5);
+}
+
+.disks-drive-top {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+}
+
+.disks-drive-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-card);
+  background: var(--well-2);
+  box-shadow: inset 0 0 0 1px var(--rim);
+  color: var(--accent-text);
+}
+
+.disks-drive-glyph .icon {
+  width: 22px;
+  height: 22px;
+}
+
+.disks-drive-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.disks-drive-badges {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  flex: none;
+}
+
+.disks-drive-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--s3);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--hairline);
+}
+
+.disks-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.disks-metric-val {
+  font-size: var(--fs-title);
+  font-weight: 600;
+  color: var(--t1);
+}
+
+/* Visual partition layout map -------------------------------------------- */
+
+.disks-map-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s4) var(--s5);
+}
+
+.disks-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+
+.disks-map-bar {
+  display: flex;
+  align-items: stretch;
+  gap: var(--s1);
+  width: 100%;
+  min-height: 76px;
+  padding: var(--s1);
+  border-radius: var(--r-card);
+  background: var(--sink);
+  box-shadow: inset 0 0 0 1px var(--rim);
+  overflow-x: auto;
+}
+
+.disks-map-seg {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--s1);
+  min-width: 108px;
+  padding: var(--s2) var(--s3);
+  border-radius: var(--r-ctl);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--rim);
+  text-align: left;
+  transition: background var(--d-quick) var(--ease-std), box-shadow var(--d-quick) var(--ease-std);
+}
+
+.disks-map-seg:hover {
+  background: var(--surface-3);
+  box-shadow: inset 0 0 0 1px var(--rim-strong);
+}
+
+.disks-map-seg.selected {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.disks-map-seg.unallocated {
+  background: var(--well);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--t3);
+}
+
+.disks-map-seg.unallocated.selected {
+  background: var(--accent-faint);
+  box-shadow: inset 0 0 0 2px var(--accent-line);
+}
+
+.disks-map-seg:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+.disks-seg-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  min-width: 0;
+}
+
+.disks-seg-name {
+  font-weight: 600;
+  color: var(--t1);
+}
+
+.disks-map-seg.unallocated .disks-seg-name {
+  color: var(--t3);
+}
+
+.disks-seg-mid {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s2);
+  font-size: var(--fs-cap);
+  color: var(--t2);
+}
+
+.disks-seg-mount {
+  font-size: var(--fs-micro);
+  color: var(--t3);
+}
+
+.disks-seg-meter {
+  position: relative;
+  height: 4px;
+  border-radius: var(--r-chip);
+  background: var(--well-3);
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+.disks-seg-meter-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: var(--r-chip);
+  background: var(--accent);
+}
+
+/* Selected partition / volume details card ------------------------------- */
+
+.disks-part-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  padding: var(--s4) var(--s5);
+}
+
+.disks-part-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--s3);
+}
+
+.disks-part-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-width: 0;
+}
+
+.disks-part-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  flex-wrap: wrap;
+}
+
+.disks-part-usage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-ctl);
+  background: var(--well);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.disks-part-usage .progress {
+  height: 8px;
+}
+
+.disks-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--s3);
+}
+
+.disks-stat-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.disks-stat-val {
+  font-weight: 600;
+  color: var(--t1);
+}
+
+.disks-prop-rows .form-row {
+  min-height: 40px;
+  padding: var(--s2) var(--s4);
+}
+
+.disks-mount-link {
+  color: var(--accent-text);
+  font-weight: 500;
+}
