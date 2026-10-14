@@ -1,0 +1,19 @@
+{
+    "id": "helm.calculator",
+    "name": "Calculator",
+    "version": "0.1.0",
+    "description": "Basic, scientific, and programmer calculator with history tape",
+    "icon": "assets/icon.svg",
+    "categories": ["Utility", "Calculator"],
+    "keywords": ["calculator", "math", "scientific", "programmer", "hex", "binary"],
+    "singleInstance": false,
+    "permissions": [],
+    "app": ".",
+    "width": 760,
+    "height": 640,
+    "minWidth": 320,
+    "minHeight": 420,
+    "resizable": true,
+    "splash": false,
+    "watch": false
+}

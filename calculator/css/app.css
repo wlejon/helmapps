@@ -1,0 +1,355 @@
+/* =============================================================================
+   Calculator (helm.calculator) styles
+   Uses only design tokens from /lib/css/tokens.css.
+   ============================================================================= */
+
+.calc-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0px;
+  min-width: 0;
+  min-height: 0;
+  padding: var(--s3);
+  gap: var(--s2);
+  background: var(--surface-0);
+  overflow-y: auto;
+}
+
+/* Display card ----------------------------------------------------------- */
+
+.calc-display {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  padding: var(--s3) var(--s4);
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  flex: none;
+}
+
+.calc-display-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  min-height: 20px;
+}
+
+.calc-badges {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  flex: none;
+}
+
+.calc-expr {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+  color: var(--t3);
+  font-size: var(--fs-body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calc-expr-input {
+  width: 100%;
+  height: 30px;
+  text-align: right;
+  font-size: var(--fs-title);
+  background: var(--sink);
+  border: 1px solid var(--rim);
+  border-radius: var(--r-ctl);
+  color: var(--t2);
+  padding: 0 var(--s2);
+}
+
+.calc-result {
+  min-height: 36px;
+  text-align: right;
+  font-size: var(--fs-display);
+  font-weight: 700;
+  color: var(--t1);
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calc-result.error {
+  color: var(--danger-text);
+  font-size: var(--fs-head);
+}
+
+/* Memory bar ------------------------------------------------------------- */
+
+.calc-membar {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  flex: none;
+}
+
+.calc-membar .btn {
+  flex: 1;
+}
+
+/* Programmer panel: base readouts + 64-bit grid -------------------------- */
+
+.calc-prog-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  flex: none;
+}
+
+.calc-bases {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--s1);
+}
+
+.calc-base-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  height: 28px;
+  padding: 0 var(--s2);
+  border-radius: var(--r-ctl);
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  color: var(--t2);
+  text-align: left;
+  transition: background var(--d-quick) var(--ease-std), border-color var(--d-quick) var(--ease-std);
+}
+
+.calc-base-row:hover {
+  background: var(--well-2);
+  color: var(--t1);
+}
+
+.calc-base-row.active {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--t1);
+}
+
+.calc-base-label {
+  width: 32px;
+  flex: none;
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  color: var(--t3);
+}
+
+.calc-base-row.active .calc-base-label {
+  color: var(--accent-text);
+}
+
+.calc-base-val {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-cap);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calc-bitgrid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  padding: var(--s2);
+  border-radius: var(--r-card);
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+}
+
+.calc-bitrow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--s2);
+}
+
+.calc-nibble {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.calc-nibble-bits {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+}
+
+.calc-bit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  border-radius: var(--r-sm);
+  background: var(--sink);
+  color: var(--t3);
+  font-size: var(--fs-micro);
+  font-weight: 600;
+  transition: background var(--d-quick) var(--ease-std), color var(--d-quick) var(--ease-std);
+}
+
+.calc-bit:hover:not(:disabled) {
+  background: var(--well-3);
+  color: var(--t1);
+}
+
+.calc-bit.on {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+
+.calc-bit:disabled {
+  opacity: 0.25;
+}
+
+.calc-nibble-idx {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 2px;
+  font-size: var(--fs-micro);
+  color: var(--t4);
+  line-height: 1;
+}
+
+/* Keypad grids ----------------------------------------------------------- */
+
+.calc-keypad-wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0px;
+  min-height: 180px;
+}
+
+.calc-pad {
+  display: grid;
+  flex: 1 1 0px;
+  gap: var(--s1);
+}
+
+.calc-pad-basic {
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(5, minmax(36px, 1fr));
+}
+
+.calc-pad-scientific {
+  grid-template-columns: repeat(6, 1fr);
+  grid-template-rows: repeat(6, minmax(32px, 1fr));
+}
+
+.calc-pad-programmer {
+  grid-template-columns: repeat(6, 1fr);
+  grid-template-rows: repeat(5, minmax(32px, 1fr));
+}
+
+.calc-key {
+  height: 100%;
+  min-height: 32px;
+  font-size: var(--fs-title);
+  font-weight: 500;
+}
+
+.calc-key.fn {
+  font-size: var(--fs-cap);
+  color: var(--t2);
+  background: var(--well);
+}
+
+.calc-key.op {
+  color: var(--accent-text);
+  background: var(--well-2);
+  font-weight: 600;
+}
+
+.calc-key.digit {
+  background: var(--surface-2);
+  font-weight: 600;
+}
+
+.calc-key.digit:hover:not(:disabled) {
+  background: var(--well-3);
+}
+
+/* History tape side panel ------------------------------------------------ */
+
+.calc-history-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0px;
+  min-width: 0;
+  min-height: 0;
+  background: var(--surface-1);
+  border-left: 1px solid var(--hairline);
+}
+
+.calc-history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--s2) var(--s3);
+  border-bottom: 1px solid var(--hairline);
+  flex: none;
+}
+
+.calc-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--s2);
+  overflow-y: auto;
+  flex: 1 1 0px;
+}
+
+.calc-history-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  width: 100%;
+  padding: var(--s2) var(--s3);
+  border-radius: var(--r-ctl);
+  text-align: right;
+  transition: background var(--d-quick) var(--ease-std);
+}
+
+.calc-history-item:hover {
+  background: var(--well-2);
+}
+
+.calc-history-expr {
+  width: 100%;
+  font-size: var(--fs-cap);
+  color: var(--t3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calc-history-res {
+  width: 100%;
+  font-size: var(--fs-title);
+  font-weight: 600;
+  color: var(--t1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+  .calc-bases {
+    grid-template-columns: 1fr;
+  }
+  .calc-bitrow {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
