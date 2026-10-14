@@ -10,13 +10,13 @@ reads [`../AGENTS.md`](../AGENTS.md).
 | Brief | Folder | id | Size | Notes |
 |---|---|---|---|---|
 | [files.md](files.md) | `files/` | `helm.files` | ~4000 | The biggest and most important. Everything else links to it. |
-| [images.md](images.md) | `images/` | `helm.images` | ~2000 | |
+| [images.md](images.md) (done) | `images/` | `helm.images` | ~2000 | |
 | [texteditor.md](texteditor.md) | `texteditor/` | `helm.texteditor` | ~2500 | Built on `<textarea>`, no syntax highlighting |
-| [music.md](music.md) | `music/` | `helm.music` | ~3000 | Parses tags in JS; no MPRIS server yet |
+| [music.md](music.md) (done) | `music/` | `helm.music` | ~3000 | Parses tags in JS; no MPRIS server yet |
 | [monitor.md](monitor.md) | `monitor/` | `helm.monitor` | ~2500 | Linux `/proc`; Windows degrades |
-| [screenshot.md](screenshot.md) | `screenshot/` | `helm.screenshot` | ~2000 | Needs the `wl` permission |
-| [calculator.md](calculator.md) | `calculator/` | `helm.calculator` | ~1500 | No platform APIs, a good first run |
-| [clock.md](clock.md) | `clock/` | `helm.clock` | ~2000 | Alarms only while open |
+| [screenshot.md](screenshot.md) (done) | `screenshot/` | `helm.screenshot` | ~2000 | Needs the `wl` permission |
+| [calculator.md](calculator.md) (done) | `calculator/` | `helm.calculator` | ~1500 | No platform APIs, a good first run |
+| [clock.md](clock.md) (done) | `clock/` | `helm.clock` | ~2000 | Alarms only while open |
 | (done) | `diskusage/` | `helm.diskusage` | ~600 | The reference app |
 
 Sizes are lines of app code plus tests, roughly what one agent produces in

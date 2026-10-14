@@ -7,10 +7,12 @@
 // top (move the pointer to the top edge, or release) has the statistics,
 // the audio and mic toggles, fullscreen and disconnect.
 
+import { followShellAccent } from '/lib/app.js';
 import { parseArgs } from './cli.js';
 import { loadRecent, rememberRecent, describe } from './recent.js';
 import { runLatencyTest } from './latency.js';
 
+followShellAccent();
 const $ = (id) => document.getElementById(id);
 const opts = parseArgs(bro.app.argv || []);
 for (const e of opts.errors) console.error('remote: ' + e);

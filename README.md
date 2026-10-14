@@ -11,6 +11,11 @@ library exposed as `bro.<x>`), never into the app.
 | [term](term/) | `helm.term` | Terminal: tabs, splits, profiles and shell integration over bro's `<terminal>` element |
 | [remote](remote/) | `helm.remote` | Remote desktop viewer: a helm session over broremote, shown in bro's `<remoteview>` (hardware decode, zero-copy on Windows), with keyboard and pointer capture and audio both ways |
 | [diskusage](diskusage/) | `helm.diskusage` | Disk usage analyzer, and the kit's reference app |
+| [images](images/) | `helm.images` | Image viewer and organizer with gallery, burst stabilization and wildlife tagging |
+| [music](music/) | `helm.music` | Music library and player with tag scanner, album grid, queue and lyrics |
+| [calculator](calculator/) | `helm.calculator` | Basic, scientific and programmer calculator with persistent history tape |
+| [clock](clock/) | `helm.clock` | World clocks, countdown timers, high-precision stopwatch and alarms |
+| [screenshot](screenshot/) | `helm.screenshot` | Screen and region capture (`bro.wl.captureOutput`), non-destructive annotations and export |
 
 ## Building an app
 

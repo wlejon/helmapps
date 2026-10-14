@@ -3,22 +3,19 @@
    chrome always matches the terminals. These are the fallbacks. */
 
 :root {
-    --term-bg: #1A1B26;
-    --term-fg: #C0CAF5;
-    --chrome-bg: #11121A;
-    --chrome-fg: #C0CAF5;
-    --chrome-dim: #6D7499;
-    --chrome-hover: #232433;
-    --chrome-active: #1A1B26;
-    --chrome-border: #2A2C3D;
-    --panel-bg: #161722;
-    --accent: #7AA2F7;
-    --accent-fg: #0B0D12;
-    --bell: #E0AF68;
-    --danger: #F7768E;
-    --activity: #9ECE6A;
-    --selection: #33467C;
-    --ui-font: "Segoe UI", "Inter", "Noto Sans", "DejaVu Sans", sans-serif;
+    --term-bg: var(--surface-0);
+    --term-fg: var(--t1);
+    --chrome-bg: var(--surface-1);
+    --chrome-fg: var(--t1);
+    --chrome-dim: var(--t3);
+    --chrome-hover: var(--well-2);
+    --chrome-active: var(--surface-0);
+    --chrome-border: var(--hairline);
+    --panel-bg: var(--surface-2);
+    --accent-fg: var(--on-accent);
+    --bell: var(--warn);
+    --activity: var(--ok);
+    --ui-font: var(--font-ui);
     --strip-height: 36px;
 }
 
