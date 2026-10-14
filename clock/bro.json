@@ -1,0 +1,19 @@
+{
+    "id": "helm.clock",
+    "name": "Clocks",
+    "version": "0.1.0",
+    "description": "World clocks, alarms, timers, and stopwatch",
+    "icon": "assets/icon.svg",
+    "categories": ["Utility", "Clock"],
+    "keywords": ["clock", "world", "timer", "stopwatch", "alarm", "time"],
+    "singleInstance": true,
+    "permissions": [],
+    "app": ".",
+    "width": 920,
+    "height": 640,
+    "minWidth": 520,
+    "minHeight": 380,
+    "resizable": true,
+    "splash": false,
+    "watch": false
+}
