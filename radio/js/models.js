@@ -24,13 +24,26 @@ const path = require('path');
  * the folder must hold; not: a file that says it is another model's folder.
  */
 export const MODELS = [
-  { key: 'yue', name: 'YuE2-3B', label: 'YuE2-3B', what: 'makes the music',
+  { key: 'yue', names: ['yue2/YuE2-3B', 'YuE2-3B'], label: 'YuE2-3B', what: 'makes the music',
     has: ['config.json', 'model.safetensors', 'qwen.tiktoken'] },
-  { key: 'vae', name: 'yue2-vae', label: 'YuE2 VAE', what: 'turns it into audio',
+  { key: 'vae', names: ['yue2/vae', 'yue2-vae'], label: 'YuE2 VAE', what: 'turns it into audio',
     has: ['config.json', 'model.safetensors'], not: 'qwen.tiktoken' },
-  { key: 'clap', name: 'clap', label: 'CLAP', what: 'places the music on the map',
+  { key: 'clap', names: ['clap'], label: 'CLAP', what: 'hears what each chunk sounds like',
     has: ['model.safetensors', 'tokenizer.json', 'preprocessor_config.json'] },
 ];
+// names[0] is the folder bro.models.fetch installs (wlejon/brosoundml-data);
+// the others are older local layouts find() also accepts.
+
+/** Whether this bro can download models (bro.models.fetch). */
+export const canFetch = () => typeof bro !== 'undefined' && !!bro.models && typeof bro.models.fetch === 'function';
+
+/**
+ * Downloads model `m` into bro's models directory; resolves to its folder.
+ * onProgress({ done, total }) in bytes.
+ */
+export function fetchModel(m, { onProgress, signal } = {}) {
+  return bro.models.fetch(m.names[0], { onProgress, signal });
+}
 
 /** The AR decode weights YuE2 can load with (faster sampling, more VRAM than bf16 alone). */
 export const AR_WEIGHTS = [
@@ -70,7 +83,8 @@ export function resolveModels(chosen = {}) {
   for (const m of MODELS) {
     const pick = chosen[m.key];
     if (pick) { out[m.key] = { dir: pick, source: 'chosen', error: checkDir(m, pick) }; continue; }
-    const found = typeof bro !== 'undefined' && bro.models ? bro.models.find(m.name) : null;
+    let found = null;
+    if (typeof bro !== 'undefined' && bro.models) for (const n of m.names) { found = bro.models.find(n); if (found) break; }
     out[m.key] = found ? { dir: found, source: 'found', error: checkDir(m, found) }
       : { dir: null, source: 'missing', error: 'Not found' };
   }
@@ -101,7 +115,7 @@ export function loadBackend(dirs, { arWeights = 'int8', onStep } = {}) {
       if (onStep) onStep(key);
       if (failed) { try { m.dispose(); } catch (_) { /* fine */ } return; }
       if (--pending) return;
-      resolve(makeBackend(got, dirs.clap));
+      resolve(makeBackend(got));
     };
     bro.music.loadYuE2(dirs.yue, { arWeights, onReady: done('yue'), onError: fail('YuE2') });
     bro.music.loadVae(dirs.vae, { decoderOnly: true, onReady: done('vae'), onError: fail('VAE') });
@@ -109,18 +123,10 @@ export function loadBackend(dirs, { arWeights = 'int8', onStep } = {}) {
   });
 }
 
-/** A short stable hash of a string (FNV-1a), for cache file names. */
-function hashKey(s) {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
-  return (h >>> 0).toString(16);
-}
-
-function makeBackend({ yue, vae, clap }, clapDir) {
+function makeBackend({ yue, vae, clap }) {
   let embedding = false;
   return {
     device: `${yue.device} · AR ${yue.arWeights}`,
-    cacheKey: hashKey(path.resolve(clapDir)),   // the anchors' text vectors are cached per CLAP folder
     endless: (opts) => yue.endless(Object.assign({ vae }, opts)),
     embedText: (list) => {
       const r = clap.embedText(list);

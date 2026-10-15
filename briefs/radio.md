@@ -7,7 +7,7 @@
 | Replaces | nothing: there is no desktop app like it |
 | Size | app about 3500 lines; the bro work it needs has landed (below) |
 | Permissions | none (reads the Music folder like `helm.music`) |
-| Status | **first version running** (`radio/`): atlas from CLAP text vectors, go / path / wander / fly-to, knobs, trail, resume. Not yet: anchor previews (and hover), hold the beat, Keep this, places, library rings, branches |
+| Status | **second version running** (`radio/`): genre + instruments + a mood plane (valence × arousal, knobs follow at once, mood with hysteresis), a timeline of chunks with each step and CLAP's verdict, go-to-a-sound, drift, in-app model download / choice, resume. The CLAP-placed atlas of v1 was dropped (the text/audio modality gap scattered the trail). Not yet: previews, hold the beat, Keep this, places, library rings, branches |
 
 ## What it is
 

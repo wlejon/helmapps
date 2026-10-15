@@ -1,20 +1,16 @@
 /**
- * The radio: one yue.endless stream, its player, and the trail of where the
- * music actually went.
+ * The radio: one yue.endless stream, its player, and what each chunk turned
+ * out to sound like.
  *
- * The app says where to go (go(), setPath(), setKnobs()); this module turns
- * that into stream targets and reports back what the stream does:
- *   onPlanned({ tag, anchor, sample })   a target placed: first heard at sample
- *   onChunk({ index, tag, anchor, sample })  a main-line chunk's first sample handed out
- *   onTrail({ x, y, anchor, tag, sample })   a played chunk, placed by its CLAP embedding
- *   onError(message)                     the stream stopped
+ * The app sets targets ({ style, tag, knobs }); this module runs the stream
+ * and reports what it does:
+ *   onEvent(e)                       every stream event (the timeline reads them)
+ *   onHeard({ index, sample, vec })  a main-line chunk's CLAP embedding, once all
+ *                                    its audio has been handed out
+ *   onError(message)                 the stream stopped
  *
- * Trail: each main-line chunk's audio (mono, from its first sample to the
- * next chunk's) is embedded by CLAP once all of it has been handed out; the
- * point joins the trail when the playhead reaches the chunk.
- *
- * A target's tag is the anchor id ("a17"), so every event says which anchor
- * the stream was making music under.
+ * Each main-line chunk's audio (mono, from its first sample to the next
+ * chunk's) is embedded by CLAP one at a time, off the page thread.
  */
 
 import { PROGRAM_RATE } from './player.js';
@@ -26,9 +22,6 @@ const CLAP_SECONDS = 10;
 /** Audio the stream hands out ahead of the playhead (the player's ring holds 4 s). */
 const EMIT_LEAD_SECONDS = 2;
 
-export const anchorTag = (id) => `a${id}`;
-export const tagAnchor = (tag) => (/^a\d+$/.test(tag || '') ? Number(tag.slice(1)) : -1);
-
 export class Radio {
   constructor(backend, hooks = {}) {
     this.backend = backend;
@@ -39,31 +32,28 @@ export class Radio {
     this.keep = new Float32Array(KEEP_SECONDS * PROGRAM_RATE);
     this.keep0 = 0;            // program sample of keep[0]
     this.emitted = 0;          // program samples handed out
-    this.chunks = [];          // main-line chunk starts not yet embedded: { index, tag, sample }
-    this.pendingTrail = [];    // embedded, waiting for the playhead
+    this.starts = [];          // main-line chunk starts not yet embedded: { index, sample }
     this.playhead = 0;
     this.error = '';
   }
 
   get running() { return !!this.stream; }
 
-  /** Starts the stream at an anchor with knobs. */
-  start(anchor, knobs) {
+  /** Starts the stream under `target` ({ style, tag, knobs }). */
+  start(target) {
     this.stop();
     this.error = '';
     this.player = this.backend.createPlayer();
     this.player.setPaused(this.paused);
-    this.emitted = 0; this.keep0 = 0; this.chunks = []; this.pendingTrail = []; this.playhead = 0;
+    this.emitted = 0; this.keep0 = 0; this.starts = []; this.playhead = 0;
     this.stream = this.backend.endless({
-      target: { style: anchor.style, tag: anchorTag(anchor.id), knobs: knobs || {} },
+      target,
       // The page thread feeds the player; 2 s of audio in hand rides out a
       // stalled frame (the default 0.75 s underran on a busy box).
       emitLeadSeconds: EMIT_LEAD_SECONDS,
       onAudio: (a) => this.audio(a),
       onEvent: (e) => this.event(e),
-      onDone: (r) => {
-        if (r && r.error) this.fail(r.error);
-      },
+      onDone: (r) => { if (r && r.error) this.fail(r.error); },
     });
   }
 
@@ -80,32 +70,14 @@ export class Radio {
     if (this.hooks.onError) this.hooks.onError(message);
   }
 
-  /** Steer to an anchor now (from the open chunk); clears any path. */
-  go(anchor) {
-    if (!this.stream) return;
-    this.stream.setPath([]);
-    this.stream.setTarget({ style: anchor.style, tag: anchorTag(anchor.id) });
-  }
+  /** A new style from the open chunk ({ style, tag }); 'planned' says when it is heard. */
+  setTarget(target) { if (this.stream) this.stream.setTarget(target); }
 
-  /** A path ahead: [{ anchor, at }] with at in program seconds, replacing the old one. */
-  setPath(points) {
-    if (!this.stream) return;
-    this.stream.setPath(points.map((p) => ({ style: p.anchor.style, tag: anchorTag(p.anchor.id), at: p.at })));
-  }
-
-  setKnobs(knobs) {
-    if (this.stream) this.stream.setKnobs(knobs);
-  }
+  setKnobs(knobs) { if (this.stream) this.stream.setKnobs(knobs); }
 
   setPaused(p) {
     this.paused = !!p;
     if (this.player) this.player.setPaused(this.paused);
-  }
-
-  /** Where a target set now is first heard, in program seconds (null: no stream). */
-  openSeconds() {
-    if (!this.stream) return null;
-    return this.stream.stats.openSample / PROGRAM_RATE;
   }
 
   stats() { return this.stream ? this.stream.stats : null; }
@@ -131,14 +103,9 @@ export class Radio {
   }
 
   event(e) {
-    if (e.kind === 'planned') {
-      if (this.hooks.onPlanned) this.hooks.onPlanned({ tag: e.tag, anchor: tagAnchor(e.tag), sample: e.sample });
-    } else if (e.kind === 'chunkStart' && e.branch === 0) {
-      this.chunks.push({ index: e.chunk, tag: e.tag, sample: e.sample });
-      if (this.hooks.onChunk) this.hooks.onChunk({ index: e.chunk, tag: e.tag, anchor: tagAnchor(e.tag), sample: e.sample });
-    } else if (e.kind === 'error') {
-      this.fail(e.text);
-    }
+    if (e.kind === 'chunkStart' && e.branch === 0) this.starts.push({ index: e.chunk, sample: e.sample });
+    if (this.hooks.onEvent) this.hooks.onEvent(e);
+    if (e.kind === 'error') this.fail(e.text);
   }
 
   // ---- once a frame --------------------------------------------------------
@@ -148,29 +115,23 @@ export class Radio {
     this.playhead = this.player.tick();
     this.stream.setPlayhead(this.playhead);
     this.embedNext();
-    while (this.pendingTrail.length && this.pendingTrail[0].sample <= this.playhead) {
-      const p = this.pendingTrail.shift();
-      if (this.hooks.onTrail) this.hooks.onTrail(p);
-    }
   }
 
   /** Embeds the oldest chunk whose audio is all handed out (one at a time). */
   embedNext() {
-    if (this.chunks.length < 2 || !this.hooks.place) return;
-    const c = this.chunks[0], end = this.chunks[1].sample;
+    if (this.starts.length < 2 || !this.hooks.onHeard) return;
+    const c = this.starts[0], end = this.starts[1].sample;
     if (this.emitted < end) return;
     let s0 = c.sample, s1 = end;
     if (s1 - s0 > CLAP_SECONDS * PROGRAM_RATE) {
       const mid = (s0 + s1) / 2;
       s0 = Math.round(mid - CLAP_SECONDS * PROGRAM_RATE / 2); s1 = s0 + CLAP_SECONDS * PROGRAM_RATE;
     }
-    if (s0 < this.keep0) { this.chunks.shift(); return; }   // fell out of the window
+    if (s0 < this.keep0) { this.starts.shift(); return; }   // fell out of the window
     const mono = this.keep.slice(s0 - this.keep0, s1 - this.keep0);
     const started = this.backend.embedAudio(mono, (vec) => {
-      if (!vec) return;
-      const p = this.hooks.place(vec);
-      this.pendingTrail.push({ x: p.x, y: p.y, anchor: tagAnchor(c.tag), heard: p.anchor, tag: c.tag, sample: c.sample, vec });
+      if (vec && this.hooks.onHeard) this.hooks.onHeard({ index: c.index, sample: c.sample, vec });
     });
-    if (started) this.chunks.shift();
+    if (started) this.starts.shift();
   }
 }

@@ -1,13 +1,14 @@
 // The real thing (briefs/radio.md acceptance 8): YuE2-3B, its VAE and CLAP
 // found by bro.models, 60 s of stream with one style change, the audio
-// contiguous (no gap, no underrun), and the change heard: CLAP places the
-// chunks after it nearer the new anchor than the old one.
+// contiguous (no gap, no underrun), and the change heard: CLAP gives the
+// chunks after it more of the new genre than the chunks before.
 //
 // Skips when the models are not on this machine. Point bro.models at them,
 // e.g. BRO_MODELS="D:/projects;D:/projects/brosoundml/weights", and keep it
 // on one GPU (yue2-research scripts/gpu0.sh on the 4090 box).
 
 import { app } from '/lib/test.js';
+import { GENRES, MOODS, makeStyle, styleLabel } from '/app/js/styles.js';
 
 const RATE = 48000;
 
@@ -26,41 +27,43 @@ if (app.state.phase === 'missing') skipTest(app.state.reason || 'the models are 
 else run();
 
 function run() {
-const anchors = app.state.anchors;
-// A fixed start (the stream is seeded, so the run repeats): from jazz to the
-// anchor farthest from it. A random pair is a weaker test: some styles come
-// out as a neighbour (YuE2's "energetic blues" plays as nu-disco).
-const from = anchors.find((a) => a.label === 'melancholic jazz') || anchors[0];
-app.goTo(from.x, from.y);
-const to = anchors.reduce((b, a) => (Math.hypot(a.x - from.x, a.y - from.y) > Math.hypot(b.x - from.x, b.y - from.y) ? a : b));
-console.log(`from ${from.label} to ${to.label}`);
+  // A fixed start (the stream is seeded, so the run repeats), and a change far
+  // from it in both genre family and mood.
+  const go = (genre, mood) => {
+    app.pickGenre(genre);
+    const m = MOODS.find((q) => q.id === mood);
+    app.moveTo(m.x, m.y, true);
+  };
+  go('jazz', 'calm');
+  const from = app.state.style;
+  const to = makeStyle({ genre: 'metal', mood: 'aggressive' });
+  assert(GENRES.includes(from.genre) && GENRES.includes(to.genre), 'both genres are on the list');
+  console.log(`from ${styleLabel(from)} to ${styleLabel(to)}`);
 
-app.play();
-until(() => app.state.radio.playhead > 15 * RATE, '15 s played', 180000);
-app.goTo(to.x, to.y);
-until(() => app.state.radio.playhead > 60 * RATE, '60 s played', 300000);
+  app.play();
+  until(() => app.state.radio.playhead > 15 * RATE, '15 s played', 180000);
+  go(to.genre, to.mood);
+  until(() => app.state.radio.playhead > 60 * RATE, '60 s played', 300000);
 
-const st = app.state.radio.stats();
-const under = app.state.radio.player.stats().underrunSeconds;
-console.log(`60 s: worst gap ${st.worstGapSeconds.toFixed(3)} s, underrun ${under.toFixed(3)} s, chunk ${st.playing}`);
-assert(st.worstGapSeconds < 0.2, `the stream was serviced throughout (worst gap ${st.worstGapSeconds})`);
-assert(under < 0.05, `the player never ran dry (${under} s)`);
+  const st = app.state.radio.stats();
+  const under = app.state.radio.player.stats().underrunSeconds;
+  console.log(`60 s: worst gap ${st.worstGapSeconds.toFixed(3)} s, underrun ${under.toFixed(3)} s`);
+  assert(st.worstGapSeconds < 0.2, `the stream was serviced throughout (worst gap ${st.worstGapSeconds})`);
+  assert(under < 0.05, `the player never ran dry (${under} s)`);
 
-// The change heard, as CLAP zero-shot: each chunk's audio against the old
-// and the new prompt. Chunks made under the new anchor should lean to it,
-// and further than the chunks before the change do.
-const dot = (a, b) => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * b[i]; return s; };
-const lean = (t) => dot(t.vec, to.vec) - dot(t.vec, from.vec);
-const before = app.state.trail.filter((t) => t.vec && t.anchor === from.id);
-const after = app.state.trail.filter((t) => t.vec && t.anchor === to.id);
-console.log(`lean to ${to.label}: before ${before.map((t) => lean(t).toFixed(3)).join(' ')} | after ${after.map((t) => lean(t).toFixed(3)).join(' ')}`);
-console.log(`heard as: ${app.state.trail.map((t) => `${anchors[t.anchor].label} -> ${anchors[t.heard].label}`).join('; ')}`);
-assert(before.length >= 1 && after.length >= 2, 'chunks of both places on the trail');
-const mean = (l) => l.reduce((s, t) => s + lean(t), 0) / l.length;
-const shift = mean(after) - mean(before);
-console.log(`the music moved ${shift.toFixed(3)} toward ${to.label}`);
-assert(shift > 0.1, `the change is heard: the chunks after it lean toward the new place (${shift.toFixed(3)})`);
+  // Every heard chunk, scored against the new style: P(new genre) by CLAP zero-shot.
+  until(() => [...app.state.program.chunks.values()].filter((c) => c.heard).length >= 5, 'CLAP on the played chunks', 60000);
+  const heard = [...app.state.program.chunks.values()].filter((c) => c.heard && c.style);
+  const pNew = (c) => app.state.ear.hear(c.heard.vec, to).askedGenreP;
+  const before = heard.filter((c) => c.style.genre === from.genre);
+  const after = heard.filter((c) => c.style.genre === to.genre);
+  console.log(`heard as: ${heard.map((c) => `${styleLabel(c.style)} -> ${c.heard.mood} ${c.heard.genre} (${c.heard.askedGenreP.toFixed(2)})`).join('; ')}`);
+  assert(before.length >= 1 && after.length >= 2, `chunks of both styles heard (${before.length} / ${after.length})`);
+  const mean = (l) => l.reduce((s, c) => s + pNew(c), 0) / l.length;
+  const shift = mean(after) - mean(before);
+  console.log(`P(${to.genre}): before ${before.map((c) => pNew(c).toFixed(2)).join(' ')} | after ${after.map((c) => pNew(c).toFixed(2)).join(' ')}`);
+  assert(shift > 0.2, `the change is heard: the chunks after it sound more like ${to.genre} (${shift.toFixed(3)})`);
 
-app.state.radio.stop();
-console.log('test_smoke_gpu done');
+  app.state.radio.stop();
+  console.log('test_smoke_gpu done');
 }

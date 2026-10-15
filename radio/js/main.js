@@ -1,67 +1,49 @@
 /**
- * Radio: an endless stream of generated instrumental music, steered by
- * moving through a map of sound (briefs/radio.md).
+ * Radio: an endless stream of generated instrumental music that you steer
+ * (briefs/radio.md).
  *
  * The music is YuE2-3B's yue.endless stream, made 10 s at a time on the GPU.
- * The map is an atlas of anchors (instrumental style prompts) placed by CLAP;
- * you are the ring on it. Click to go somewhere, shift+click to lay a path
- * ahead, drag the ring to wander. The trail is where the music really went:
- * each played chunk placed by CLAP from its own audio.
+ * You choose a genre (and its instruments) on the left, and stand somewhere
+ * on the mood plane: up is energetic, right is bright. Where you stand picks
+ * the mood word and sets the stream's knobs continuously, so a small move is
+ * heard within a couple of seconds and a move into another mood's region is
+ * a style change. The timeline under the plane shows every chunk: what it
+ * was asked to be, the step it is at (writing, rendering, ready, now), how a
+ * change was made, and what CLAP says it sounds like once played.
  *
  * How it stays responsive: the models load on their own threads; the stream
  * runs on its worker and hands out audio just ahead of the playhead; CLAP
- * embeds each chunk asynchronously; the map redraws only when something
- * changed. The page's frame loop only feeds the player and reports the
- * playhead.
+ * embeds each chunk asynchronously; the views redraw only when something
+ * changed. The page's frame loop feeds the player and reports the playhead.
  */
 
 import { startApp } from '/lib/app.js';
 import { h, debounce } from '/lib/dom.js';
 import { icon } from '/lib/icons.js';
-import { appFrame, Toolbar, emptyState } from '/lib/layout.js';
-import { Slider, Select } from '/lib/controls.js';
+import { appFrame, Toolbar, Sidebar, emptyState } from '/lib/layout.js';
+import { Slider, Switch } from '/lib/controls.js';
 import { toast } from '/lib/toast.js';
-import { buildAnchors, ANCHORS_VERSION } from './anchors.js';
-import { makeAtlas } from './atlas.js';
-import { AtlasView } from './atlas_view.js';
-import { Radio, tagAnchor } from './radio.js';
-import { capability, resolveModels, allReady, loadBackend, MODELS } from './models.js';
-import { ModelsPanel } from './models_view.js';
-import { Dialog } from '/lib/dialog.js';
+import { FAMILIES, KITS, GENRES, MOODS, familyOf, moodAt, moodKnobs, makeStyle, styleText, styleTag, styleLabel, sameStyle } from './styles.js';
+import { PlaneView } from './plane_view.js';
+import { TimelineView } from './timeline_view.js';
+import { Program } from './program.js';
+import { Radio } from './radio.js';
+import { makeEar } from './hear.js';
+import { modelsFlow } from './models_flow.js';
 import { PROGRAM_RATE } from './player.js';
 
-const fs = require('fs');
-const path = require('path');
-
-/** Seconds between two points of a path ahead (two chunks). */
-const LEG_SECONDS = 20;
-/** Trail points kept (and saved): about 33 minutes of chunks. */
-const TRAIL_MAX = 200;
-/** A skip goes at least this far (map units; the anchors span 2). */
-const SKIP_DISTANCE = 0.9;
-
-const KNOBS = [
-  { id: 'energy', label: 'Energy', min: -2, max: 1 },
-  { id: 'density', label: 'Density', min: -1.5, max: 1 },
-  { id: 'timbre', label: 'Timbre', min: -1.5, max: 1 },
-];
-
-/** Axis presets: principal components, or a CLAP text axis between two phrases. */
-const AXES = [
-  { value: 'pca', label: 'Principal axes', x: null, y: null },
-  { value: 'mood', label: 'Calm–intense · dark–bright',
-    x: ['calm, quiet, gentle music', 'intense, loud, driving music'], y: ['dark, gloomy music', 'bright, happy music'] },
-  { value: 'sound', label: 'Acoustic–electronic · sparse–full',
-    x: ['acoustic instruments', 'electronic synthesizers'], y: ['sparse, minimal music', 'full band, dense arrangement'] },
-];
+/** While dragging, a mood change waits this long for the drag to settle. */
+const MOOD_DWELL_MS = 700;
+/** Drift: a step across the plane every DRIFT_STEP_S of program, a new genre every DRIFT_GENRE_S. */
+const DRIFT_STEP_S = 30;
+const DRIFT_GENRE_S = 240;
 
 const app = startApp({
   settings: {
-    listener: { type: 'json', default: null },     // { x, y }
-    owner: { type: 'int', default: -1 },           // the anchor the listener is in
-    knobs: { type: 'json', default: {} },
-    trail: { type: 'json', default: [] },
-    axes: { type: 'string', default: 'pca' },
+    style: { type: 'json', default: { genre: 'lo-fi', mood: 'calm' } },
+    listener: { type: 'json', default: null },     // { x, y } on the mood plane
+    drums: { type: 'double', default: 0 },          // the percussion knob
+    drift: { type: 'bool', default: false },
     modelDirs: { type: 'json', default: {} },      // { yue, vae, clap }: folders chosen in the app
     arWeights: { type: 'string', default: 'int8' },
   },
@@ -70,172 +52,125 @@ const { commands, settings } = app;
 
 // ---- state ------------------------------------------------------------------
 
+const savedStyle = makeStyle(settings.get('style'));
+const savedMood = MOODS.find((m) => m.id === savedStyle.mood);
 const state = {
-  phase: 'probing',     // probing | missing | loading | mapping | ready | error
+  phase: 'probing',     // probing | unavailable | missing | loading | ready | error
   reason: '',
   backend: null,
-  anchors: buildAnchors(),
-  atlas: null,
+  backendGen: 0,
   radio: null,
+  ear: null,
   playing: false,       // the user asked for sound
-  listener: settings.get('listener'),
-  owner: settings.get('owner'),
-  knobs: Object.assign({ energy: 0, density: 0, timbre: 0 }, settings.get('knobs')),
-  trail: settings.get('trail') || [],
-  path: [],             // waypoints ahead: { x, y, anchor, at }
-  planned: null,        // { anchor, sample }: the newest target placed by the stream
-  nowAnchor: -1,        // the anchor the playing chunk was made under
-  chunkStarts: [],      // { sample, anchor } of chunks handed out, for the now strip
+  style: savedStyle,    // what new chunks are made as
+  listener: settings.get('listener') || { x: savedMood.x, y: savedMood.y },
+  drums: settings.get('drums'),
+  drift: settings.get('drift'),
+  program: new Program(),
+  sentPos: null,        // where the listener was when the knobs were last sent
+  moodPending: null,    // a mood the drag has reached but not committed
+  driftAt: { step: 0, genre: 0 },
 };
 
-// ---- the window ---------------------------------------------------------------
+// ---- the window -------------------------------------------------------------
 
-const ui = appFrame({ toolbar: true, statusbar: true });
+const ui = appFrame({ toolbar: true, sidebar: true, statusbar: true });
 document.body.appendChild(ui.frame);
 const toolbar = new Toolbar(ui.toolbar, commands);
 
-const view = new AtlasView({
-  onGo: (x, y) => goTo(x, y),
-  onWaypoint: (x, y) => addWaypoint(x, y),
-  onMove: (x, y, end) => wander(x, y, end),
-  onHover: (a) => { hoverText.textContent = a ? a.label : ''; },
+// Sidebar: genres by family, then the genre's instruments.
+const genres = new Sidebar({ onSelect: (it) => pickGenre(it.id) });
+const insChips = h('div.radio-ins');
+ui.sidebar.append(genres.el, h('div.sidebar-section.micro', 'Instruments'), insChips);
+
+const plane = new PlaneView({
+  onMove: (x, y, end) => moveTo(x, y, end),
+  onMood: (id) => { const m = MOODS.find((q) => q.id === id); moveTo(m.x, m.y, true); },
 });
+const timeline = new TimelineView();
 
 const nowName = h('div.radio-now-name', '—');
-const nowNext = h('div.radio-now-next.dim', '');
-const playBtn = h('button.icon-btn.radio-play', { onclick: () => commands.run('play-pause'), 'data-tip': 'Play / Pause' }, icon('play'));
-const sliders = {};
-const knobRow = h('div.radio-knobs', KNOBS.map((k) => {
-  const range = (typeof bro !== 'undefined' && bro.music && bro.music.knobRanges && bro.music.knobRanges[k.id]) || k;
-  sliders[k.id] = new Slider({ min: range.min, max: range.max, step: 0.05, value: state.knobs[k.id] || 0,
-    onChange: (v) => setKnob(k.id, v) });
-  return h('label.radio-knob', h('span.micro.dim', k.label), sliders[k.id].el);
-}));
+const nowIns = h('div.radio-now-ins.micro.dim', '');
+const nowNext = h('div.radio-now-next.micro', '');
+const playBtn = h('button.icon-btn.radio-play', { onclick: () => commands.run('play-pause'), 'data-tip': 'Play / Pause (Space)' }, icon('play'));
+const drums = new Slider({ min: -3, max: 3, step: 0.1, value: state.drums, onChange: (v) => setDrums(v) });
+const drift = new Switch({ on: state.drift, onChange: (on) => setDrift(on), label: 'Drift: wander on its own' });
+const knobRead = h('div.radio-knobread.micro.dim.num');
 const strip = h('div.radio-strip',
   playBtn,
-  h('button.icon-btn', { onclick: () => commands.run('skip'), 'data-tip': 'Skip far away' }, icon('skip-forward')),
-  h('div.radio-now', nowName, nowNext),
-  knobRow);
+  h('button.icon-btn', { onclick: () => commands.run('skip'), 'data-tip': 'Somewhere else (Mod+→)' }, icon('skip-forward')),
+  h('div.radio-now', nowName, nowIns, nowNext),
+  h('label.radio-ctl', h('span.micro.dim', 'Drums'), drums.el),
+  h('label.radio-ctl.row', drift.el, h('span', 'Drift')));
 
 const blank = h('div.radio-blank');
-const stage = h('div.radio-stage', view.el, blank);
+const main = h('div.radio-main', h('div.radio-plane-wrap', plane.el, knobRead), timeline.el);
+const stage = h('div.radio-stage', main, blank);
 ui.content.append(stage, strip);
 
-const hoverText = h('span.dim');
 const statusText = h('span.grow.num');
-ui.statusbar.append(statusText, hoverText);
+ui.statusbar.append(statusText);
 
-const axesSelect = new Select({ options: AXES.map((a) => ({ value: a.value, label: a.label })),
-  value: settings.get('axes'), onChange: (v) => setAxes(v) });
-
-function setAxes(v) {
-  settings.set('axes', v);
-  axesSelect.set(v);
-  reproject();
-}
-const search = h('input.field.radio-search', { type: 'text', placeholder: 'Fly to a sound…',
+const search = h('input.field.radio-search', { type: 'text', placeholder: 'Go to a sound…  (“rain on a tin roof”)',
   onkeydown: (e) => { if (e.key === 'Enter') { flyTo(search.value); e.preventDefault(); } } });
 
 // ---- commands -------------------------------------------------------------------
 
 const ready = () => state.phase === 'ready';
 commands.addAll([
-  { id: 'play-pause', label: 'Play', icon: 'play', keys: ['Space'], enabled: ready,
-    checked: () => state.playing, run: togglePlay },
-  { id: 'skip', label: 'Skip Far Away', icon: 'skip-forward', keys: ['Mod+ArrowRight'], enabled: ready, run: skip },
-  { id: 'clear-path', label: 'Clear Path Ahead', icon: 'x', keys: ['Escape'],
-    enabled: () => state.path.length > 0, run: clearPath },
-  { id: 'reset-view', label: 'Fit Map', icon: 'fullscreen', keys: ['Mod+0'], run: () => view.resetView() },
-  { id: 'clear-trail', label: 'Clear Trail', icon: 'trash', enabled: () => state.trail.length > 0,
-    run: () => { state.trail = []; saveTrail(); view.setState({ trail: [] }); } },
+  { id: 'play-pause', label: 'Play', icon: 'play', keys: ['Space'], enabled: ready, checked: () => state.playing, run: togglePlay },
+  { id: 'skip', label: 'Somewhere Else', icon: 'skip-forward', keys: ['Mod+ArrowRight'], enabled: ready, run: skip },
+  { id: 'drift', label: 'Drift', icon: 'shuffle', keys: ['Mod+D'], checked: () => state.drift, run: () => setDrift(!state.drift) },
   { id: 'models', label: 'Models…', icon: 'layers', keys: ['Mod+,'],
-    enabled: () => state.phase !== 'unavailable' && state.phase !== 'loading', run: openModels },
+    enabled: () => state.phase !== 'unavailable' && state.phase !== 'loading', run: () => flow.openDialog() },
   { id: 'quit', label: 'Quit', keys: ['Mod+Q'], run: () => app.quit() },
 ]);
 toolbar.add(search);
 toolbar.spacer();
-toolbar.add(axesSelect.el);
-toolbar.button('clear-trail');
-toolbar.button('reset-view');
-toolbar.sep();
 toolbar.button('models');
 
-// ---- boot: models, then the map ---------------------------------------------
+// ---- phases and models -------------------------------------------------------
+
+const flow = modelsFlow({ settings, setPhase, useBackend, releaseBackend, generation: () => state.backendGen });
 
 function showBlank(node) {
   blank.replaceChildren(...(node ? [node] : []));
   blank.classList.toggle('hidden', !node);
-  view.el.classList.toggle('hidden', !!node);
+  main.classList.toggle('hidden', !!node);
 }
 
 function setPhase(phase, reason = '') {
   state.phase = phase;
   state.reason = reason;
-  if (phase === 'unavailable') {
-    showBlank(emptyState({ icon: 'music', title: 'The radio cannot run here', hint: reason }));
-  } else if (phase === 'missing') {
-    showBlank(setupCard(reason));
-  } else if (phase === 'error') {
+  if (phase === 'unavailable') showBlank(emptyState({ icon: 'music', title: 'The radio cannot run here', hint: reason }));
+  else if (phase === 'missing') showBlank(flow.setupCard(reason));
+  else if (phase === 'error') {
     showBlank(emptyState({ icon: 'alert', title: 'The radio stopped', hint: reason,
       action: state.backend ? { label: 'Start Again', run: () => { setPhase('ready'); play(); } } : null }));
-  } else if (phase === 'loading' || phase === 'mapping' || phase === 'probing') {
+  } else if (phase === 'loading' || phase === 'probing') {
     showBlank(h('div.radio-loading', h('div.spinner'), h('div.dim', reason || 'Starting…')));
-  } else {
-    showBlank(null);
-  }
+  } else showBlank(null);
   toolbar.refresh();
   drawNow();
 }
 
-/**
- * The models card shown while the radio cannot start: the panel, why not
- * (a failed load says what failed), and Load once every folder will do.
- */
-function setupCard(reason) {
-  const panel = new ModelsPanel({ chosen: settings.get('modelDirs'), arWeights: settings.get('arWeights'),
-    onChange: (p) => { load.disabled = !p.ready; } });
-  const load = h('button.btn.primary.models-load', { onclick: () => applyModels(panel) }, 'Load Models');
-  load.disabled = !panel.ready;
-  return h('div.card.radio-setup',
-    h('div.head', 'Choose the radio\'s models'),
-    h('div.dim', 'Pick each model\'s folder, or let bro find it by name. They load on the GPU.'),
-    reason ? h('div.radio-setup-error', icon('alert'), h('span', reason)) : null,
-    panel.el,
-    h('div.radio-setup-actions', load));
-}
-
-function boot() {
-  const why = capability();
-  if (why) { setPhase('unavailable', why); return; }
-  const where = resolveModels(settings.get('modelDirs'));
-  if (!allReady(where)) { setPhase('missing', ''); return; }
-  loadModels(where);
-}
-
-/** Loads the models at `where` (resolveModels) and runs the radio on them. */
-function loadModels(where) {
-  const dirs = {};
-  for (const m of MODELS) dirs[m.key] = where[m.key].dir;
-  const loaded = new Set();
-  const progress = () => `Loading ${MODELS.filter((m) => !loaded.has(m.key)).map((m) => m.label).join(', ')}…`;
-  setPhase('loading', progress());
-  const t0 = performance.now(), gen = state.backendGen;
-  loadBackend(dirs, { arWeights: settings.get('arWeights'),
-    onStep: (key) => { loaded.add(key); if (gen === state.backendGen && loaded.size < MODELS.length) setPhase('loading', progress()); } })
-    .then((backend) => {
-      console.log(`radio: models loaded in ${((performance.now() - t0) / 1000).toFixed(1)} s on ${backend.device}`);
-      if (gen === state.backendGen) useBackend(backend);       // unless something chose another backend meanwhile
-      else backend.dispose();
-    }, (e) => { if (gen === state.backendGen) setPhase('missing', `Loading failed. ${e.message}`); });
-}
-
-/** Saves the panel's choice and (re)loads the models with it. */
-async function applyModels(panel) {
-  settings.set('modelDirs', panel.chosen);
-  settings.set('arWeights', panel.arWeights);
-  setPhase('loading', 'Releasing the models in use…');
-  await releaseBackend();
-  boot();
+/** Runs the radio on a backend (the real one, or a test's fake). */
+function useBackend(backend) {
+  state.backendGen++;
+  if (state.radio) state.radio.stop();
+  if (state.backend && state.backend !== backend) freeBackend(state.backend);
+  state.backend = backend;
+  state.ear = makeEar(backend);
+  state.program.reset();
+  state.radio = new Radio(backend, {
+    onEvent: (e) => { state.program.event(e, { pos: state.sentPos }); },
+    onHeard: ({ index, vec }) => {
+      const c = state.program.chunks.get(index);
+      state.program.heard(index, { ...state.ear.hear(vec, c && c.style), vec });
+    },
+    onError: (m) => { state.playing = false; setPhase('error', m); },
+  });
+  setPhase('ready');
 }
 
 /**
@@ -245,13 +180,16 @@ async function applyModels(panel) {
  */
 function releaseBackend() {
   const be = state.backend;
-  state.backendGen = (state.backendGen || 0) + 1;
+  state.backendGen++;
   state.backend = null;
   state.playing = false;
   if (state.radio) state.radio.stop();
   state.radio = null;
-  state.atlas = null;
-  view.setAtlas(null);
+  return freeBackend(be);
+}
+
+/** Frees a backend's models once its stream lets go of them. */
+function freeBackend(be) {
   return new Promise((resolve) => {
     if (!be || !be.dispose) { resolve(); return; }
     const t0 = performance.now();
@@ -264,95 +202,10 @@ function releaseBackend() {
   });
 }
 
-/** The Models… dialog: change folders or weights at any time; Load reloads. */
-async function openModels() {
-  const d = new Dialog({ title: 'Models', icon: 'layers', wide: true });
-  const panel = new ModelsPanel({ chosen: settings.get('modelDirs'), arWeights: settings.get('arWeights'),
-    onChange: (p) => { loadBtn.disabled = !p.ready; } });
-  d.body.append(h('div.dim', 'Loading other models stops the music and reloads.'), panel.el);
-  d.addButton('Cancel', { value: false });
-  const loadBtn = d.addButton('Load', { primary: true, value: true, onClick: () => panel.ready });
-  loadBtn.disabled = !panel.ready;
-  if (await d.open()) applyModels(panel);
-}
+// ---- steering -------------------------------------------------------------------
 
-/** Runs the radio on a backend (the real one, or a test's fake). */
-function useBackend(backend) {
-  state.backendGen = (state.backendGen || 0) + 1;
-  if (state.radio) state.radio.stop();
-  state.backend = backend;
-  state.radio = new Radio(backend, {
-    onPlanned: (p) => { state.planned = p; drawNow(); },
-    onChunk: (c) => { state.chunkStarts.push({ sample: c.sample, anchor: c.anchor }); },
-    onTrail: (p) => addTrail(p),
-    onError: (m) => { state.playing = false; setPhase('error', m); },
-    place: (vec) => state.atlas.placeAudio(vec),
-  });
-  setPhase('mapping', 'Drawing the map…');
-  // Embedding the prompts takes a moment the first time; let the spinner paint first.
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    embedAnchors();
-    reproject();
-    if (!state.listener || state.owner < 0 || state.owner >= state.anchors.length) {
-      const a = state.anchors[Math.floor(Math.random() * state.anchors.length)];
-      state.listener = { x: a.x, y: a.y };
-      state.owner = a.id;
-      saveListener();
-    }
-    view.setState({ listener: state.listener, owner: state.owner, trail: state.trail });
-    setPhase('ready');
-  }));
-}
-
-/** The anchors' CLAP text vectors, cached on disk for the real backend. */
-function embedAnchors() {
-  const n = state.anchors.length, d = 512;
-  // Keyed by the CLAP checkpoint too: another CLAP folder means other vectors.
-  const key = state.backend.cacheKey;
-  const cache = key && typeof bro !== 'undefined' && bro.app && bro.app.cacheDir
-    ? path.join(bro.app.cacheDir, `anchors-v${ANCHORS_VERSION}-${key}.f32`) : null;
-  let flat = null;
-  if (cache) {
-    try {
-      const buf = fs.readFileSync(cache);
-      if (buf.byteLength === n * d * 4) flat = new Float32Array(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
-    } catch (_) { /* first run */ }
-  }
-  if (!flat) {
-    const vecs = state.backend.embedText(state.anchors.map((a) => a.style));
-    flat = new Float32Array(n * d);
-    vecs.forEach((v, i) => flat.set(v, i * d));
-    if (cache) {
-      try { fs.mkdirSync(path.dirname(cache), { recursive: true }); fs.writeFileSync(cache, new Uint8Array(flat.buffer)); }
-      catch (e) { console.log(`radio: anchor cache not written: ${e.message}`); }
-    }
-  }
-  state.anchors.forEach((a, i) => { a.vec = flat.subarray(i * d, (i + 1) * d); });
-}
-
-function reproject() {
-  if (!state.backend || !state.anchors[0].vec) return;
-  const preset = AXES.find((a) => a.value === settings.get('axes')) || AXES[0];
-  const axis = (pair) => (pair ? state.backend.embedText(pair) : null);
-  const oldOwner = state.owner;
-  state.atlas = makeAtlas(state.anchors, { x: axis(preset.x), y: axis(preset.y) });
-  view.setAtlas(state.atlas);
-  // The listener stays in its anchor; the trail is re-placed from its anchors.
-  if (oldOwner >= 0 && state.listener) {
-    const a = state.anchors[oldOwner];
-    state.listener = { x: a.x, y: a.y };
-  }
-  // Points from an earlier session carry no vector: they go to the anchor CLAP heard.
-  state.trail = state.trail.map((t) => {
-    if (t.vec) { const p = state.atlas.placeAudio(t.vec); return Object.assign(t, { x: p.x, y: p.y }); }
-    const a = state.anchors[t.heard];
-    return a ? Object.assign(t, { x: a.x, y: a.y }) : t;
-  });
-  state.path = state.path.map((p) => Object.assign(p, { x: state.anchors[p.anchor].x, y: state.anchors[p.anchor].y }));
-  view.setState({ listener: state.listener, trail: state.trail, path: state.path });
-}
-
-// ---- playing ------------------------------------------------------------------
+const target = () => ({ style: styleText(state.style), tag: styleTag(state.style) });
+const knobs = () => Object.assign(moodKnobs(state.listener.x, state.listener.y), { percussion: state.drums });
 
 function togglePlay() { if (state.playing) pause(); else play(); }
 
@@ -361,7 +214,11 @@ function play() {
   state.playing = true;
   const r = state.radio;
   r.setPaused(false);
-  if (!r.running) r.start(state.anchors[state.owner], state.knobs);
+  if (!r.running) {
+    state.program.reset();
+    state.sentPos = { ...state.listener };
+    r.start(Object.assign(target(), { knobs: knobs() }));
+  }
   drawNow();
 }
 
@@ -371,147 +228,165 @@ function pause() {
   drawNow();
 }
 
-/** Go to (x, y) now: the listener moves there, the music follows. */
-function goTo(x, y) {
-  if (!state.atlas) return;
-  clearPath();
-  const a = state.atlas.nearest(x, y);
-  state.listener = { x, y };
-  setOwner(a, true);
-}
-
-/** Dragging the listener: knobs could follow; the style changes only when another anchor clearly owns the spot. */
-function wander(x, y, end) {
-  if (!state.atlas) return;
-  state.listener = { x, y };
-  const a = state.atlas.owner(x, y, state.owner);
-  if (a.id !== state.owner) { clearPath(); setOwner(a, false); }
-  if (end && state.ownerPending) applyOwner();
-  view.setState({ listener: state.listener });
-  if (end) saveListener();
-}
-
-const applyOwnerSoon = debounce(() => applyOwner(), 600);
-
-function setOwner(a, now) {
-  state.owner = a.id;
-  state.ownerPending = true;
-  view.setState({ listener: state.listener, owner: a.id });
-  saveListener();
-  if (now) applyOwner(); else applyOwnerSoon();
-}
-
-function applyOwner() {
-  state.ownerPending = false;
-  if (state.radio && state.radio.running) state.radio.go(state.anchors[state.owner]);
+/** A new style from the next chunk that can still change. */
+function setStyle(style, why) {
+  if (sameStyle(style, state.style)) return;
+  state.style = style;
+  settings.set('style', { genre: style.genre, mood: style.mood, instruments: style.instruments });
+  if (state.radio && state.radio.running) {
+    state.sentPos = { ...state.listener };
+    state.radio.setTarget(target());
+  }
+  if (why) toast(why, { key: 'steer' });
+  drawSide();
   drawNow();
 }
 
-function addWaypoint(x, y) {
-  if (!state.atlas) return;
-  const a = state.atlas.nearest(x, y);
-  state.path.push({ x, y, anchor: a.id, at: 0 });
-  schedulePath();
+const sendKnobs = debounce(() => {
+  state.sentPos = { ...state.listener };
+  if (state.radio) state.radio.setKnobs(knobs());
+}, 200);
+
+const commitMoodSoon = debounce(() => commitMood(), MOOD_DWELL_MS);
+
+function commitMood() {
+  if (!state.moodPending) return;
+  const mood = state.moodPending;
+  state.moodPending = null;
+  setStyle(makeStyle({ genre: state.style.genre, mood, instruments: state.style.instruments }));
 }
 
-function clearPath() {
-  if (!state.path.length) return;
-  state.path = [];
-  if (state.radio && state.radio.running) state.radio.setPath([]);
-  view.setState({ path: [] });
-  toolbar.refresh();
+/** The listener moves on the plane: the knobs follow at once, the mood when another region clearly owns the spot. */
+function moveTo(x, y, end) {
+  state.listener = { x, y };
+  const m = moodAt(x, y, state.moodPending || state.style.mood);
+  if (m.id !== state.style.mood) { state.moodPending = m.id; if (end) commitMood(); else commitMoodSoon(); }
+  else state.moodPending = null;
+  sendKnobs();
+  plane.setState({ listener: state.listener, mood: state.moodPending || state.style.mood });
+  if (end) settings.set('listener', state.listener);
+  drawKnobs();
 }
 
-/** Times the path: its first point from the open chunk, then one every LEG_SECONDS. */
-function schedulePath() {
-  const open = state.radio && state.radio.running ? state.radio.openSeconds() : 0;
-  state.path.forEach((p, i) => { p.at = open + i * LEG_SECONDS; });
-  if (state.radio && state.radio.running) {
-    state.radio.setPath(state.path.map((p) => ({ anchor: state.anchors[p.anchor], at: p.at })));
-  }
-  view.setState({ path: state.path });
-  toolbar.refresh();
+function pickGenre(genre) {
+  if (genre === state.style.genre) return;
+  setStyle(makeStyle({ genre, mood: state.style.mood }));
 }
 
-/** The listener reaches each waypoint when the program does. */
-function walkPath(nowSec) {
-  let moved = false;
-  while (state.path.length && state.path[0].at <= nowSec) {
-    const p = state.path.shift();
-    state.listener = { x: p.x, y: p.y };
-    state.owner = p.anchor;
-    moved = true;
-  }
-  if (moved) {
-    saveListener();
-    view.setState({ listener: state.listener, owner: state.owner, path: state.path });
-    toolbar.refresh();
-  }
+function toggleInstrument(ins) {
+  const cur = state.pendingIns || state.style.instruments;
+  let next = cur.includes(ins) ? cur.filter((i) => i !== ins) : [...cur, ins];
+  if (!next.length) return;                  // at least one
+  if (next.length > 3) next = next.slice(1);  // at most three: the oldest goes
+  state.pendingIns = next;
+  drawSide();
+  applyInsSoon();
+}
+const applyInsSoon = debounce(() => {
+  const ins = state.pendingIns;
+  state.pendingIns = null;
+  if (ins) setStyle(makeStyle({ genre: state.style.genre, mood: state.style.mood, instruments: ins }));
+}, 900);
+
+function goToMood(moodId) {
+  const m = MOODS.find((q) => q.id === moodId);
+  state.listener = { x: m.x, y: m.y };
+  state.moodPending = null;
+  plane.setState({ listener: state.listener, mood: m.id });
+  settings.set('listener', state.listener);
+  sendKnobs();
+  drawKnobs();
 }
 
 function skip() {
-  if (!state.atlas) return;
-  const here = state.listener || { x: 0, y: 0 };
-  const far = state.anchors.filter((a) => Math.hypot(a.x - here.x, a.y - here.y) > SKIP_DISTANCE);
-  const pool = far.length ? far : state.anchors;
-  const a = pool[Math.floor(Math.random() * pool.length)];
-  goTo(a.x, a.y);
+  const others = GENRES.filter((g) => familyOf(g) !== familyOf(state.style.genre));
+  const genre = others[Math.floor(Math.random() * others.length)];
+  const mood = MOODS[Math.floor(Math.random() * MOODS.length)].id;
+  goToMood(mood);
+  setStyle(makeStyle({ genre, mood }), `Somewhere else: ${mood} ${genre}`);
   if (!state.playing) play();
 }
 
-/** Fly to typed text: CLAP places the phrase on the map and the listener goes there. */
+/** Typed text: CLAP picks the genre and mood nearest the phrase. */
 function flyTo(text) {
   text = String(text || '').trim();
-  if (!text || !state.atlas) return;
-  const [vec] = state.backend.embedText([text]);
-  const p = state.atlas.project(vec);
-  goTo(p.x, p.y);
-  toast(`Flying to “${text}”`, { key: 'fly' });
+  if (!text || !state.ear) return;
+  const p = state.ear.place(text);
+  goToMood(p.mood);
+  setStyle(makeStyle({ genre: p.genre, mood: p.mood }), `“${text}” → ${p.mood} ${p.genre}`);
 }
 
-function setKnob(id, v) {
-  state.knobs[id] = v;
-  if (sliders[id].value !== v) sliders[id].set(v);
-  knobsChanged();
+function setDrums(v) {
+  state.drums = v;
+  settings.set('drums', v);
+  sendKnobs();
 }
 
-const knobsChanged = debounce(() => {
-  settings.set('knobs', state.knobs);
-  if (state.radio) state.radio.setKnobs(state.knobs);
-}, 150);
-
-function addTrail(p) {
-  state.trail.push({ x: p.x, y: p.y, anchor: p.anchor, heard: p.heard, sample: p.sample, vec: p.vec });
-  if (state.trail.length > TRAIL_MAX) state.trail.splice(0, state.trail.length - TRAIL_MAX);
-  view.setState({ trail: state.trail });
-  saveTrail();
+function setDrift(on) {
+  state.drift = !!on;
+  drift.set(state.drift);
+  settings.set('drift', state.drift);
+  const t = state.radio ? state.radio.playhead / PROGRAM_RATE : 0;
+  state.driftAt = { step: t + DRIFT_STEP_S, genre: t + DRIFT_GENRE_S };
+  toolbar.refresh();
 }
 
-function saveListener() {
-  settings.set('listener', state.listener);
-  settings.set('owner', state.owner);
+/** Drift: a short step across the plane now and then, and now and then a neighbouring genre. */
+function driftTick(t) {
+  if (!state.drift || !state.playing) return;
+  if (t >= state.driftAt.step) {
+    state.driftAt.step = t + DRIFT_STEP_S;
+    const a = Math.random() * Math.PI * 2, r = 0.25 + Math.random() * 0.2;
+    const c = (v) => Math.max(-0.95, Math.min(0.95, v));
+    moveTo(c(state.listener.x + r * Math.cos(a)), c(state.listener.y + r * Math.sin(a)), true);
+  }
+  if (t >= state.driftAt.genre) {
+    state.driftAt.genre = t + DRIFT_GENRE_S;
+    const fam = familyOf(state.style.genre).genres.filter((g) => g !== state.style.genre);
+    pickGenre(fam[Math.floor(Math.random() * fam.length)]);
+  }
 }
-const saveTrail = debounce(() => settings.set('trail', state.trail.map(({ x, y, anchor, heard }) => ({ x, y, anchor, heard }))), 2000);
 
-// ---- the now strip and status ---------------------------------------------------
+// ---- drawing ------------------------------------------------------------------
 
-const fmtSec = (s) => (s < 60 ? `${Math.max(0, Math.round(s))} s` : `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`);
+genres.setSections(FAMILIES.map((f) => ({ title: f.label, items: f.genres.map((g) => ({ id: g, label: g })) })));
+let chipsKey = '';
+
+/** The selected genre, the one playing (a dot), and the genre's instrument chips. */
+function drawSide() {
+  genres.select(state.style.genre);
+  const playing = state.radio ? state.program.playing(state.radio.playhead) : null;
+  for (const [id, row] of genres.rows) row.classList.toggle('playing', !!(playing && playing.style && playing.style.genre === id));
+  const chosen = state.pendingIns || state.style.instruments;
+  const key = `${state.style.genre}|${chosen.join(',')}`;
+  if (key === chipsKey) return;
+  chipsKey = key;
+  insChips.replaceChildren(...KITS[state.style.genre].map((i) =>
+    h(`button.radio-chip${chosen.includes(i) ? '.on' : ''}`, { onclick: () => toggleInstrument(i) }, i)));
+}
+
+function drawKnobs() {
+  const k = knobs();
+  const f = (v) => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(1);
+  knobRead.textContent = `energy ${f(k.energy)} · fullness ${f(k.density)} · brightness ${f(k.timbre)}`;
+}
 
 function drawNow() {
   const r = state.radio;
   const playhead = r ? r.playhead : 0;
-  while (state.chunkStarts.length > 1 && state.chunkStarts[1].sample <= playhead) state.chunkStarts.shift();
-  const cur = state.chunkStarts.length && state.chunkStarts[0].sample <= playhead ? state.chunkStarts[0].anchor : -1;
-  state.nowAnchor = cur;
-  const want = state.anchors[state.owner];
-  if (cur >= 0) nowName.textContent = state.anchors[cur].label;
-  else nowName.textContent = state.playing ? 'Starting…' : (want ? want.label : '—');
+  const cur = r ? state.program.playing(playhead) : null;
+  if (cur && cur.style) {
+    nowName.textContent = styleLabel(cur.style);
+    nowIns.textContent = cur.style.instruments.join(', ');
+  } else {
+    nowName.textContent = state.playing ? 'Starting…' : styleLabel(state.style);
+    nowIns.textContent = state.playing ? 'writing the first 10 s' : state.style.instruments.join(', ');
+  }
   let next = '';
-  const pl = state.planned;
-  if (state.playing && pl && pl.anchor >= 0 && pl.anchor !== cur && pl.sample > playhead) {
-    next = `${state.anchors[pl.anchor].label} in ${fmtSec((pl.sample - playhead) / PROGRAM_RATE)}`;
-  } else if (state.playing && cur >= 0 && want && want.id !== cur) {
-    next = `heading to ${want.label}`;
+  if (state.playing && cur && cur.style && !sameStyle(cur.style, state.style)) {
+    const p = state.program.planned;
+    const eta = p && p.sample > playhead ? Math.round((p.sample - playhead) / PROGRAM_RATE) : null;
+    next = `→ ${styleLabel(state.style)}${eta != null ? ` in about ${eta} s` : ', next chunk'}`;
   }
   nowNext.textContent = next;
   playBtn.replaceChildren(icon(state.playing ? 'pause' : 'play'));
@@ -521,25 +396,38 @@ function drawNow() {
   if (state.phase !== 'ready') statusText.textContent = state.reason;
   else if (!st) statusText.textContent = state.backend ? `Ready · ${state.backend.device}` : '';
   else {
-    statusText.textContent = `${fmtSec(playhead / PROGRAM_RATE)} played · ${st.aheadSeconds.toFixed(1)} s ahead · `
-      + `chunk ${st.playing} · ${state.trail.length} on the trail`
+    const cost = st.costSeconds ? (st.costSeconds.splice + st.costSeconds.render + st.costSeconds.decode) : 0;
+    statusText.textContent = `${fmtTime(playhead / PROGRAM_RATE)} played · ${st.aheadSeconds.toFixed(1)} s of audio ready`
+      + (cost ? ` · a chunk takes ${cost.toFixed(1)} s of GPU for 10 s of music` : '')
       + (st.worstGapSeconds >= 0.2 ? ` · worst gap ${st.worstGapSeconds.toFixed(2)} s` : '');
   }
+  if (r) {
+    plane.setState({ music: cur && cur.pos, playingMood: cur && cur.style ? cur.style.mood : null, trail: state.program.trail(playhead) });
+    drawSide();
+  }
 }
+
+const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 let lastNow = 0;
 function frame(t) {
-  if (state.radio && state.radio.running) {
-    state.radio.tick();
-    walkPath(state.radio.playhead / PROGRAM_RATE);
+  const r = state.radio;
+  if (r && r.running) {
+    r.tick();
+    driftTick(r.playhead / PROGRAM_RATE);
+    timeline.update(state.program.cards(r.playhead, { running: true, target: state.style }), r.playhead);
   }
-  view.frame();
+  plane.frame();
   if (t - lastNow > 250) { lastNow = t; drawNow(); }
   requestAnimationFrame(frame);
 }
-requestAnimationFrame(frame);
 
+plane.setState({ listener: state.listener, mood: state.style.mood });
+drawSide();
+drawKnobs();
+requestAnimationFrame(frame);
 window.addEventListener('beforeunload', () => { if (state.radio) state.radio.stop(); });
 
-app.expose({ state, view, useBackend, play, pause, goTo, addWaypoint, wander, skip, flyTo, clearPath, setAxes, setKnob });
-boot();
+app.expose({ state, plane, timeline, useBackend, play, pause, moveTo, pickGenre, toggleInstrument, skip, flyTo, setDrums, setDrift,
+  goToMood, flow });
+flow.boot();

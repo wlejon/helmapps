@@ -1,110 +1,112 @@
-// Radio on a fake backend (no models): the empty state, the atlas, axes,
-// going somewhere, a path ahead timed at chunk boundaries, hysteresis while
-// wandering, the trail, knobs, and resume (briefs/radio.md acceptance 1-4, 7).
+// Radio on a fake backend (no models): genres, instruments, the mood plane
+// (knobs follow at once, the mood changes past a border, hysteresis), the
+// timeline's steps and CLAP verdicts, "go to a sound", skip, drift, pause,
+// and resume.
 
-import { app, waitFor, eq, press } from '/lib/test.js';
+import { app, waitFor, eq, press, clickEl, mod } from '/lib/test.js';
 import { fakeBackend } from '/app/tests/fake_backend.js';
 
 const RATE = 48000;
 
-// With no models (a fresh BRO_APP_HOME, no BRO_MODELS) the radio says so.
+// Where the models are found, their load finishes first; the fake replaces them after.
+waitFor(() => app.state.phase !== 'loading' && app.state.phase !== 'probing', 'the models load to settle', 120000);
 if (app.state.phase === 'missing') {
-  assert(document.querySelector('.radio-blank .radio-setup'), 'the models card');
+  assert(document.querySelector('.radio-blank .radio-setup'), 'the models card when the models are not here');
   eq(document.querySelectorAll('.radio-setup .models-row').length, 3, 'one row per model');
-} else {
-  console.log(`test_ui: models present here (phase ${app.state.phase}); the empty state is not checked`);
 }
 
 const be = fakeBackend();
 app.useBackend(be);
-waitFor(() => app.state.phase === 'ready', 'the map');
-const anchors = app.state.anchors;
-eq(anchors.length, 120, 'the shipped anchors');
-assert(anchors.every((a) => Math.abs(a.x) <= 1 && Math.abs(a.y) <= 1), 'anchors fill [-1, 1]');
-assert(app.state.listener && app.state.owner >= 0, 'the listener starts on an anchor');
-waitFor(() => app.view.size.w > 0, 'the map has a size');
+waitFor(() => app.state.phase === 'ready', 'ready');
+const targets = () => be.calls.filter((c) => c.kind === 'setTarget');
+const knobCalls = () => be.calls.filter((c) => c.kind === 'setKnobs');
+const cards = () => Array.from(document.querySelectorAll('.tl-card'));
 
-// Changing the axes re-projects the anchors.
-const before = anchors.map((a) => [a.x, a.y]);
-assert(document.querySelector('.toolbar .select'), 'the axes picker');
-eq(app.settings.get('axes'), 'pca', 'principal axes by default');
-app.setAxes('mood');
-assert(anchors.some((a, i) => Math.abs(a.x - before[i][0]) > 1e-6), 'the anchors move with the axes');
-eq(app.settings.get('axes'), 'mood', 'the choice is kept');
+// The sidebar lists every genre by family; the default style is selected.
+eq(Array.from(document.querySelectorAll('.sidebar-section')).slice(0, 3).map((s) => s.textContent), ['Acoustic', 'Band', 'Electronic'], 'the families');
+eq(document.querySelectorAll('.sidebar-item').length, 24, 'every genre');
+eq(document.querySelector('.sidebar-item.selected').textContent, 'lo-fi', 'lo-fi to start');
+eq(document.querySelectorAll('.plane-word').length, 14, 'the mood words on the plane');
 
-// Play: audio flows, the now strip names the place, chunks start.
+// Play: the stream starts as the selected style, at the plane's knobs.
 press('space');
 eq(app.state.playing, true, 'Space plays');
-waitFor(() => app.state.radio.playhead > 2 * RATE, 'two seconds played', 15000);
-const startTag = be.stream.target.tag;
-eq(startTag, `a${app.state.owner}`, 'the stream starts at the listener\'s anchor');
-waitFor(() => document.querySelector('.radio-now-name').textContent === anchors[app.state.owner].label, 'the now strip names it');
+eq(be.stream.target.tag, 'g=lo-fi|m=calm|i=Rhodes piano,drum machine', 'the first target names the style');
+eq(be.stream.target.style, 'lo-fi, Rhodes piano, drum machine, calm, instrumental', 'as YuE2 style text');
+waitFor(() => app.state.radio.playhead > 12 * RATE, 'into the second chunk', 30000);
 
-// Go somewhere far: one target, at the anchor nearest the click.
-const here = anchors[app.state.owner];
-const far = anchors.reduce((b, a) => (Math.hypot(a.x - here.x, a.y - here.y) > Math.hypot(b.x - here.x, b.y - here.y) ? a : b));
-const nTargets = () => be.calls.filter((c) => c.kind === 'setTarget').length;
-const t0 = nTargets();
-app.goTo(far.x, far.y);
-eq(nTargets(), t0 + 1, 'a click makes one target');
-eq(be.calls.filter((c) => c.kind === 'setTarget').pop().arg.tag, `a${far.id}`, 'at the nearest anchor');
-waitFor(() => document.querySelector('.radio-now-next').textContent.includes(far.label), 'the strip says when it is heard');
+// The timeline: played (with CLAP's verdict), now, ready, writing.
+waitFor(() => cards().some((c) => c.classList.contains('played') && c.querySelector('.tl-heard')), 'a played card with a verdict', 15000);
+const states = () => cards().map((c) => c.className.split(' ').find((k) => ['played', 'now', 'ready', 'rendering', 'writing', 'planned'].includes(k)));
+assert(states().includes('now') && states().includes('writing'), `now and writing on the timeline: ${states().join(' ')}`);
+assert(cards().find((c) => c.classList.contains('played')).querySelector('.tl-heard').textContent.includes('sounds like calm lo-fi'), 'CLAP heard what was asked');
 
-// The trail: each played chunk lands where CLAP (here the fake) hears it.
-waitFor(() => app.state.trail.length >= 2, 'two chunks on the trail', 60000);
-waitFor(() => app.state.trail.some((t) => t.heard === far.id), 'the new place on the trail', 60000);
+// A genre: one target, a 'new style' card, the strip says when.
+const t0 = targets().length;
+clickEl(Array.from(document.querySelectorAll('.sidebar-item')).find((r) => r.textContent === 'jazz'));
+eq(targets().length, t0 + 1, 'picking a genre makes one target');
+eq(targets().pop().arg.tag, 'g=jazz|m=calm|i=piano,saxophone', 'jazz with its default instruments');
+waitFor(() => cards().some((c) => c.classList.contains('change') && c.textContent.includes('calm jazz')), 'the change on the timeline');
+waitFor(() => document.querySelector('.radio-now-next').textContent.includes('calm jazz'), 'the strip says what is coming');
+eq(Array.from(document.querySelectorAll('.radio-chip')).map((c) => c.textContent), ['piano', 'saxophone', 'upright bass', 'brushed drums'], "jazz's instruments");
 
-// A path of three points: three timed targets, in order, LEG_SECONDS apart from the open chunk.
-const pts = [anchors[3], anchors[40], anchors[90]];
-for (const a of pts) app.addWaypoint(a.x, a.y);
-const lastPath = be.calls.filter((c) => c.kind === 'setPath').pop().arg;
-eq(lastPath.map((p) => p.tag), pts.map((a) => `a${a.id}`), 'three targets in order');
-const open = app.state.radio.openSeconds();
-eq(lastPath.map((p) => Math.round(p.at - lastPath[0].at)), [0, 20, 40], 'one every 20 s');
-assert(Math.abs(lastPath[0].at - open) < 10.01, `the first from the open chunk (${lastPath[0].at} vs ${open})`);
-press('escape');
-eq(app.state.path.length, 0, 'Escape clears the path');
-eq(be.calls.filter((c) => c.kind === 'setPath').pop().arg.length, 0, 'and the stream\'s');
+// Instruments: toggles merge into one change.
+const t1 = targets().length;
+clickEl(Array.from(document.querySelectorAll('.radio-chip')).find((c) => c.textContent === 'upright bass'));
+clickEl(Array.from(document.querySelectorAll('.radio-chip')).find((c) => c.textContent === 'saxophone'));
+waitFor(() => targets().length === t1 + 1, 'the instrument changes as one target', 3000);
+eq(targets().pop().arg.tag, 'g=jazz|m=calm|i=piano,upright bass', 'piano and upright bass');
 
-// Wandering: a drag back and forth across a border makes at most one style change.
-const a = anchors[10];
-const b = anchors.filter((x) => x.id !== a.id).reduce((m, x) => (Math.hypot(x.x - a.x, x.y - a.y) < Math.hypot(m.x - a.x, m.y - a.y) ? x : m));
-app.goTo(a.x, a.y);
-const t1 = nTargets();
-const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-const dx = (b.x - a.x) * 0.06, dy = (b.y - a.y) * 0.06;
-for (let i = 0; i < 6; i++) {
-  app.wander(mid.x + dx, mid.y + dy, false);
-  app.wander(mid.x - dx, mid.y - dy, false);
-}
-app.wander(mid.x + dx, mid.y + dy, true);
-waitFor(() => true, 'settle');
-assert(nTargets() - t1 <= 1, `at most one style change across a border (${nTargets() - t1})`);
-// Inside one anchor's neighbourhood: no style change at all.
-const t2 = nTargets();
-const own = anchors[app.state.owner];
-app.wander(own.x + 0.005, own.y, false);
-app.wander(own.x - 0.005, own.y, true);
-eq(nTargets(), t2, 'a drag within the neighbourhood changes no style');
+// The plane: a small move sends knobs only; crossing into another mood changes the style once.
+const calm = { x: 0.7, y: -0.75 };
+const k0 = knobCalls().length, t2 = targets().length;
+app.moveTo(calm.x + 0.03, calm.y + 0.02, true);
+waitFor(() => knobCalls().length > k0, 'the knobs follow the listener', 2000);
+eq(targets().length, t2, 'no style change inside the region');
+const k = knobCalls().pop().arg;
+assert(k.energy < 0 && k.timbre > 0, `relaxed and bright: ${JSON.stringify(k)}`);
+// Back and forth across the calm/tender border: hysteresis holds the mood.
+for (let i = 0; i < 5; i++) { app.moveTo(0.54, -0.7, false); app.moveTo(0.5, -0.69, false); }
+app.moveTo(0.53, -0.7, true);
+assert(targets().length - t2 <= 1, `at most one style change across a border (${targets().length - t2})`);
+// Clicking a mood word goes there.
+const t3 = targets().length, k3 = knobCalls().length;
+clickEl(Array.from(document.querySelectorAll('.plane-word')).find((w) => w.textContent === 'aggressive'));
+eq(targets().length, t3 + 1, 'a mood word is one change');
+eq(app.state.style.mood, 'aggressive', 'to that mood');
+waitFor(() => knobCalls().slice(k3).some((c) => c.arg.energy > 0), 'and its knobs', 2000);
 
-// Knobs go to the stream.
-eq(document.querySelectorAll('.radio-knob').length, 3, 'three knobs');
-app.setKnob('density', 0.5);
-waitFor(() => be.calls.some((c) => c.kind === 'setKnobs' && c.arg.density === 0.5), 'the knob reaches the stream', 3000);
-eq(app.settings.get('knobs').density, 0.5, 'and is saved');
+// Go to a sound: the fake CLAP picks the genre and mood the phrase names.
+const search = document.querySelector('.radio-search');
+search.value = 'tender bossa nova by the sea';
+search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+eq(`${app.state.style.mood} ${app.state.style.genre}`, 'tender bossa nova', 'the phrase places the style');
 
-// Pause stops the playhead.
+// Skip goes to another family.
+const famBefore = app.state.style.genre;
+app.skip();
+assert(app.state.style.genre !== famBefore, 'skip changes the genre');
+
+// Drums is the percussion knob.
+app.setDrums(2);
+waitFor(() => knobCalls().some((c) => c.arg.percussion === 2), 'drums reach the stream', 2000);
+
+// Drift moves on its own.
+press(`${mod}+d`);
+eq(app.state.drift, true, 'Mod+D turns drift on');
+const before = { ...app.state.listener };
+waitFor(() => app.state.listener.x !== before.x || app.state.listener.y !== before.y, 'drift steps', 60000);
+press(`${mod}+d`);
+
+// Pause holds the playhead.
 press('space');
-eq(app.state.playing, false, 'Space pauses');
 const ph = app.state.radio.playhead;
-waitFor(() => true, 'a frame');
 for (let i = 0; i < 30; i++) advanceTime(16);
 eq(app.state.radio.playhead, ph, 'paused, the playhead holds');
 
-// Resume: the listener, its anchor and the trail are saved.
-waitFor(() => (app.settings.get('trail') || []).length >= 2, 'the trail saved', 5000);
-eq(app.settings.get('owner'), app.state.owner, 'the anchor saved');
-const L = app.settings.get('listener');
-assert(L && Math.abs(L.x - app.state.listener.x) < 1e-9, 'the listener saved');
+// Resume: the style, the place and the drums are kept.
+eq(app.settings.get('style').genre, app.state.style.genre, 'the style saved');
+eq(app.settings.get('drums'), 2, 'the drums saved');
+assert(Math.abs(app.settings.get('listener').x - app.state.listener.x) < 1e-9, 'the place saved');
 
 console.log('test_ui PASSED');

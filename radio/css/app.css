@@ -1,14 +1,68 @@
-/* Radio: the map fills the content; the now strip sits under it. */
+/* Radio: genres in the sidebar; the mood plane and the timeline in the
+   content; the now strip under them. */
 
 .content { display: flex; flex-direction: column; }
 
 .radio-stage { flex: 1; position: relative; min-height: 0; }
-.atlas, .radio-blank { position: absolute; inset: 0; }
-.atlas { overflow: hidden; cursor: crosshair; }
-.atlas-canvas { display: block; }
-.radio-blank { display: flex; align-items: center; justify-content: center; }
+.radio-main, .radio-blank { position: absolute; inset: 0; }
+.radio-main { display: flex; flex-direction: column; }
+.radio-blank { display: flex; align-items: center; justify-content: center; overflow: auto; padding: var(--s6); }
 .radio-loading { display: flex; flex-direction: column; align-items: center; gap: var(--s3); }
 
+/* Sidebar: the playing genre carries a dot; instruments are chips. */
+.sidebar-item.playing::after {
+  content: ''; width: 6px; height: 6px; border-radius: var(--r-chip); background: var(--accent); margin-left: auto;
+}
+.radio-ins { display: flex; flex-wrap: wrap; gap: var(--s1); padding: var(--s2) var(--s3); }
+.radio-chip {
+  padding: var(--s1) var(--s2); border-radius: var(--r-chip); border: 1px solid var(--rim);
+  color: var(--t2); font-size: var(--fs-cap);
+}
+.radio-chip.on { background: var(--accent-soft); border-color: var(--accent-line); color: var(--t1); }
+
+/* The mood plane. */
+.radio-plane-wrap { flex: 1; position: relative; min-height: 0; }
+.plane { position: absolute; inset: 0; overflow: hidden; cursor: crosshair; }
+.plane-canvas { display: block; }
+.plane-word {
+  position: absolute; transform: translate(-50%, -100%); margin-top: -10px;
+  padding: var(--s1) var(--s2); border-radius: var(--r-chip);
+  color: var(--t3); font-size: var(--fs-cap);
+}
+.plane-word:hover { color: var(--t1); background: var(--surface-2); }
+.plane-word.here { color: var(--accent-text); }
+.plane-word.playing { color: var(--t1); font-weight: 600; }
+.plane-axis { position: absolute; color: var(--t4); text-transform: uppercase; letter-spacing: var(--track-micro); }
+.plane-axis.top, .plane-axis.bottom { left: 50%; transform: translateX(-50%); }
+.plane-axis.left { transform: translateX(-100%); }
+.radio-knobread { position: absolute; left: var(--s4); bottom: var(--s3); }
+
+/* The timeline: one card per 10 s chunk. */
+.timeline {
+  display: flex; gap: var(--s2); padding: var(--s3) var(--s4);
+  border-top: 1px solid var(--hairline); background: var(--surface-1); overflow: hidden;
+}
+.tl-card {
+  flex: 1 1 0; min-width: 120px; max-width: 220px; position: relative;
+  display: flex; flex-direction: column; gap: var(--s1);
+  padding: var(--s2) var(--s3); border-radius: var(--r-card);
+  background: var(--surface-2); border: 1px solid var(--rim);
+}
+.tl-card.played { opacity: 0.6; }
+.tl-card.now { border-color: var(--accent-line); }
+.tl-card.planned, .tl-card.writing { background: transparent; border-style: dashed; }
+.tl-card.change { box-shadow: inset 3px 0 0 var(--accent); }
+.tl-change { display: flex; align-items: center; gap: var(--s1); color: var(--accent-text); }
+.tl-style { color: var(--t1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tl-ins { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tl-state { display: flex; align-items: center; gap: var(--s1); color: var(--t2); text-transform: uppercase; letter-spacing: var(--track-micro); }
+.tl-card.now .tl-state { color: var(--accent-text); }
+.tl-heard { display: flex; align-items: center; gap: var(--s1); color: var(--t3); }
+.tl-bar { height: 3px; border-radius: var(--r-sm); background: var(--well-2); overflow: hidden; }
+.tl-bar-fill { height: 100%; width: 0; background: var(--accent); }
+.spinner.tiny { width: 10px; height: 10px; }
+
+/* The now strip. */
 .radio-strip {
   display: flex; align-items: center; gap: var(--s4);
   padding: var(--s3) var(--s5);
@@ -16,19 +70,18 @@
   border-top: 1px solid var(--hairline);
 }
 .radio-play.on { color: var(--accent-text); }
-.radio-now { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--s1); }
+.radio-now { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .radio-now-name { font-size: var(--fs-title); color: var(--t1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.radio-now-next { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.radio-knobs { display: flex; gap: var(--s5); }
-.radio-knob { display: flex; flex-direction: column; gap: var(--s1); width: 120px; }
+.radio-now-next { color: var(--accent-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.radio-ctl { display: flex; flex-direction: column; gap: var(--s1); width: 140px; }
+.radio-ctl.row { flex-direction: row; align-items: center; gap: var(--s2); width: auto; }
 
-.radio-search { width: 240px; }
+.radio-search { width: 320px; }
 
 /* The models card (when the radio cannot start yet) and the Models… panel. */
-.radio-blank { overflow: auto; padding: var(--s6); }
-.radio-setup { width: 640px; max-width: 100%; display: flex; flex-direction: column; gap: var(--s3); padding: var(--s6); }
+.radio-setup { width: 680px; max-width: 100%; display: flex; flex-direction: column; gap: var(--s3); padding: var(--s6); }
 .radio-setup-error { display: flex; align-items: center; gap: var(--s2); color: var(--danger-text); }
-.radio-setup-actions { display: flex; justify-content: flex-end; }
+.radio-setup-actions { display: flex; align-items: center; gap: var(--s2); }
 
 .models-panel { display: flex; flex-direction: column; gap: var(--s4); }
 .models-rows { display: flex; flex-direction: column; }

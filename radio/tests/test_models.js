@@ -26,14 +26,20 @@ function run() {
   const row = (key) => card().querySelector(`.models-row[data-model="${key}"]`);
   const status = (key) => row(key).querySelector('.models-status').textContent;
   const loadBtn = () => card().querySelector('.models-load');
+  // A missing row offers Download with a folder icon beside it; a found one, Choose….
   const choose = (key, folder) => {
     setPickedFiles(folder);
-    clickEl(row(key).querySelector('.models-choose'));
+    clickEl(row(key).querySelector('.models-choose') || row(key).querySelector('.models-pick'));
     waitFor(() => row(key).querySelector('.models-dir').title === folder, `${key}: the picked folder`);
   };
 
   assert(card(), 'the setup card');
-  for (const k of ['yue', 'vae', 'clap']) eq(status(k), 'Not found', `${k} not found`);
+  for (const k of ['yue', 'vae', 'clap']) {
+    eq(status(k), 'Not found', `${k} not found`);
+    assert(row(k).querySelector('.models-download'), `${k}: Download`);
+    assert(row(k).querySelector('.models-pick'), `${k}: or pick a folder`);
+  }
+  assert(card().querySelector('.models-fetch-all'), 'Download Missing on the card');
   eq(loadBtn().disabled, true, 'Load waits for all three');
 
   // A folder without the model's files is refused, saying why.
@@ -72,7 +78,7 @@ function run() {
   // Later, from a running radio: Models… opens the panel; Cancel changes nothing.
   const be = fakeBackend();
   app.useBackend(be);
-  waitFor(() => app.state.phase === 'ready', 'the map');
+  waitFor(() => app.state.phase === 'ready', 'the radio');
   press(`${mod}+,`);
   waitFor(() => currentDialog(), 'the Models dialog');
   eq(currentDialog().el.querySelectorAll('.models-row').length, 3, 'the panel in the dialog');
