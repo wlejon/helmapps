@@ -9,8 +9,8 @@ const RATE = 48000;
 
 // With no models (a fresh BRO_APP_HOME, no BRO_MODELS) the radio says so.
 if (app.state.phase === 'missing') {
-  assert(document.querySelector('.radio-blank .empty-title').textContent.includes('needs its models'), 'the missing-models state');
-  assert(document.querySelector('.radio-blank .empty-hint').textContent.includes('Looked in'), 'it says where it looked');
+  assert(document.querySelector('.radio-blank .radio-setup'), 'the models card');
+  eq(document.querySelectorAll('.radio-setup .models-row').length, 3, 'one row per model');
 } else {
   console.log(`test_ui: models present here (phase ${app.state.phase}); the empty state is not checked`);
 }

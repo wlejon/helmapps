@@ -25,7 +25,9 @@ import { buildAnchors, ANCHORS_VERSION } from './anchors.js';
 import { makeAtlas } from './atlas.js';
 import { AtlasView } from './atlas_view.js';
 import { Radio, tagAnchor } from './radio.js';
-import { probe, loadBackend } from './models.js';
+import { capability, resolveModels, allReady, loadBackend, MODELS } from './models.js';
+import { ModelsPanel } from './models_view.js';
+import { Dialog } from '/lib/dialog.js';
 import { PROGRAM_RATE } from './player.js';
 
 const fs = require('fs');
@@ -60,6 +62,8 @@ const app = startApp({
     knobs: { type: 'json', default: {} },
     trail: { type: 'json', default: [] },
     axes: { type: 'string', default: 'pca' },
+    modelDirs: { type: 'json', default: {} },      // { yue, vae, clap }: folders chosen in the app
+    arWeights: { type: 'string', default: 'int8' },
   },
 });
 const { commands, settings } = app;
@@ -144,6 +148,8 @@ commands.addAll([
   { id: 'reset-view', label: 'Fit Map', icon: 'fullscreen', keys: ['Mod+0'], run: () => view.resetView() },
   { id: 'clear-trail', label: 'Clear Trail', icon: 'trash', enabled: () => state.trail.length > 0,
     run: () => { state.trail = []; saveTrail(); view.setState({ trail: [] }); } },
+  { id: 'models', label: 'Models…', icon: 'layers', keys: ['Mod+,'],
+    enabled: () => state.phase !== 'unavailable' && state.phase !== 'loading', run: openModels },
   { id: 'quit', label: 'Quit', keys: ['Mod+Q'], run: () => app.quit() },
 ]);
 toolbar.add(search);
@@ -151,6 +157,8 @@ toolbar.spacer();
 toolbar.add(axesSelect.el);
 toolbar.button('clear-trail');
 toolbar.button('reset-view');
+toolbar.sep();
+toolbar.button('models');
 
 // ---- boot: models, then the map ---------------------------------------------
 
@@ -163,8 +171,10 @@ function showBlank(node) {
 function setPhase(phase, reason = '') {
   state.phase = phase;
   state.reason = reason;
-  if (phase === 'missing') {
-    showBlank(emptyState({ icon: 'music', title: 'The radio needs its models', hint: reason }));
+  if (phase === 'unavailable') {
+    showBlank(emptyState({ icon: 'music', title: 'The radio cannot run here', hint: reason }));
+  } else if (phase === 'missing') {
+    showBlank(setupCard(reason));
   } else if (phase === 'error') {
     showBlank(emptyState({ icon: 'alert', title: 'The radio stopped', hint: reason,
       action: state.backend ? { label: 'Start Again', run: () => { setPhase('ready'); play(); } } : null }));
@@ -177,15 +187,93 @@ function setPhase(phase, reason = '') {
   drawNow();
 }
 
+/**
+ * The models card shown while the radio cannot start: the panel, why not
+ * (a failed load says what failed), and Load once every folder will do.
+ */
+function setupCard(reason) {
+  const panel = new ModelsPanel({ chosen: settings.get('modelDirs'), arWeights: settings.get('arWeights'),
+    onChange: (p) => { load.disabled = !p.ready; } });
+  const load = h('button.btn.primary.models-load', { onclick: () => applyModels(panel) }, 'Load Models');
+  load.disabled = !panel.ready;
+  return h('div.card.radio-setup',
+    h('div.head', 'Choose the radio\'s models'),
+    h('div.dim', 'Pick each model\'s folder, or let bro find it by name. They load on the GPU.'),
+    reason ? h('div.radio-setup-error', icon('alert'), h('span', reason)) : null,
+    panel.el,
+    h('div.radio-setup-actions', load));
+}
+
 function boot() {
-  const p = probe();
-  if (!p.ok) { setPhase('missing', p.reason); return; }
-  setPhase('loading', 'Loading YuE2-3B, its VAE and CLAP…');
+  const why = capability();
+  if (why) { setPhase('unavailable', why); return; }
+  const where = resolveModels(settings.get('modelDirs'));
+  if (!allReady(where)) { setPhase('missing', ''); return; }
+  loadModels(where);
+}
+
+/** Loads the models at `where` (resolveModels) and runs the radio on them. */
+function loadModels(where) {
+  const dirs = {};
+  for (const m of MODELS) dirs[m.key] = where[m.key].dir;
+  const loaded = new Set();
+  const progress = () => `Loading ${MODELS.filter((m) => !loaded.has(m.key)).map((m) => m.label).join(', ')}…`;
+  setPhase('loading', progress());
   const t0 = performance.now(), gen = state.backendGen;
-  loadBackend(p.dirs).then((backend) => {
-    console.log(`radio: models loaded in ${((performance.now() - t0) / 1000).toFixed(1)} s on ${backend.device}`);
-    if (gen === state.backendGen) useBackend(backend);       // unless a test chose another backend meanwhile
-  }, (e) => { if (gen === state.backendGen) setPhase('missing', e.message); });
+  loadBackend(dirs, { arWeights: settings.get('arWeights'),
+    onStep: (key) => { loaded.add(key); if (gen === state.backendGen && loaded.size < MODELS.length) setPhase('loading', progress()); } })
+    .then((backend) => {
+      console.log(`radio: models loaded in ${((performance.now() - t0) / 1000).toFixed(1)} s on ${backend.device}`);
+      if (gen === state.backendGen) useBackend(backend);       // unless something chose another backend meanwhile
+      else backend.dispose();
+    }, (e) => { if (gen === state.backendGen) setPhase('missing', `Loading failed. ${e.message}`); });
+}
+
+/** Saves the panel's choice and (re)loads the models with it. */
+async function applyModels(panel) {
+  settings.set('modelDirs', panel.chosen);
+  settings.set('arWeights', panel.arWeights);
+  setPhase('loading', 'Releasing the models in use…');
+  await releaseBackend();
+  boot();
+}
+
+/**
+ * Stops the stream and frees the backend's models. A stream lets go of the
+ * models at its onDone, a moment after stop(), so freeing is retried until
+ * then (at most 15 s; after that the weights go with the GC instead).
+ */
+function releaseBackend() {
+  const be = state.backend;
+  state.backendGen = (state.backendGen || 0) + 1;
+  state.backend = null;
+  state.playing = false;
+  if (state.radio) state.radio.stop();
+  state.radio = null;
+  state.atlas = null;
+  view.setAtlas(null);
+  return new Promise((resolve) => {
+    if (!be || !be.dispose) { resolve(); return; }
+    const t0 = performance.now();
+    const tryFree = () => {
+      if (be.dispose()) resolve();
+      else if (performance.now() - t0 > 15000) { console.log('radio: models still busy after 15 s; left to the GC'); resolve(); }
+      else setTimeout(tryFree, 50);
+    };
+    tryFree();
+  });
+}
+
+/** The Models… dialog: change folders or weights at any time; Load reloads. */
+async function openModels() {
+  const d = new Dialog({ title: 'Models', icon: 'layers', wide: true });
+  const panel = new ModelsPanel({ chosen: settings.get('modelDirs'), arWeights: settings.get('arWeights'),
+    onChange: (p) => { loadBtn.disabled = !p.ready; } });
+  d.body.append(h('div.dim', 'Loading other models stops the music and reloads.'), panel.el);
+  d.addButton('Cancel', { value: false });
+  const loadBtn = d.addButton('Load', { primary: true, value: true, onClick: () => panel.ready });
+  loadBtn.disabled = !panel.ready;
+  if (await d.open()) applyModels(panel);
 }
 
 /** Runs the radio on a backend (the real one, or a test's fake). */
@@ -219,8 +307,10 @@ function useBackend(backend) {
 /** The anchors' CLAP text vectors, cached on disk for the real backend. */
 function embedAnchors() {
   const n = state.anchors.length, d = 512;
-  const cache = state.backend.cacheable && typeof bro !== 'undefined' && bro.app && bro.app.cacheDir
-    ? path.join(bro.app.cacheDir, `anchors-v${ANCHORS_VERSION}.f32`) : null;
+  // Keyed by the CLAP checkpoint too: another CLAP folder means other vectors.
+  const key = state.backend.cacheKey;
+  const cache = key && typeof bro !== 'undefined' && bro.app && bro.app.cacheDir
+    ? path.join(bro.app.cacheDir, `anchors-v${ANCHORS_VERSION}-${key}.f32`) : null;
   let flat = null;
   if (cache) {
     try {

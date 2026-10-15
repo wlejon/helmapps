@@ -23,3 +23,22 @@
 .radio-knob { display: flex; flex-direction: column; gap: var(--s1); width: 120px; }
 
 .radio-search { width: 240px; }
+
+/* The models card (when the radio cannot start yet) and the Models… panel. */
+.radio-blank { overflow: auto; padding: var(--s6); }
+.radio-setup { width: 640px; max-width: 100%; display: flex; flex-direction: column; gap: var(--s3); padding: var(--s6); }
+.radio-setup-error { display: flex; align-items: center; gap: var(--s2); color: var(--danger-text); }
+.radio-setup-actions { display: flex; justify-content: flex-end; }
+
+.models-panel { display: flex; flex-direction: column; gap: var(--s4); }
+.models-rows { display: flex; flex-direction: column; }
+.models-row {
+  display: grid; grid-template-columns: 150px 1fr auto auto 28px; align-items: center; gap: var(--s3);
+  padding: var(--s2) 0; border-bottom: 1px solid var(--hairline);
+}
+.models-dir { color: var(--t2); min-width: 0; }
+.models-status { display: flex; align-items: center; gap: var(--s1); font-size: var(--fs-cap); white-space: nowrap; }
+.models-status.ok { color: var(--ok); }
+.models-status.bad { color: var(--danger-text); white-space: normal; max-width: 200px; }
+.models-ar { display: flex; align-items: center; justify-content: space-between; gap: var(--s4); }
+.models-hint { overflow-wrap: anywhere; }

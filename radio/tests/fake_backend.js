@@ -45,7 +45,9 @@ const tagId = (tag) => Number(String(tag).slice(1));
 export function fakeBackend({ emitLead = 0.75 } = {}) {
   const backend = {
     device: 'fake',
-    cacheable: false,
+    cacheKey: null,          // nothing cached on disk
+    disposed: false,
+    dispose() { if (backend.stream && backend.stream.running) return false; backend.disposed = true; return true; },
     calls: [],
     styles: new Map(),       // anchor id -> style, learnt from targets
     stream: null,

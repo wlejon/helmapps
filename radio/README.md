@@ -33,19 +33,22 @@ starts paused.
 | Mod+→ | Skip far away |
 | Escape | Clear the path ahead |
 | Mod+0 | Fit the map |
+| Mod+, | Models… |
 
 ## Models
 
-Found by name with `bro.models`: `YuE2-3B`, `yue2-vae` and `clap`. Put the
-folders in bro's models directory (`<bro user data>/models`), or point bro
-at where they are with `BRO_MODELS` (or the `models.dirs` setting):
+Choose them in the app: **Models…** (Mod+, or the layers button) lists
+YuE2-3B, the YuE2 VAE and CLAP with the folder each comes from, **Choose…**
+picks a folder (a folder without that model's files is refused, saying
+why), × goes back to the default, and the AR decode weights (int8, fp8,
+bf16) are chosen there too. **Load** stops the music, frees the models in
+use and loads the chosen ones. The choice is kept.
 
-```bash
-BRO_MODELS="D:/projects;D:/projects/brosoundml/weights" bro radio
-```
-
-Without them (or without an ML build of bro) the radio says what is
-missing and where it looked.
+A model not chosen is looked for by name with `bro.models` (`YuE2-3B`,
+`yue2-vae`, `clap`) in bro's models directories (`BRO_MODELS`, the
+`models.dirs` setting, `<bro user data>/models`). When one is missing at
+start, or a load fails, the same panel is the start screen, with the
+reason. Without an ML build of bro the radio says it cannot run.
 
 ## Tests
 

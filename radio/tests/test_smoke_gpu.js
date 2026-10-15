@@ -22,7 +22,7 @@ function until(pred, what, ms) {
 }
 
 until(() => app.state.phase === 'ready' || app.state.phase === 'missing', 'the models', 300000);
-if (app.state.phase === 'missing') skipTest(app.state.reason);
+if (app.state.phase === 'missing') skipTest(app.state.reason || 'the models are not found (set BRO_MODELS, or choose them in the app)');
 else run();
 
 function run() {
