@@ -1,0 +1,19 @@
+{
+    "id": "helm.radio",
+    "name": "Radio",
+    "version": "0.1.0",
+    "description": "Endless generated instrumental music, steered by moving through a map of sound",
+    "icon": "assets/icon.svg",
+    "categories": ["AudioVideo", "Audio", "Music"],
+    "keywords": ["radio", "music", "generative", "endless", "ambient", "stream", "yue"],
+    "singleInstance": true,
+    "permissions": [],
+    "app": ".",
+    "width": 1100,
+    "height": 720,
+    "minWidth": 640,
+    "minHeight": 420,
+    "resizable": true,
+    "splash": false,
+    "watch": false
+}

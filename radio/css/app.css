@@ -1,0 +1,25 @@
+/* Radio: the map fills the content; the now strip sits under it. */
+
+.content { display: flex; flex-direction: column; }
+
+.radio-stage { flex: 1; position: relative; min-height: 0; }
+.atlas, .radio-blank { position: absolute; inset: 0; }
+.atlas { overflow: hidden; cursor: crosshair; }
+.atlas-canvas { display: block; }
+.radio-blank { display: flex; align-items: center; justify-content: center; }
+.radio-loading { display: flex; flex-direction: column; align-items: center; gap: var(--s3); }
+
+.radio-strip {
+  display: flex; align-items: center; gap: var(--s4);
+  padding: var(--s3) var(--s5);
+  background: var(--surface-1);
+  border-top: 1px solid var(--hairline);
+}
+.radio-play.on { color: var(--accent-text); }
+.radio-now { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--s1); }
+.radio-now-name { font-size: var(--fs-title); color: var(--t1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.radio-now-next { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.radio-knobs { display: flex; gap: var(--s5); }
+.radio-knob { display: flex; flex-direction: column; gap: var(--s1); width: 120px; }
+
+.radio-search { width: 240px; }
