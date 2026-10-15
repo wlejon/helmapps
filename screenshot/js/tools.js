@@ -1,23 +1,10 @@
 /**
- * Annotation tool definitions, color palette, custom stroke icons, and
- * software RGBA8 pixel rasterizer (renderFlattenedPixels) for burning
- * annotations into the saved image buffer.
+ * Annotation tool definitions, color palette, and software RGBA8 pixel
+ * rasterizer (renderFlattenedPixels) for burning annotations into the saved
+ * image buffer.
  */
 
 import { clamp } from '/lib/dom.js';
-import { defineIcon } from '/lib/icons.js';
-
-export function registerToolIcons() {
-  defineIcon('pointer', '<path d="m4 4 7.07 17 2.51-7.39L21 11.07z"/><path d="m13.5 13.5 6 6"/>');
-  defineIcon('rect', '<rect x="3" y="5" width="18" height="14" rx="2"/>');
-  defineIcon('ellipse', '<ellipse cx="12" cy="12" rx="9" ry="6"/>');
-  defineIcon('arrow-up-right', '<path d="M7 17 17 7"/><path d="M7 7h10v10"/>');
-  defineIcon('line', '<path d="M5 19 19 5"/>');
-  defineIcon('pen', '<path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/>');
-  defineIcon('highlighter', '<path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>');
-  defineIcon('pixelate', '<rect x="3" y="3" width="6" height="6"/><rect x="9" y="9" width="6" height="6"/><rect x="15" y="3" width="6" height="6"/><rect x="3" y="15" width="6" height="6"/><rect x="15" y="15" width="6" height="6"/>');
-  defineIcon('counter', '<circle cx="12" cy="12" r="9"/><path d="M10 9h2v7M10 16h4"/>');
-}
 
 export const TOOLS = [
   { id: 'select', label: 'Select & Move', icon: 'pointer', keys: ['V'] },
@@ -261,7 +248,7 @@ export function renderFlattenedPixels(baseImage, annotations = []) {
   if (!baseImage || !baseImage.pixels) return new Uint8Array(0);
   const W = baseImage.width;
   const H = baseImage.height;
-  const out = baseImage.pixels.slice();
+  const out = new Uint8Array(baseImage.pixels);
   const u32 = new Uint32Array(out.buffer, out.byteOffset, W * H);
   for (const ann of annotations) {
     if (!ann || !ann.type) continue;

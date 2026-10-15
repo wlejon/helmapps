@@ -15,13 +15,16 @@ import { Toolbar } from '/lib/layout.js';
 import { Slider } from '/lib/controls.js';
 import { formatDuration } from '/lib/format.js';
 import { artBox, setArt } from './covers.js';
+import { computePeakBars } from './records.js';
 
 export class NowPlaying {
-  constructor({ player, commands, onSeek, onVolume, onOpenAlbum, onOpenArtist }) {
+  constructor({ player, commands, peaksOf, onSeek, onVolume, onOpenAlbum, onOpenArtist }) {
     this.player = player;
     this.commands = commands;
+    this.peaksOf = peaksOf || null;
     this.onSeek = onSeek;
     this.shown = { path: null, state: null, repeat: null };
+    this.peaks = null;
 
     this.art = artBox('', 'np');
     this.title = h('button.mu-np-title.ellipsis', { onclick: () => onOpenAlbum() });
@@ -46,6 +49,8 @@ export class NowPlaying {
     });
     this.seek.el.classList.add('mu-seek');
     this.seek.el.setAttribute('aria-label', 'Position');
+    this.wave = h('div.mu-wave.hidden', { 'aria-hidden': 'true' });
+    this.seek.el.insertBefore(this.wave, this.seek.el.firstChild);
     const seekRow = h('div.mu-np-seek', this.elapsed, this.seek.el, this.remaining);
     const center = h('div.mu-np-center', controls, seekRow);
 
@@ -63,6 +68,43 @@ export class NowPlaying {
     this.update();
   }
 
+  /** Render or clear subtle waveform peak bars on the seek slider. */
+  setPeaks(bars) {
+    const valid = Array.isArray(bars) && bars.length > 0 ? bars : null;
+    this.peaks = valid;
+    this.seek.el.classList.toggle('has-wave', !!valid);
+    this.wave.classList.toggle('hidden', !valid);
+    if (!valid) {
+      this.wave.innerHTML = '';
+      delete this.wave.dataset.bars;
+      return;
+    }
+    const n = valid.length;
+    let d = '';
+    for (let i = 0; i < n; i++) {
+      const hPx = Math.max(2, Math.round(Math.min(1, Math.max(0, valid[i])) * 14));
+      const x = i * 4 + 1;
+      const y = Math.round((20 - hPx) / 2);
+      d += `M${x} ${y}h2v${hPx}h-2Z`;
+    }
+    this.wave.dataset.bars = String(n);
+    this.wave.innerHTML = `<svg class="mu-wave-svg" viewBox="0 0 ${n * 4} 20" preserveAspectRatio="none" aria-hidden="true"><path d="${d}"/></svg>`;
+  }
+
+  loadPeaks(filePath) {
+    if (!filePath) {
+      this.setPeaks(null);
+      return;
+    }
+    if (this.peaksOf) {
+      this.peaksOf(filePath, (bars) => {
+        if (this.shown.path === filePath) this.setPeaks(bars);
+      });
+      return;
+    }
+    this.setPeaks(computePeakBars(filePath));
+  }
+
   /** Everything but the position: the song, play/pause, shuffle/repeat, volume. */
   update() {
     const p = this.player;
@@ -76,6 +118,8 @@ export class NowPlaying {
       this.artist.disabled = !s;
       setArt(this.art, s ? s.cover : '');
       this.seek.max = Math.max(1, p.duration);
+      this.setPeaks(null);
+      if (path) this.loadPeaks(path);
     }
     if (p.state !== this.shown.state) {
       this.shown.state = p.state;

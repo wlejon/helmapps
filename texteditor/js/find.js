@@ -291,6 +291,7 @@ export class FindBar {
     const { textarea } = entry;
     const prevFocus = document.activeElement;
     textarea.setSelectionRange(match.start, match.end);
+    this.editorView.syncGutter(entry);
     this.editorView.updateCaret(entry);
     if (focusEditor) {
       textarea.focus();
@@ -350,12 +351,30 @@ export class FindBar {
       : this.replaceInput.value;
 
     const nextText = doc.text.slice(0, match.start) + replacedSlice + doc.text.slice(match.end);
+    const entry = this.editorView.activeEntry();
+    const ta = entry ? entry.textarea : null;
+    const prevFocus = document.activeElement;
+    let usedExec = false;
+    if (ta && typeof document.execCommand === 'function') {
+      try {
+        ta.focus();
+        ta.setSelectionRange(match.start, match.end);
+        usedExec = document.execCommand('insertText', false, replacedSlice) && ta.value === nextText;
+      } catch (_) {
+        usedExec = false;
+      }
+    }
     doc.setText(nextText, { markDirty: true });
-    this.editorView.refreshDoc(doc);
+    if (!usedExec) {
+      this.editorView.refreshDoc(doc);
+    } else if (entry) {
+      this.editorView.syncGutter(entry);
+      this.editorView.updateCaret(entry);
+    }
 
     const nextCaret = match.start + replacedSlice.length;
-    const ta = this.editorView.activeTextarea();
     if (ta) ta.setSelectionRange(nextCaret, nextCaret);
+    if (prevFocus && prevFocus !== ta && prevFocus.focus) prevFocus.focus();
 
     if (this.onDocMutated) this.onDocMutated(doc);
     this.recompute({ selectFirst: false });
@@ -383,8 +402,24 @@ export class FindBar {
       : replacement.replace(/\$/g, '$$$$');
     const nextText = doc.text.replace(re, safeReplacement);
 
-    doc.setText(nextText, { markDirty: true });
-    this.editorView.refreshDoc(doc);
+    const entry = this.editorView.activeEntry();
+    const ta = entry ? entry.textarea : null;
+    const prevFocus = document.activeElement;
+    let usedExec = false;
+    if (ta && nextText.length <= 32768 && typeof document.execCommand === 'function') {
+      try {
+        ta.focus();
+        ta.setSelectionRange(0, ta.value.length);
+        usedExec = document.execCommand('insertText', false, nextText) && ta.value === nextText;
+      } catch (_) {
+        usedExec = false;
+      }
+    }
+    if (!usedExec) {
+      doc.setText(nextText, { markDirty: true });
+      this.editorView.refreshDoc(doc);
+    }
+    if (prevFocus && prevFocus !== ta && prevFocus.focus) prevFocus.focus();
     if (this.onDocMutated) this.onDocMutated(doc);
     this.recompute({ selectFirst: false });
     return count;

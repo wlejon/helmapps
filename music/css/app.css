@@ -68,6 +68,8 @@
 .mu-np-play:hover:not(:disabled) { background: var(--accent-hover); color: var(--on-accent); }
 .mu-np-play .icon { width: 18px; height: 18px; }
 .mu-np-seek { display: flex; align-items: center; gap: var(--s2); }
+.mu-seek .mu-wave { position: absolute; inset: 0; pointer-events: none; display: flex; align-items: center; }
+.mu-seek .mu-wave-svg { width: 100%; height: 20px; fill: var(--well-3); }
 .mu-time { flex: none; width: 48px; color: var(--t3); font-size: var(--fs-cap); }
 .mu-time.right { text-align: right; }
 .mu-np-right { display: flex; align-items: center; justify-content: flex-end; gap: var(--s1); flex: 1 1 0px; min-width: 0; }

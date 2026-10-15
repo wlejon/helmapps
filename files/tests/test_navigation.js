@@ -13,12 +13,24 @@ const dir = fixtureDir({
   'pics/photo.png': 'fake-png',
 });
 
-// Create files with distinct mtimes so Modified sort is deterministic: beta < alpha < gamma
-fs.writeFileSync(path.join(dir, 'beta.log'), 'x'.repeat(50));
-wallSleep(25);
-fs.writeFileSync(path.join(dir, 'alpha.txt'), 'x'.repeat(200));
-wallSleep(25);
-fs.writeFileSync(path.join(dir, 'gamma.md'), 'x'.repeat(1200));
+// Create files with distinct mtimes via fs.utimesSync so Modified sort is deterministic: beta < alpha < gamma
+const pBeta = path.join(dir, 'beta.log');
+const pAlpha = path.join(dir, 'alpha.txt');
+const pGamma = path.join(dir, 'gamma.md');
+if (typeof fs.utimesSync === 'function') {
+  fs.writeFileSync(pBeta, 'x'.repeat(50));
+  fs.writeFileSync(pAlpha, 'x'.repeat(200));
+  fs.writeFileSync(pGamma, 'x'.repeat(1200));
+  fs.utimesSync(pBeta, 1700000100, 1700000100);
+  fs.utimesSync(pAlpha, 1700000200, 1700000200);
+  fs.utimesSync(pGamma, 1700000300, 1700000300);
+} else {
+  fs.writeFileSync(pBeta, 'x'.repeat(50));
+  wallSleep(15);
+  fs.writeFileSync(pAlpha, 'x'.repeat(200));
+  wallSleep(15);
+  fs.writeFileSync(pGamma, 'x'.repeat(1200));
+}
 
 // 1. Opening a fixture lists its entries, folders first, and status bar counts them.
 app.openPath(dir);

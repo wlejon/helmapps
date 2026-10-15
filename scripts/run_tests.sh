@@ -71,7 +71,7 @@ for appdir in "$here"/*/; do
         # The app's own folder is trusted, so a test may use the privileged
         # namespaces its bro.json asks for ("permissions": remote's remote).
         trusted=$(cd "$appdir" && (pwd -W 2>/dev/null || pwd))
-        BRO_TRUSTED_APP_DIR="$trusted" BRO_APP_HOME="$home" timeout "$timeout_s" "$headless" --width 1280 --height 800 "${appdir%/}" "$t" > "$log" 2>&1
+        XDG_DATA_HOME="$home/data" BRO_TRUSTED_APP_DIR="$trusted" BRO_APP_HOME="$home" timeout "$timeout_s" "$headless" --width 1280 --height 800 "${appdir%/}" "$t" > "$log" 2>&1
         rc=$?
         secs=$(( $(date +%s) - start ))
         if [ $rc -eq 0 ]; then

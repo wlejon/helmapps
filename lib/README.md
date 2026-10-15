@@ -50,11 +50,11 @@ carry one under a second line (`{ sub, meter }`).
 | `commands.js` | `Commands`, `normalizeChord`, `eventChord`, `displayChord` | Every action, its label, icon, shortcuts, enabled/checked state. `commands.item(id)` makes a menu item. |
 | `settings.js` | `Settings`, `shellPref`, `watchShellPrefs` | Persistent per-app settings in bro.conf (`app.settings` when you pass a schema to `startApp`). |
 | `layout.js` | `appFrame`, `Toolbar`, `Sidebar`, `SplitPane`, `Breadcrumbs`, `Tabs`, `emptyState`, `meter` | The window's structure. |
-| `list.js` | `VirtualList` | Any collection: list with columns and sortable headers, an icon grid, or a sideways strip (`orientation: 'horizontal'`); selection, rubber band, keyboard, type-ahead, context menu, drag (and Alt+arrow) to reorder (`reorderable`, `onReorder`). Handles 100k items; a hidden list paints nothing. With a `key`, `setItems` keeps what is on screen in place (the cursor's item, else the first in view) and the cursor on its item when items come or go before it. |
+| `list.js` | `VirtualList`, `enableItemDrag` | Any collection: list with columns and sortable headers, an icon grid, or a sideways strip (`orientation: 'horizontal'`); selection, rubber band, keyboard, type-ahead, context menu, drag (and Alt+arrow) to reorder (`reorderable`, `onReorder`), and pointer drag-and-drop onto folders or sidebar items (`enableItemDrag`). Handles 100k items; a hidden list paints nothing. With a `key`, `setItems` keeps what is on screen in place (the cursor's item, else the first in view) and the cursor on its item when items come or go before it. |
 | `menu.js` | `menu` (the `Menu` instance) | Context menus and drop-downs, with submenus and keyboard navigation. |
 | `dialog.js` | `Dialog`, `confirmDialog`, `alertDialog`, `promptDialog` | Modal questions. Promise-based; never `alert()`/`confirm()`/`prompt()`. |
 | `toast.js` | `toast` | Brief in-app messages with an optional Undo. `key`: one toast per source, a new one replacing the last in its place (a run of saves is one toast). |
-| `controls.js` | `Switch`, `Checkbox`, `Slider`, `Segmented`, `Select`, `Progress` | Form controls with `.el`, `set()`, `onChange`. |
+| `controls.js` | `Switch`, `Checkbox`, `Slider`, `Segmented`, `Select`, `ColorSwatch`, `Progress` | Form controls with `.el`, `set()`, `onChange` (plus `ColorSwatch` / `ColorPopover` / `colorInput` for compact colour swatch popovers). |
 | `combobox.js` | `Combobox` | A text field with suggestions as you type (`suggest(text)` → items): arrows, Enter (Shift+Enter passed on), Tab completes, Escape; free text allowed. `inline: true` puts the list in the field's own flow (what follows moves down, never covered; `onLayout` on each change) for a popover with buttons under its field. For a short fixed list, bro's native `<input list>` + `<datalist>` also works; Combobox is for computed or fuzzy suggestions with details. |
 | `format.js` | `formatBytes`, `formatCount`, `formatNumber`, `formatPercent`, `formatTime`, `formatDate`, `formatDateLong`, `formatDuration`, `formatRelative` | Displaying values the same way everywhere. |
 | `files.js` | `userDirs`, `kindOf`, `mimeOf`, `iconFor`, `openFile`, `openApp`, `defaultAppFor`, `appsFor`, `addRecent`, `statOrNull`, `exists`, `isDirectory`, `isHidden`, path helpers | User folders, file kinds and icons, opening files with their default app. |
@@ -91,10 +91,10 @@ app.expose({ label });
 If your app needs one of these, build it inside your app and add a GAPS.md
 entry (`Belongs in: kit`), so it can be lifted into `lib/` later:
 
-- drag and drop of items between views and apps
+- drag and drop of items between separate app processes
 - a tree view (folders in a sidebar that expand)
 - a code or rich-text editor component
-- a colour picker, a date picker
+- a date picker
 - a command palette (the `Commands` registry has `list()` for building one)
 - a properties/inspector side panel beyond `SplitPane` + `.form-row`
 

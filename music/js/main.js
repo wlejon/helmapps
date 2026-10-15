@@ -29,6 +29,7 @@ import { Player } from './player.js';
 import { Views, totalTime } from './views.js';
 import { QueueView } from './queueview.js';
 import { NowPlaying } from './nowplaying.js';
+import { MprisBridge } from './mpris.js';
 import { libraryRoots, editFolders } from './prefs.js';
 import { PLAYABLE, UNKNOWN_ARTIST } from './records.js';
 
@@ -145,11 +146,11 @@ commands.addAll([
   { id: 'prev', label: 'Previous', icon: 'skip-back', keys: ['Mod+ArrowLeft', 'MediaTrackPrevious'], enabled: hasSong,
     run: () => player.prev() },
   { id: 'stop', label: 'Stop', icon: 'stop', keys: ['MediaStop'], enabled: () => player.state === 'playing',
-    run: () => { player.pause(); player.seek(0); } },
+    run: () => { player.pause(); player.seek(0); mpris.seeked(0); } },
   { id: 'seek-forward', label: 'Forward 10 Seconds', keys: ['Shift+ArrowRight'], enabled: hasSong,
-    run: () => { player.seek(player.readPosition() + SEEK_STEP); savePosition(); } },
+    run: () => { player.seek(player.readPosition() + SEEK_STEP); mpris.seeked(player.readPosition()); savePosition(); } },
   { id: 'seek-back', label: 'Back 10 Seconds', keys: ['Shift+ArrowLeft'], enabled: hasSong,
-    run: () => { player.seek(Math.max(0, player.readPosition() - SEEK_STEP)); savePosition(); } },
+    run: () => { player.seek(Math.max(0, player.readPosition() - SEEK_STEP)); mpris.seeked(player.readPosition()); savePosition(); } },
   { id: 'shuffle', label: 'Shuffle', icon: 'shuffle', keys: ['Mod+S'], checked: () => player.queue.shuffle,
     run: () => { player.setShuffle(!player.queue.shuffle); settings.set('shuffle', player.queue.shuffle); saveQueue(); } },
   { id: 'repeat', label: 'Repeat', icon: 'repeat', keys: ['Mod+R'], checked: () => player.queue.repeat !== 'off',
@@ -200,7 +201,7 @@ commands.addAll([
   { id: 'stop-scan', label: 'Stop Scanning', icon: 'x', enabled: () => !!library.scanning && !library.stopping,
     run: () => { library.stop(); drawScanStatus(); } },
   { id: 'folders', label: 'Library Folders…', icon: 'settings', keys: ['Mod+,'], run: () => chooseFolders() },
-  { id: 'quit', label: 'Quit', keys: ['Mod+Q'], run: () => { savePosition(true); app.quit(); } },
+  { id: 'quit', label: 'Quit', keys: ['Mod+Q'], run: () => { mpris.close(); savePosition(true); app.quit(); } },
 ]);
 
 function queueOne() {
@@ -215,10 +216,20 @@ toolbar.add(search);
 toolbar.button('rescan');
 toolbar.button('folders');
 
+const mpris = new MprisBridge({
+  player, commands,
+  onSeek: (t) => { player.seek(t); savePosition(); },
+  onVolume: (v, done) => { player.setVolume(v); if (player.muted && v > 0) player.setMuted(false); if (done) saveVolume(); },
+  onRepeat: (mode) => setRepeat(mode),
+  onShuffle: (on) => { player.setShuffle(on); settings.set('shuffle', player.queue.shuffle); saveQueue(); },
+  onOpenUri: (file) => openFiles([file], '.'),
+});
+
 // The now-playing bar: its buttons run the commands above.
 const bar = new NowPlaying({
   player, commands,
-  onSeek: (t) => { player.seek(t); savePosition(); },
+  peaksOf: (p, cb) => library.peaks(p, cb),
+  onSeek: (t) => { player.seek(t); mpris.seeked(player.readPosition()); savePosition(); },
   onVolume: (v, done) => { player.setVolume(v); if (player.muted && v > 0) player.setMuted(false); if (done) saveVolume(); },
   onOpenAlbum: () => { const s = player.current; if (s && s.albumKey) go('album', s.albumKey); },
   onOpenArtist: () => { const s = player.current; if (s) actions.openArtistByName(s.artist); },
@@ -401,6 +412,7 @@ function trackChanged() {
 /** Player state changed: the bar, the queue page, and what is saved. Once a frame at most. */
 const playerChangedSoon = perFrame(() => {
   bar.update();
+  mpris.update();
   if (state.view === 'queue') draw();
   else drawSidebar();
   toolbar.refresh();
@@ -418,8 +430,9 @@ function startBarTicks() {
   if (barTicking) return;
   barTicking = true;
   const tick = () => {
-    if (!player.playing) { barTicking = false; bar.tick(); savePosition(); return; }
+    if (!player.playing) { barTicking = false; bar.tick(); mpris.tick(); savePosition(); return; }
     bar.tick();
+    mpris.tick();
     if (performance.now() - state.savedAt > SAVE_POSITION_MS) savePosition();
     requestAnimationFrame(tick);
   };
@@ -587,4 +600,4 @@ app.onLaunch(({ argv, cwd, first }) => {
 });
 
 // For tests and the inspector.
-app.expose({ state, library, player, views, queueView, bar, go, back, playSongs, playNext, addToQueue, startScan, resume, userDirs });
+app.expose({ state, library, player, views, queueView, bar, mpris, go, back, playSongs, playNext, addToQueue, startScan, resume, userDirs });

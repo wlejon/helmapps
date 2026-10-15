@@ -120,3 +120,29 @@ export function hashBytes(b) {
   h = Math.imul(h, 0x01000193) >>> 0;
   return h.toString(16).padStart(8, '0');
 }
+
+/** Normalized peak amplitudes (0..1) across `buckets` slices of `filePath` via `bro.media.peaks`. */
+export function computePeakBars(filePath, buckets = 48) {
+  if (!filePath || typeof bro === 'undefined' || !bro.media || typeof bro.media.peaks !== 'function') return null;
+  try {
+    const p = bro.media.peaks(filePath, { buckets });
+    if (!p || !p.max || !p.max.length) return null;
+    const n = p.max.length;
+    const bars = new Array(n);
+    let peak = 0;
+    for (let i = 0; i < n; i++) {
+      const hi = Math.abs(p.max[i] || 0);
+      const lo = p.min ? Math.abs(p.min[i] || 0) : 0;
+      const v = Math.max(hi, lo);
+      bars[i] = v;
+      if (v > peak) peak = v;
+    }
+    const scale = peak > 1e-4 ? 1 / peak : 1;
+    for (let i = 0; i < n; i++) {
+      bars[i] = Math.round(Math.min(1, bars[i] * scale) * 1000) / 1000;
+    }
+    return bars;
+  } catch (_) {
+    return null;
+  }
+}

@@ -273,6 +273,21 @@ function dstExtraMinutes(epochMs, stdOffsetMin, rule) {
   return 0;
 }
 
+const DTF_CACHE = new Map();
+
+function getCachedDtf(ianaZone) {
+  let dtf = DTF_CACHE.get(ianaZone);
+  if (!dtf) {
+    dtf = new Intl.DateTimeFormat('en-US', {
+      timeZone: ianaZone,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    });
+    DTF_CACHE.set(ianaZone, dtf);
+  }
+  return dtf;
+}
+
 /**
  * Total UTC offset in minutes for `zone` at `epochMs` (e.g. +540 for Asia/Tokyo,
  * -300 for America/New_York in winter). When `zone` is null/empty/'local',
@@ -284,24 +299,21 @@ export function getZoneOffsetMin(epochMs, zone) {
   }
   if (zone === 'UTC' || zone === 'Etc/UTC' || zone === 'GMT') return 0;
   const info = BY_ZONE.get(zone) || BY_ID.get(zone);
-  if (info) {
-    return info.offsetMin + dstExtraMinutes(epochMs, info.offsetMin, info.dst);
-  }
+  const ianaZone = info ? info.zone : zone;
   if (INTL_TZ_WORKS) {
     try {
-      const parts = new Intl.DateTimeFormat('en-US', {
-        timeZone: zone,
-        year: 'numeric', month: '2-digit', day: '2-digit',
-        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
-      }).formatToParts(new Date(epochMs));
+      const parts = getCachedDtf(ianaZone).formatToParts(new Date(epochMs));
       const m = {};
       for (const p of parts) m[p.type] = Number(p.value);
       const hr = m.hour === 24 ? 0 : m.hour;
       const asUtc = Date.UTC(m.year, m.month - 1, m.day, hr, m.minute, m.second);
       return Math.round((asUtc - epochMs) / 60000);
     } catch (_) {
-      // fall through
+      // fall through to catalog offset + DST rule
     }
+  }
+  if (info) {
+    return info.offsetMin + dstExtraMinutes(epochMs, info.offsetMin, info.dst);
   }
   return -new Date(epochMs).getTimezoneOffset();
 }

@@ -200,8 +200,8 @@ const statusRight = h('span.num.dim');
 // so switching to symbol, braille, or emoji blocks never triggers a cold DirectWrite font load mid-scroll.
 const fontWarmup = h('span', {
   'aria-hidden': 'true',
-  style: { position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', opacity: '0.01', pointerEvents: 'none', fontSize: '26px' },
-}, 'A Ω Я → ∞ ⌘ ─ ▀ ■ ★ ✓ ⠁ ⤊ ' + getBlockChars('emoticons').map((x) => x.char).join(''));
+  style: { position: 'fixed', left: '0px', top: '0px', width: '400px', height: '32px', whiteSpace: 'nowrap', overflow: 'hidden', opacity: '0.01', pointerEvents: 'none', fontSize: '26px' },
+}, 'A Ω → ─ ⠁ 😀');
 ui.statusbar.append(statusLeft, statusRight, fontWarmup);
 
 // ---- commands ---------------------------------------------------------------

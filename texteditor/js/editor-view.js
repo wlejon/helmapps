@@ -97,7 +97,19 @@ export class EditorView {
       const val = textarea.value;
 
       if (!e.shiftKey && start === end) {
-        textarea.value = val.slice(0, start) + unit + val.slice(end);
+        const expected = val.slice(0, start) + unit + val.slice(end);
+        let inserted = false;
+        if (typeof document.execCommand === 'function') {
+          try {
+            textarea.focus();
+            inserted = document.execCommand('insertText', false, unit) && textarea.value === expected;
+          } catch (_) {
+            inserted = false;
+          }
+        }
+        if (!inserted) {
+          textarea.value = expected;
+        }
         const pos = start + unit.length;
         textarea.setSelectionRange(pos, pos);
       } else {
@@ -123,7 +135,20 @@ export class EditorView {
           return line.slice(removed);
         }).join('\n');
 
-        textarea.value = val.slice(0, lineStart) + transformed + val.slice(end);
+        const expected = val.slice(0, lineStart) + transformed + val.slice(end);
+        let inserted = false;
+        if (typeof document.execCommand === 'function') {
+          try {
+            textarea.focus();
+            textarea.setSelectionRange(lineStart, end);
+            inserted = document.execCommand('insertText', false, transformed) && textarea.value === expected;
+          } catch (_) {
+            inserted = false;
+          }
+        }
+        if (!inserted) {
+          textarea.value = expected;
+        }
         const newStart = Math.max(lineStart, start + deltaFirst);
         const newEnd = Math.max(newStart, end + deltaTotal);
         textarea.setSelectionRange(newStart, newEnd);
@@ -232,6 +257,7 @@ export class EditorView {
     const offset = offsetOfLine(doc.text, lineNumber);
     entry.textarea.focus();
     entry.textarea.setSelectionRange(offset, offset);
+    this.syncGutter(entry);
     this.updateCaret(entry);
     return true;
   }

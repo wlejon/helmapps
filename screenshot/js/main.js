@@ -24,7 +24,6 @@ import {
   cropImageBuffer,
 } from './capture.js';
 import {
-  registerToolIcons,
   TOOLS,
   PALETTE,
   STROKE_WIDTHS,
@@ -42,8 +41,6 @@ import {
 } from './export.js';
 
 const path = require('path');
-
-registerToolIcons();
 
 const MAX_UNDO = 50;
 

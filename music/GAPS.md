@@ -25,8 +25,7 @@ window. Gaps every app shares (the MPRIS player side) are in `../GAPS.md`.
   the list on screen in the document and fills only the rows shown.
 - **Belongs in:** bro
 
-## Not built
+## Resolved
 
-- **MPRIS player:** see `../GAPS.md` ("No MPRIS player side").
-- **Waveform seek bar:** `bro.media.peaks` reads audio files now; the seek
-  bar is still a plain slider.
+- **MPRIS2 player service (`bro.mpris.createService`):** Resolved in `brompris`. `js/mpris.js` publishes `"Music"` (`desktopEntry: "helm.music"`), syncs playback status, metadata, position, volume, loop status, shuffle, capabilities, and `Seeked` signals, and routes incoming MPRIS commands to the player.
+- **Waveform seek bar (`bro.media.peaks`):** Resolved. `js/library-worker.js` extracts normalized waveform peaks via `bro.media.peaks` off the main thread and `js/nowplaying.js` renders subtle waveform peak bars on the seek slider.

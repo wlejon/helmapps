@@ -9,12 +9,6 @@ Each app keeps its own `GAPS.md` in the same format (see AGENTS.md).
   now-playing card and media keys reach it.
 - **Belongs in:** bro / brompris
 
-## The clipboard has no doc page
-- **Where:** docs
-- **Expected:** a page for `navigator.clipboard` (text, and whether images
-  and file lists are supported) like the other `*-api.js` files.
-- **Belongs in:** docs
-
 ## Startup is mostly the engine's
 - **Where:** bro
 - **Actual:** headless brings the Vulkan device up on a thread while it
@@ -54,6 +48,24 @@ Each app keeps its own `GAPS.md` in the same format (see AGENTS.md).
   timer resolution), or report the achieved rate beside the requested one.
 
 ## Fixed while building the kit
+- `docs/clipboard-api.js` documents `navigator.clipboard` (`readText`,
+  `writeText`, `read`, `write`), `ClipboardItem` (`text/plain` and
+  `image/png`), and `copy`/`cut`/`paste` events.
+- `Commands.attach` (`lib/commands.js`) handles `copy`, `cut`, and `paste`
+  events so commands bound to `Mod+C`, `Mod+X`, and `Mod+V` fire automatically
+  when not typing in a text field.
+- `VirtualList` (`lib/list.js`) builds `.list-header` whenever `columns` are
+  given regardless of initial `layout`, shows/hides it in `setLayout()`, uses
+  `columns` in `'list'` mode even when `render` is provided for `'grid'` mode,
+  and exports `enableItemDrag` for cross-view pointer drag-and-drop.
+- `ColorSwatch` (`ColorPopover` / `colorInput`) in `lib/controls.js` provides a
+  compact colour swatch button and popover picker.
+- Annotation stroke icons (`pointer`, `rect`, `ellipse`, `arrow-up-right`,
+  `line`, `pen`, `highlighter`, `pixelate`, `counter`) are in `lib/icons.js`.
+- `bro.wl.hasScreencopy()` returns `false` under `bro-headless` and
+  `captureOutput` rejects immediately in headless mode.
+- `new Uint8Array(typedArray)` uses a fast bulk copy (`memcpy`) in Bronze.
+- `fs.utimesSync` and `fs.promises.utimes` are implemented in `brokit`.
 - `openApp(id, args)` is `bro.app.open`: another app by id on every platform
   (installed, else in this project), single-instance hand-off included.
 - Apps post desktop notifications with the web `Notification` API (toast,

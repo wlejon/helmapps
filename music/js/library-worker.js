@@ -18,7 +18,7 @@
  *   { op: 'stopped', id, files, parsed }             a stopped (or replaced) scan, its records sent
  */
 
-import { makeRecord, hashString, hashBytes, PLAYABLE, UNPLAYABLE } from './records.js';
+import { makeRecord, hashString, hashBytes, computePeakBars, PLAYABLE, UNPLAYABLE } from './records.js';
 
 const fs = require('fs');
 const pathMod = require('path');
@@ -238,7 +238,8 @@ self.onmessage = (e) => {
   try {
     if (msg.op === 'init') init(msg);
     else if (msg.op === 'stop') scanId = -1;                         // the running scan sees it at its next yield
-    else if (msg.op === 'write')writeAtomic(msg.path, msg.text, msg.what || msg.path);
+    else if (msg.op === 'write') writeAtomic(msg.path, msg.text, msg.what || msg.path);
+    else if (msg.op === 'peaks') self.postMessage({ op: 'peaks', path: msg.path, peaks: computePeakBars(msg.path, msg.buckets || 48) });
     else if (msg.op === 'scan') scan(msg).catch((err) => self.postMessage({ op: 'failed', id: msg.id, error: err.message }));
   } catch (err) {
     self.postMessage({ op: 'failed', id: msg.id || 0, error: (err && err.message) || String(err) });

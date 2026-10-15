@@ -56,6 +56,17 @@ const fileBytes = fs.readFileSync(savedPath);
 const dims = bro.image.probeDimensions(new Uint8Array(fileBytes.buffer, fileBytes.byteOffset, fileBytes.byteLength));
 eq([dims.width, dims.height], [640, 400], 'probeDimensions on saved PNG matches 640x400');
 
+// 3b. Copy (Mod+C) writes image/png to the clipboard via ClipboardItem.
+const copied = await app.copyScreenshot();
+eq(copied, true, 'copyScreenshot succeeds');
+if (navigator.clipboard && typeof navigator.clipboard.read === 'function') {
+  const clipItems = await navigator.clipboard.read();
+  assert(clipItems.length === 1 && clipItems[0].types.includes('image/png'), 'clipboard holds image/png');
+  const pngBlob = await clipItems[0].getType('image/png');
+  const clipDims = bro.image.probeDimensions(new Uint8Array(await pngBlob.arrayBuffer()));
+  eq([clipDims.width, clipDims.height], [640, 400], 'clipboard PNG dimensions match 640x400');
+}
+
 // 4. --full launch saves directly without showing the result view.
 press(`${mod}+n`);
 waitFor(() => app.state.view === 'home', 'back to Home view before --full');

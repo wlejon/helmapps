@@ -7,7 +7,8 @@
  * - Saved palettes creation, swatch addition, and deletion
  */
 
-import { app, eq, clickEl, answerPrompt, waitFor } from '/lib/test.js';
+import { app, eq, clickEl, answerPrompt, waitFor, press } from '/lib/test.js';
+import { ColorSwatch } from '/lib/controls.js';
 
 // 1. Starts on Picker view with default #3b82f6
 app.setView('picker');
@@ -77,5 +78,18 @@ eq(app.harmoniesView.getPalettes()[0].name, 'Brand Sunset', 'newest palette is B
 app.setColor('#f97316');
 app.commands.run('add-to-palette');
 assert(app.harmoniesView.getPalettes()[0].colors.includes('#f97316'), 'add-to-palette adds #f97316 to Brand Sunset');
+
+// 8. Kit ColorSwatch popover control opens, picks a preset, and closes on Escape
+let swatchPicked = null;
+const swatchCtl = new ColorSwatch({ value: '#3b82f6', showHex: true, onChange: (hex) => { swatchPicked = hex; } });
+document.querySelector('.toolbar').appendChild(swatchCtl.el);
+clickEl(swatchCtl.el);
+assert(swatchCtl.isOpen && document.querySelector('.color-popover'), 'ColorSwatch opens .color-popover');
+clickEl(document.querySelector('.color-popover-preset[title="#ef4444"]'));
+eq(swatchPicked, '#ef4444', 'clicking a preset updates ColorSwatch value');
+eq(swatchCtl.value, '#ef4444', 'ColorSwatch.value is #ef4444');
+press('escape');
+eq(swatchCtl.isOpen, false, 'Escape closes ColorSwatch popover');
+swatchCtl.el.remove();
 
 console.log('test_ui PASSED');

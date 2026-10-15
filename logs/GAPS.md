@@ -7,9 +7,6 @@
 - **Impact:** `helm.logs` discovers and reads plain-text and JSONL (`*.log`, `*.jsonl`) logs directly via `fs.promises` from `/var/log/` (`syslog`, `messages`, `dmesg`, `kern.log`, `Xorg.0.log`, `pacman.log`, `auth.log`, `boot.log`), desktop/app state directories (`$XDG_STATE_HOME`, `~/.local/state`, `%LOCALAPPDATA%`), `bro.app.logFile`, and user-opened log files.
 - **Belongs in:** `bro`
 
-## `fs.promises.open` (`FileHandle`) is not in `brokit`
+## Resolved: `fs.promises.open` (`FileHandle`) in `brokit`
 - **Where:** brokit `fs` module (`require('fs').promises`)
-- **Expected:** `await fs.promises.open(path, 'r')` returning a `FileHandle` with `.read(buffer, offset, length, position)` and `.close()` for positioned async reads.
-- **Actual:** `fs.promises` provides `readFile`, `writeFile`, `appendFile`, `stat`, `lstat`, `readdir`, `mkdir`, `rmdir`, `rm`, `unlink`, `rename`, `copyFile`, `chmod`, `realpath`, `access`, `mkdtemp`, while positioned descriptor reads use `fs.openSync` / `fs.readSync` / `fs.closeSync`.
-- **Impact:** Used `fs.promises.readFile` for full async reads and `fs.openSync` + `fs.readSync` + `fs.closeSync` for bounded tail/delta slices.
-- **Belongs in:** `brokit`
+- **Status:** Resolved in `brokit` commit `41ffc12`. `js/log-sources.js` uses `await fs.promises.open(path, 'r')` (`FileHandle.read` and `FileHandle.close`) for positioned async tail and delta reads.

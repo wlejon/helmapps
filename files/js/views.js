@@ -6,7 +6,7 @@
 import { h, api, clamp } from '/lib/dom.js';
 import { icon } from '/lib/icons.js';
 import { emptyState } from '/lib/layout.js';
-import { VirtualList } from '/lib/list.js';
+import { VirtualList, enableItemDrag } from '/lib/list.js';
 import { Segmented, Slider } from '/lib/controls.js';
 import { formatBytes, formatDate, formatCount } from '/lib/format.js';
 import { iconFor } from '/lib/files.js';
@@ -153,11 +153,12 @@ export class FilesView {
       this.zoomSlider.el,
     );
 
-    // Always construct with layout: 'list' first so VirtualList builds this.header,
-    // then switch to grid if initialView === 'grid'.
+    const { cellWidth, cellHeight } = this.gridDimensions(initialSize);
     this.list = new VirtualList({
-      layout: 'list',
+      layout: initialView,
       rowHeight: 32,
+      cellWidth,
+      cellHeight,
       key: (item) => item.path,
       label: (item) => item.name,
       sort: this.state.sort,
@@ -205,7 +206,7 @@ export class FilesView {
       ],
       columnWidths: settings.get('columns'),
       onColumnResize: (w) => settings.set('columns', w),
-      render: null,
+      render: (item, el, i) => this.renderGridCell(item, el, i),
       onSort: (id, dir) => {
         if (this.onSort) this.onSort(id, dir);
       },
@@ -247,9 +248,6 @@ export class FilesView {
 
     const iconSize = clamp(Number(this.settings.get('iconSize')) || 96, 48, 256);
     const { cellWidth, cellHeight } = this.gridDimensions(iconSize);
-
-    // Crucial: VirtualList uses o.columns only when o.render is falsy.
-    this.list.o.render = view === 'grid' ? (item, el, i) => this.renderGridCell(item, el, i) : null;
     this.list.setLayout(view, { cellWidth, cellHeight });
   }
 
@@ -322,43 +320,22 @@ export class FilesView {
       }
     });
 
-    // Pointer-based drag and drop of items onto folders or sidebar
-    this.list.scroller.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
-      if (this.state.currentPath === TRASH_URI) return;
-      const idx = this.list.indexAt(e);
-      if (idx < 0) return;
-
-      const x0 = e.clientX;
-      const y0 = e.clientY;
-      let ghost = null;
-      let lastHighlight = null;
-      let draggedItems = [];
-
-      const clearHighlight = () => {
-        if (lastHighlight) {
-          lastHighlight.classList.remove('drop-target');
-          lastHighlight = null;
-        }
-      };
-
-      const findDropTarget = (ev) => {
-        const el = document.elementFromPoint(ev.clientX, ev.clientY);
-        if (!el) return null;
-
-        // Check sidebar item with data-drop-path
+    // Pointer-based drag and drop of items onto folders or sidebar via kit helper
+    enableItemDrag(this.list, {
+      canDrag: () => this.state.currentPath !== TRASH_URI,
+      ghost: (items) => {
+        const label = items.length === 1 ? items[0].name : formatCount(items.length, 'item');
+        return [icon(items[0].isDirectory ? 'folder' : 'file', 'sm'), h('span', label)];
+      },
+      findTarget: (el, draggedItems) => {
         const sideRow = el.closest('.sidebar-item[data-drop-path]');
         if (sideRow) {
           return { el: sideRow, path: sideRow.dataset.dropPath, kind: 'sidebar-item' };
         }
-
-        // Check sidebar empty space (for bookmarking a single dragged folder)
         const sideNav = el.closest('.sidebar');
         if (sideNav && draggedItems.length === 1 && draggedItems[0].isDirectory) {
           return { el: sideNav, path: draggedItems[0].path, kind: 'bookmark' };
         }
-
-        // Check folder row/cell in VirtualList
         const itemEl = el.closest('.vlist-row, .vgrid-cell');
         if (itemEl && itemEl._item && itemEl._item.isDirectory) {
           const folderPath = itemEl._item.path;
@@ -367,51 +344,15 @@ export class FilesView {
           }
         }
         return null;
-      };
-
-      const onMove = (ev) => {
-        if (!ghost) {
-          if (Math.abs(ev.clientX - x0) + Math.abs(ev.clientY - y0) < 6) return;
-          draggedItems = this.list.selectedItems();
-          if (!draggedItems.length) return;
-          const label = draggedItems.length === 1
-            ? draggedItems[0].name
-            : formatCount(draggedItems.length, 'item');
-          ghost = h('div.files-drag-ghost', icon(draggedItems[0].isDirectory ? 'folder' : 'file', 'sm'), h('span', label));
-          document.body.appendChild(ghost);
-        }
-        ghost.style.left = `${ev.clientX + 12}px`;
-        ghost.style.top = `${ev.clientY + 12}px`;
-
-        clearHighlight();
-        const target = findDropTarget(ev);
-        if (target && target.el) {
-          target.el.classList.add('drop-target');
-          lastHighlight = target.el;
-        }
-      };
-
-      const onUp = (ev) => {
-        window.removeEventListener('pointermove', onMove, true);
-        window.removeEventListener('pointerup', onUp, true);
-        clearHighlight();
-        if (!ghost) return;
-        ghost.remove();
-        ghost = null;
-
-        const target = findDropTarget(ev);
-        if (!target || !draggedItems.length) return;
-
+      },
+      onDrop: (draggedItems, target, ev) => {
         if (target.kind === 'bookmark') {
           if (this.onBookmarkFolder) this.onBookmarkFolder(draggedItems[0].path, draggedItems[0].name);
         } else if (target.path && this.onDropItems) {
           const srcPaths = draggedItems.map((d) => d.path);
           this.onDropItems(srcPaths, target.path, { copy: ev.ctrlKey || ev.metaKey });
         }
-      };
-
-      window.addEventListener('pointermove', onMove, true);
-      window.addEventListener('pointerup', onUp, true);
+      },
     });
   }
 }

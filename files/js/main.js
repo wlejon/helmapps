@@ -9,11 +9,10 @@
  */
 
 import { startApp } from '/lib/app.js';
-import { h, api, isTyping } from '/lib/dom.js';
+import { h, api } from '/lib/dom.js';
 import { icon } from '/lib/icons.js';
 import { appFrame, Toolbar } from '/lib/layout.js';
 import { menu } from '/lib/menu.js';
-import { Dialog } from '/lib/dialog.js';
 import { toast } from '/lib/toast.js';
 import { formatBytes, formatCount } from '/lib/format.js';
 import { homeDir, openFile, appsFor, appsReady, mimeOf } from '/lib/files.js';
@@ -261,17 +260,6 @@ commands.addAll([
   { id: 'close-window', label: 'Close Window', keys: ['Mod+W', 'Mod+Q'],
     run: () => app.quit() },
 ]);
-
-// bro dispatches ClipboardEvents (copy/cut/paste) on Mod+C/X/V when no input is focused.
-for (const evName of ['copy', 'cut', 'paste']) {
-  window.addEventListener(evName, (e) => {
-    if (isTyping(e) || Dialog.current) return;
-    if (commands.isEnabled(evName)) {
-      e.preventDefault();
-      commands.run(evName);
-    }
-  });
-}
 
 const toolbar = new Toolbar(ui.toolbar, commands);
 toolbar.button('back');

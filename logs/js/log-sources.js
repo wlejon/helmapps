@@ -74,12 +74,34 @@ async function safeReaddir(dir) {
   }
 }
 
+async function readFileSlice(filePath, offset, length) {
+  const buf = new Uint8Array(length);
+  if (fs.promises && typeof fs.promises.open === 'function') {
+    const fh = await fs.promises.open(filePath, 'r');
+    try {
+      const { bytesRead } = await fh.read(buf, 0, length, offset);
+      return buf.subarray(0, bytesRead);
+    } finally {
+      await fh.close();
+    }
+  }
+  let fd = null;
+  try {
+    fd = fs.openSync(filePath, 'r');
+    const bytesRead = fs.readSync(fd, buf, 0, length, offset);
+    return buf.subarray(0, bytesRead);
+  } finally {
+    if (fd != null) {
+      try { fs.closeSync(fd); } catch (_) {}
+    }
+  }
+}
+
 /**
  * Read up to the last `maxBytes` of a file asynchronously as UTF-8 text.
  * If truncated at the front, drops the partial first line.
  */
 export async function readLogTail(filePath, maxBytes = MAX_BYTES) {
-  let fd = null;
   try {
     const st = await fs.promises.stat(filePath);
     if (!st.isFile()) return { text: '', size: 0, mtimeMs: 0, truncated: false };
@@ -92,22 +114,14 @@ export async function readLogTail(filePath, maxBytes = MAX_BYTES) {
     }
 
     const offset = size - maxBytes;
-    fd = fs.openSync(filePath, 'r');
-    const buf = new Uint8Array(maxBytes);
-    const bytesRead = fs.readSync(fd, buf, 0, maxBytes, offset);
-    fs.closeSync(fd);
-    fd = null;
-
-    let text = new TextDecoder('utf-8', { fatal: false }).decode(buf.subarray(0, bytesRead));
+    const slice = await readFileSlice(filePath, offset, maxBytes);
+    let text = new TextDecoder('utf-8', { fatal: false }).decode(slice);
     const firstNl = text.indexOf('\n');
     if (firstNl >= 0 && firstNl < 4096) {
       text = text.slice(firstNl + 1);
     }
     return { text, size, mtimeMs: st.mtimeMs, truncated: true };
   } catch (_) {
-    if (fd != null) {
-      try { fs.closeSync(fd); } catch (_) {}
-    }
     return { text: '', size: 0, mtimeMs: 0, truncated: false };
   }
 }
@@ -116,7 +130,6 @@ export async function readLogTail(filePath, maxBytes = MAX_BYTES) {
  * Read only newly appended bytes from `fromOffset` to end of file.
  */
 export async function readAppendedBytes(filePath, fromOffset) {
-  let fd = null;
   try {
     const st = await fs.promises.stat(filePath);
     if (!st.isFile() || st.size <= fromOffset) {
@@ -124,17 +137,10 @@ export async function readAppendedBytes(filePath, fromOffset) {
     }
     const len = Math.min(st.size - fromOffset, MAX_BYTES);
     const start = st.size - len;
-    fd = fs.openSync(filePath, 'r');
-    const buf = new Uint8Array(len);
-    const bytesRead = fs.readSync(fd, buf, 0, len, start);
-    fs.closeSync(fd);
-    fd = null;
-    const text = new TextDecoder('utf-8', { fatal: false }).decode(buf.subarray(0, bytesRead));
+    const slice = await readFileSlice(filePath, start, len);
+    const text = new TextDecoder('utf-8', { fatal: false }).decode(slice);
     return { text, size: st.size, mtimeMs: st.mtimeMs, reset: false };
   } catch (_) {
-    if (fd != null) {
-      try { fs.closeSync(fd); } catch (_) {}
-    }
     return { text: '', size: fromOffset, mtimeMs: 0, reset: false };
   }
 }

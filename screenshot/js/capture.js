@@ -25,9 +25,6 @@ export function getCaptureSource() {
 
 /** Whether native Wayland screencopy is available in this session. */
 export function hasScreencopy() {
-  if (typeof bro !== 'undefined' && bro.window && bro.window.displayMode === 'headless') {
-    return false;
-  }
   const wl = api('wl');
   return !!(wl && typeof wl.hasScreencopy === 'function' && wl.hasScreencopy());
 }

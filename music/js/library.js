@@ -11,7 +11,7 @@
  */
 
 import { api, debounce } from '/lib/dom.js';
-import { UNKNOWN_ARTIST, UNKNOWN_ALBUM, sortKey, PLAYABLE, UNPLAYABLE } from './records.js';
+import { UNKNOWN_ARTIST, UNKNOWN_ALBUM, sortKey, computePeakBars, PLAYABLE, UNPLAYABLE } from './records.js';
 
 const path = require('path');
 
@@ -51,6 +51,9 @@ export class Library {
     this.cacheVersion = -1;
     this.stopping = false;          // Stop was asked; the worker stops at its next yield
     this.pendingWrites = new Map(); // file → { text, what }, until the worker exists
+    this.peaksCache = new Map();    // file → normalized peak bars
+    this.peaksWanted = null;        // { path, cb, buckets }
+    this.peaksInFlight = '';
     this.rescan = debounce(() => this.scan(this.roots), WATCH_SETTLE_MS);
   }
 
@@ -74,6 +77,31 @@ export class Library {
     this.worker.postMessage({ op: 'write', path: file, text, what });
   }
 
+  /** Request normalized waveform peaks for `file` off the main thread. */
+  peaks(file, cb, buckets = 48) {
+    if (!file) { if (cb) cb(null); return; }
+    if (this.peaksCache.has(file)) {
+      if (cb) cb(this.peaksCache.get(file));
+      return;
+    }
+    this.peaksWanted = { path: file, cb, buckets };
+    if (this.worker) {
+      if (!this.scanning && !this.peaksInFlight) this.sendPeaksRequest();
+      return;
+    }
+    const bars = computePeakBars(file, buckets);
+    this.peaksCache.set(file, bars);
+    this.peaksWanted = null;
+    if (cb) cb(bars);
+  }
+
+  sendPeaksRequest() {
+    if (!this.worker || this.scanning || this.peaksInFlight || !this.peaksWanted) return;
+    const req = this.peaksWanted;
+    this.peaksInFlight = req.path;
+    this.worker.postMessage({ op: 'peaks', path: req.path, buckets: req.buckets || 48 });
+  }
+
   message(m) {
     switch (m.op) {
       case 'index':
@@ -81,6 +109,7 @@ export class Library {
         this.loaded = true;
         this.changed();
         if (this.pendingScan) { const r = this.pendingScan; this.pendingScan = null; this.scan(r); }
+        else this.sendPeaksRequest();
         break;
       case 'progress':
         if (m.id !== this.scanning) return;
@@ -103,6 +132,7 @@ export class Library {
           errors: m.errors, ms: m.ms, parseMs: m.parseMs, waitMs: m.waitMs };
         if (m.removed.length) this.changed();
         this.onScanned(this.lastScan);
+        this.sendPeaksRequest();
         break;
       case 'stopped':
         if (m.id !== this.scanning) return;
@@ -110,11 +140,25 @@ export class Library {
         this.progress = null;
         this.stopping = false;
         this.onScanned(null);
+        this.sendPeaksRequest();
         break;
       case 'failed':
         console.warn(`music: scan failed: ${m.error}`);
         if (m.id === this.scanning) { this.scanning = 0; this.progress = null; this.stopping = false; this.onScanned(null); }
+        this.sendPeaksRequest();
         break;
+      case 'peaks': {
+        this.peaksInFlight = '';
+        if (m.path) this.peaksCache.set(m.path, m.peaks || null);
+        if (this.peaksWanted && this.peaksWanted.path === m.path) {
+          const wanted = this.peaksWanted;
+          this.peaksWanted = null;
+          if (wanted.cb) wanted.cb(m.peaks || null);
+        } else if (this.peaksWanted) {
+          this.sendPeaksRequest();
+        }
+        break;
+      }
     }
   }
 

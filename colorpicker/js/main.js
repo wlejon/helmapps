@@ -319,12 +319,6 @@ commands.addAll([
   { id: 'quit', label: 'Quit', keys: ['Mod+Q', 'Mod+W'], run: () => app.quit() },
 ]);
 
-window.addEventListener('copy', (e) => {
-  if (isTyping(e) || Dialog.current) return;
-  e.preventDefault();
-  commands.run('copy-hex');
-});
-
 toolbar.button('eyedropper', { label: true });
 toolbar.sep();
 toolbar.button('copy-hex', { label: true });

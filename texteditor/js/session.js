@@ -74,6 +74,7 @@ export class SessionManager {
 
   async writeRecoveryForDoc(doc) {
     if (!doc || !doc.dirty) return null;
+    if (this.getDocs && !this.getDocs().some((d) => d.id === doc.id)) return null;
     const payload = JSON.stringify({
       id: doc.id,
       path: doc.path || '',
@@ -90,6 +91,7 @@ export class SessionManager {
     const mirFile = this.mirrorFileFor(doc);
     try {
       await fs.promises.mkdir(recDir, { recursive: true });
+      if (this.getDocs && !this.getDocs().some((d) => d.id === doc.id)) return null;
       await fs.promises.writeFile(recFile, payload, 'utf-8');
       await fs.promises.mkdir(mirDir, { recursive: true });
       await fs.promises.writeFile(mirFile, payload, 'utf-8');
@@ -115,8 +117,8 @@ export class SessionManager {
     }
     const recFile = this.recoveryFileFor(id);
     const mirFile = this.mirrorFileFor(id);
-    try { await fs.promises.unlink(recFile); } catch {}
-    try { await fs.promises.unlink(mirFile); } catch {}
+    try { fs.unlinkSync(recFile); } catch {}
+    try { fs.unlinkSync(mirFile); } catch {}
   }
 
   async clearAllRecovery() {
@@ -141,7 +143,7 @@ export class SessionManager {
     for (const dir of [this.recoveryDir, this.autosaveMirrorDir]) {
       let names = [];
       try {
-        names = await fs.promises.readdir(dir);
+        names = (await fs.promises.readdir(dir)).slice().sort();
       } catch {
         continue;
       }
@@ -157,6 +159,7 @@ export class SessionManager {
         } catch {}
       }
     }
+    found.sort((a, b) => (a.data.id || 0) - (b.data.id || 0));
     this.pendingRecovery = found;
     if (found.length > 0 && this.onRecoveryAvailable) {
       this.onRecoveryAvailable(found.map((f) => f.data));
