@@ -3,12 +3,6 @@
 Engine and platform gaps found while building `lib/` and the reference app.
 Each app keeps its own `GAPS.md` in the same format (see AGENTS.md).
 
-## No MPRIS player side
-- **Where:** bro (`bro.mpris` is a controller only)
-- **Expected:** an app can publish itself as an MPRIS2 player so helm's
-  now-playing card and media keys reach it.
-- **Belongs in:** bro / brompris
-
 ## Startup is mostly the engine's
 - **Where:** bro
 - **Actual:** headless brings the Vulkan device up on a thread while it
@@ -28,16 +22,6 @@ Each app keeps its own `GAPS.md` in the same format (see AGENTS.md).
 - **Belongs in:** bro: in the windowed path, load the driver and create the
   instance alongside the window.
 
-## The JS profiler is Windows-only
-- **Where:** bro (`bro.profiler`, docs/profiler-api.js)
-- **Expected:** `bro.profiler.start()` samples an app's JS on every platform
-  and splits it by tier, as it does on Windows x64.
-- **Actual:** on macOS (and other non-Windows-x64 hosts) `start()` throws
-  "the sampling profiler is supported on Windows x64 only". A Mac profile of
-  an app's handler is only macOS `sample`, where JIT frames are `???` and no
-  tier is named (music/tests/bench_switch.js runs `PROFILE=1` where it can).
-- **Belongs in:** bro / bronze: the sampler on aarch64 macOS and Linux.
-
 ## The Windows profiler samples below the rate asked for
 - **Where:** bro (`bro.profiler`, docs/profiler-api.js)
 - **Expected:** `start({ hz: 2000 })` takes about 2000 samples a second.
@@ -48,6 +32,12 @@ Each app keeps its own `GAPS.md` in the same format (see AGENTS.md).
   timer resolution), or report the achieved rate beside the requested one.
 
 ## Fixed while building the kit
+- MPRIS player service publisher: `bro.mpris.createService` in `brompris`
+  (MPRIS2 on Linux, SMTC on Windows; `docs/mpris-api.js`) lets an app publish
+  itself as a media player so helm's now-playing card and media keys reach it
+  (used by `helm.music`).
+- The JS sampling profiler (`bro.profiler`, `docs/profiler-api.js`) in `bronze`
+  now supports Windows x64, Linux x64, and macOS arm64.
 - `docs/clipboard-api.js` documents `navigator.clipboard` (`readText`,
   `writeText`, `read`, `write`), `ClipboardItem` (`text/plain` and
   `image/png`), and `copy`/`cut`/`paste` events.

@@ -15,6 +15,7 @@ library exposed as `bro.<x>`), never into the app.
 | [texteditor](texteditor/) | `helm.texteditor` | Multi-tab plain-text and code editor with line numbers, regex find/replace, and atomic session recovery |
 | [images](images/) | `helm.images` | Image viewer and organizer with gallery, burst stabilization and wildlife tagging |
 | [music](music/) | `helm.music` | Music library and player with tag scanner, album grid, queue and lyrics |
+| [radio](radio/) | `helm.radio` | Endless instrumental YuE2 radio steered across a CLAP style atlas |
 | [monitor](monitor/) | `helm.monitor` | System monitor: live processes (`/proc` and `bro.sys.processes`), CPU/memory/I/O/GPU performance graphs, and file systems |
 | [disks](disks/) | `helm.disks` | Disks and volumes utility: physical drive topology, visual partition layout map, live disk I/O rates, and volume inspection |
 | [logs](logs/) | `helm.logs` | System and application log viewer: desktop/app/system logs, JSONL & syslog parser, regex search, and live tailing |

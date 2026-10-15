@@ -18,20 +18,16 @@ beyond saying so in the window. Kit-level gaps shared by every app are in
   dialog leaves it out.
 - **Belongs in:** broimage (an HEVC backend, if one with a usable licence is chosen)
 
-## No SAM 2.1 tracker yet
-- **Where:** brovisionml / bro (`bro.vision`)
-- **Expected:** Stabilize tracks the subject with SAM 2.1's video memory
-  (`bro.vision.loadSam2`, weights `sam2.1-hiera-*`).
-- **Actual:** only SAM 1 (ViT-B) is in `bro.vision`. Each frame is prompted
-  afresh with the box and point predicted from the last frame's mask and
-  the alignment, and the proposal nearest the expected area is kept. On the
-  real 14-photo robin sequence that held through all five bursts, but a
-  splashing frame scores ~0.5.
-- **Impact:** none to work around: `js/burst/model.js` has the SAM 2.1
-  backend behind the same interface and `findModelSpec` prefers it once
-  `loadSam2` exists.
-- **Belongs in:** brovisionml (the Hiera encoder, memory attention and
-  memory encoder), bro (`bro.vision.loadSam2`)
+## No SAM 2.1 tracker yet (engine resolved; app burst carry-over remaining)
+- **Where:** brovisionml / bro (`bro.vision`) and this app
+- **Expected:** Stabilize and burst carry-over track the subject with SAM 2.1's
+  video memory (`bro.vision.loadSam2` / `Sam2Tracker`, weights `sam2.1-hiera-*`).
+- **Actual:** `bro.vision.loadSam2` and `Sam2Tracker` are now implemented in
+  `brovisionml` and `bro` (`docs/vision-api.js`), and `js/burst/model.js`
+  has the SAM 2.1 backend behind the same interface (`findModelSpec` prefers
+  it when `loadSam2` is present). The remaining step is wiring `helm.images`'s
+  burst carry-over (`js/wildlife/crops.js`, `editor.js`, below) to it.
+- **Belongs in:** this app (wiring burst carry-over to `bro.vision.loadSam2` / `Sam2Tracker`)
 
 ## bro.media.tags does not read WebM
 - **Where:** bro (`bro.media.tags`, docs/video-api.js)

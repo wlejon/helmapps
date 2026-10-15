@@ -32,13 +32,14 @@ one pass.
 | (done) | `colorpicker/` | `helm.colorpicker` | ~1800 | Oklch/Oklab/sRGB color picker, screen eyedropper (`bro.wl`), and WCAG/APCA contrast checker |
 | (done) | `disks/` | `helm.disks` | ~1800 | Physical drive & partition layout map (`bro.vfs.volumes` + `/sys/block` + `/proc/diskstats`) |
 | (done) | `logs/` | `helm.logs` | ~1800 | Desktop, app (`bro.app`), and `/var/log` viewer with JSONL/syslog parser, regex search, and live tailing |
+| (done) | `radio/` | `helm.radio` | ~1800 | Endless instrumental YuE2 radio (`bro.music`, `yue.endless`) steered across a CLAP style atlas |
 
 ## Wave 2: blocked on bro, so not briefed yet
 
 | App | Blocked on |
 |---|---|
 | Document viewer (PDF) | No PDF renderer in the stack |
-| Video player | `<video>` plays WebM/VP9 only, and brovideo decodes on Windows only |
+| Video player | `<video>` currently uses `libvpx` (WebM/VP9) and isn't wired to `brovideo` / MP4 / MKV yet (`brovideo` itself now decodes on both Linux VA-API and Windows Media Foundation) |
 | Mail | brokit has no TLS client socket (fetch does HTTPS only) |
 | App Center | No JS API for `bro --install` / `--uninstall` / `--list-apps` (the CLI exists) |
 | Passwords and keys | `bro.cred` Secret Service is privileged and its API needs a review for an app UI |
