@@ -1,9 +1,9 @@
 name: CI
 
 # The helm apps are folders run by the stock bro binary, so testing them means
-# building bro (the minimal profile: no vcpkg; <terminal> is on in every
-# profile) and running each app's headless tests against its bro-headless on
-# Lavapipe, the software Vulkan device.
+# building bro (the desktop profile without 3D/physics: no vcpkg; <terminal>
+# and the desktop libraries are on) and running each app's headless tests
+# against its bro-headless on Lavapipe, the software Vulkan device.
 
 on:
   push:
@@ -31,8 +31,9 @@ jobs:
             libgl1-mesa-dev libegl1-mesa-dev \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev \
             libxi-dev libxfixes-dev libxss-dev libxtst-dev libwayland-dev libxkbcommon-dev \
-            libasound2-dev libpulse-dev libudev-dev \
+            libasound2-dev libpulse-dev libpipewire-0.3-dev libudev-dev \
             libfreetype-dev libfontconfig1-dev libpng-dev libjpeg-dev libwebp-dev \
+            libsystemd-dev libseat-dev libxcb-randr0-dev libxau-dev libinput-dev \
             bash zsh fish
 
       - name: sccache
@@ -42,7 +43,11 @@ jobs:
         working-directory: bro
         run: |
           cmake -B build -G Ninja \
-            -DBRO_PROFILE=minimal \
+            -DBRO_PROFILE=desktop \
+            -DBRO_WITH_3D=OFF \
+            -DBRO_WITH_PHYSICS=OFF \
+            -DBRO_WITH_GAMEAI=OFF \
+            -DBRO_WITH_FLORA=OFF \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER_LAUNCHER=sccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
