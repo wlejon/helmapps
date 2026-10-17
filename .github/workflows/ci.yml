@@ -31,7 +31,7 @@ jobs:
             libgl1-mesa-dev libegl1-mesa-dev \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev \
             libxi-dev libxfixes-dev libxss-dev libxtst-dev libwayland-dev libxkbcommon-dev \
-            libasound2-dev libpulse-dev libpipewire-0.3-dev libudev-dev \
+            libasound2-dev libpulse-dev libpipewire-0.3-dev libopus-dev libudev-dev \
             libfreetype-dev libfontconfig1-dev libpng-dev libjpeg-dev libwebp-dev \
             libsystemd-dev libseat-dev libxcb-randr0-dev libxau-dev libinput-dev \
             libdrm-dev libgbm-dev \
@@ -44,8 +44,20 @@ jobs:
       - name: Build bro
         working-directory: bro
         run: |
-          python3 -c 'p="src/bronze_host/host_media.cpp"; s=open(p).read(); s=s.replace("#if BRO_WITH_VIDEO\n#include \"video/media_analysis.h\"\n#include <cctype>\n#include <cmath>\n#include <string>\n#include <vector>\n#if BRO_WITH_AUDIO\n#include \"broaudio/io/audio_tags.h\"\n#endif\n#endif\n\nnamespace bro::bronze_host {\n\n#if BRO_WITH_VIDEO", "#include <cctype>\n#include <cmath>\n#include <string>\n#include <vector>\n#if BRO_WITH_VIDEO\n#include \"video/media_analysis.h\"\n#endif\n#if BRO_WITH_AUDIO\n#include \"broaudio/io/audio_tags.h\"\n#endif\n\nnamespace bro::bronze_host {\n\n#if BRO_WITH_VIDEO || BRO_WITH_AUDIO").replace("static int intOption(", "#if BRO_WITH_VIDEO\nstatic int intOption(").replace("#if BRO_WITH_AUDIO\n#ifndef BROAUDIO_HAS_AAC", "#endif // BRO_WITH_VIDEO\n#if BRO_WITH_AUDIO\n#ifndef BROAUDIO_HAS_AAC").replace("    media.def(\"peaks\", 2, js_media_peaks);\n    media.def(\"thumbnails\", 2, js_media_thumbnails);", "#if BRO_WITH_VIDEO\n    media.def(\"peaks\", 2, js_media_peaks);\n    media.def(\"thumbnails\", 2, js_media_thumbnails);\n#endif"); open(p, "w").write(s); r="src/bronze_host/host_bro_root.cpp"; rs=open(r).read().replace("#if !BRO_WITH_VIDEO\n    setUnavailable(\"media\", \"BRO_WITH_VIDEO\");\n#endif", "#if !BRO_WITH_VIDEO && !BRO_WITH_AUDIO\n    setUnavailable(\"media\", \"BRO_WITH_VIDEO\");\n#endif"); open(r, "w").write(rs)'
+          cat > opus.cmake << 'EOF'
+          if(NOT TARGET Opus::opus)
+            find_package(PkgConfig QUIET)
+            if(PkgConfig_FOUND)
+              pkg_check_modules(SYS_OPUS QUIET IMPORTED_TARGET opus)
+              if(TARGET PkgConfig::SYS_OPUS)
+                add_library(Opus::opus INTERFACE IMPORTED GLOBAL)
+                target_link_libraries(Opus::opus INTERFACE PkgConfig::SYS_OPUS)
+              endif()
+            endif()
+          endif()
+          EOF
           cmake -B build -G Ninja \
+            -DCMAKE_PROJECT_INCLUDE="${GITHUB_WORKSPACE}/bro/opus.cmake" \
             -DBRO_PROFILE=desktop \
             -DBRO_WITH_3D=OFF \
             -DBRO_WITH_PHYSICS=OFF \
