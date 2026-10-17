@@ -33,6 +33,7 @@ export function makeHome(tag) {
     fs.mkdirSync(home, { recursive: true });
     fs.writeFileSync(path.join(home, '.bashrc'), 'export BRO_TERM_T_RC=bashrc\n');
     fs.writeFileSync(path.join(home, '.bash_profile'), 'export BRO_TERM_T_LOGIN=bash_profile\n. "$HOME/.bashrc"\n');
+    fs.writeFileSync(path.join(home, '.zshenv'), 'skip_global_compinit=1\n');
     fs.writeFileSync(path.join(home, '.zshrc'), 'export BRO_TERM_T_RC=zshrc\nPS1="zsh> "\n');
     fs.mkdirSync(path.join(home, '.config', 'fish'), { recursive: true });
     fs.writeFileSync(path.join(home, '.config', 'fish', 'config.fish'), 'set -gx BRO_TERM_T_RC fishrc\n');

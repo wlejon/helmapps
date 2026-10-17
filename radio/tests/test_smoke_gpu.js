@@ -22,8 +22,9 @@ function until(pred, what, ms) {
   throw new Error(`timed out: ${what} (phase ${app.state.phase}: ${app.state.reason})`);
 }
 
-until(() => app.state.phase === 'ready' || app.state.phase === 'missing', 'the models', 300000);
-if (app.state.phase === 'missing') skipTest(app.state.reason || 'the models are not found (set BRO_MODELS, or choose them in the app)');
+until(() => app.state.phase === 'ready' || app.state.phase === 'missing' || app.state.phase === 'unavailable', 'the models', 300000);
+if (app.state.phase === 'unavailable') skipTest(app.state.reason);
+else if (app.state.phase === 'missing') skipTest(app.state.reason || 'the models are not found (set BRO_MODELS, or choose them in the app)');
 else run();
 
 function run() {

@@ -46,43 +46,47 @@ const repeats = repeatCounts(t, 30);
 console.log(`delays ${delays.join(' ')} cs; repeats at 30 fps ${repeats.join(' ')}`);
 eq(delays.join(), '5,50,5,15,10,5,5', 'GIF delays');
 
-// The save dialog suggests the photos' folder and a name from the first and
-// last photo; with nothing queued, headless accepts the suggestion.
-const gifOut = path.join(dir, 'burst_01-08.gif');
-press(`${mod}+e`);
-waitFor(() => view.exporting, 'the export starts');
-assert(!document.querySelector('.iv-burst-progress').classList.contains('hidden'), 'progress shows');
-waitFor(() => !view.exporting, 'the GIF is written', 120000);
-assert(fs.existsSync(gifOut), `written where the dialog suggested: ${gifOut}`);
-assert(document.querySelector('.iv-burst-progress').classList.contains('hidden'), 'progress hides');
+if (typeof GifEncoder !== 'function' || typeof VideoEncoder !== 'function') {
+  skipTest('GifEncoder / VideoEncoder is compiled out of this build');
+} else {
+  // The save dialog suggests the photos' folder and a name from the first and
+  // last photo; with nothing queued, headless accepts the suggestion.
+  const gifOut = path.join(dir, 'burst_01-08.gif');
+  press(`${mod}+e`);
+  waitFor(() => view.exporting, 'the export starts');
+  assert(!document.querySelector('.iv-burst-progress').classList.contains('hidden'), 'progress shows');
+  waitFor(() => !view.exporting, 'the GIF is written', 120000);
+  assert(fs.existsSync(gifOut), `written where the dialog suggested: ${gifOut}`);
+  assert(document.querySelector('.iv-burst-progress').classList.contains('hidden'), 'progress hides');
 
-const dec = bro.image.openFrames(gifOut);
-assert(dec, 'the GIF decodes');
-eq(dec.frameCount, 7, 'one GIF frame per included photo');
-eq(dec.width + 'x' + dec.height, `${view.outputSize().width}x${view.outputSize().height}`, 'at the output size');
-eq(dec.delays.map((ms) => Math.round(ms / 10)).join(), delays.join(), 'the GIF\'s delays are the schedule\'s');
-dec.close();
+  const dec = bro.image.openFrames(gifOut);
+  assert(dec, 'the GIF decodes');
+  eq(dec.frameCount, 7, 'one GIF frame per included photo');
+  eq(dec.width + 'x' + dec.height, `${view.outputSize().width}x${view.outputSize().height}`, 'at the output size');
+  eq(dec.delays.map((ms) => Math.round(ms / 10)).join(), delays.join(), 'the GIF\'s delays are the schedule\'s');
+  dec.close();
 
-// WebM through the real dialog path (headless answers with the queued path).
-view.panel.on.format('webm');
-eq(app.settings.get('burstFormat'), 'webm', 'the format is a setting');
-const webmOut = path.join(dir, 'out.webm');
-setPickedFiles([webmOut]);
-press(`${mod}+e`);
-waitFor(() => view.exporting, 'the WebM export starts');
-waitFor(() => !view.exporting, 'the WebM is written', 120000);
-assert(fs.existsSync(webmOut) && fs.statSync(webmOut).size > 1000, 'the WebM has content');
-const v = document.createElement('video');
-v.muted = true;
-document.body.appendChild(v);
-v.src = webmOut;
-flush();
-assert(v.readyState >= 1, `the WebM loads (readyState ${v.readyState})`);
-const total = repeats.reduce((a, b) => a + b, 0);
-near(v.duration, total / 30, 'WebM duration: the repeated frames at 30 fps', 0.034);
-let pictures = 1;
-while (pictures < 200 && v.stepFrame(1) > 0) pictures++;
-eq(pictures, total, 'WebM pictures');
-v.remove();
+  // WebM through the real dialog path (headless answers with the queued path).
+  view.panel.on.format('webm');
+  eq(app.settings.get('burstFormat'), 'webm', 'the format is a setting');
+  const webmOut = path.join(dir, 'out.webm');
+  setPickedFiles([webmOut]);
+  press(`${mod}+e`);
+  waitFor(() => view.exporting, 'the WebM export starts');
+  waitFor(() => !view.exporting, 'the WebM is written', 120000);
+  assert(fs.existsSync(webmOut) && fs.statSync(webmOut).size > 1000, 'the WebM has content');
+  const v = document.createElement('video');
+  v.muted = true;
+  document.body.appendChild(v);
+  v.src = webmOut;
+  flush();
+  assert(v.readyState >= 1, `the WebM loads (readyState ${v.readyState})`);
+  const total = repeats.reduce((a, b) => a + b, 0);
+  near(v.duration, total / 30, 'WebM duration: the repeated frames at 30 fps', 0.034);
+  let pictures = 1;
+  while (pictures < 200 && v.stepFrame(1) > 0) pictures++;
+  eq(pictures, total, 'WebM pictures');
+  v.remove();
 
-console.log('test_burst_export PASSED');
+  console.log('test_burst_export PASSED');
+}

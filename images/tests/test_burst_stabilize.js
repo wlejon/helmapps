@@ -36,43 +36,47 @@ view.setCrop([150, 100, 400, 400]);
 eq(view.crop.join(), [150, 100, 400, 400].join(), 'the crop is inside the common area');
 eq(view.outputSize().width, 400, 'output at the crop\'s own size');
 
-// Subject held.
-const subjectGif = path.join(dir, 'subject.gif');
-exportTo(subjectGif);
-const s1 = measure(subjectGif, 'subject');
-eq(s1.length, frames.length, 'one GIF frame per photo');
-assert(s1.every((p) => p.n > 2000), `the subject is in every frame (${s1.map((p) => p.n).join(' ')})`);
-const subjectSpread = spread(s1);
-console.log(`subject lock: subject centroid spread ${subjectSpread.toFixed(2)} px over ${s1.length} frames`);
-assert(subjectSpread <= 1, `the subject holds still within 1 px (${subjectSpread.toFixed(2)})`);
+if (typeof GifEncoder !== 'function') {
+  skipTest('GifEncoder is compiled out of this build');
+} else {
+  // Subject held.
+  const subjectGif = path.join(dir, 'subject.gif');
+  exportTo(subjectGif);
+  const s1 = measure(subjectGif, 'subject');
+  eq(s1.length, frames.length, 'one GIF frame per photo');
+  assert(s1.every((p) => p.n > 2000), `the subject is in every frame (${s1.map((p) => p.n).join(' ')})`);
+  const subjectSpread = spread(s1);
+  console.log(`subject lock: subject centroid spread ${subjectSpread.toFixed(2)} px over ${s1.length} frames`);
+  assert(subjectSpread <= 1, `the subject holds still within 1 px (${subjectSpread.toFixed(2)})`);
 
-// Scene held: L toggles the lock (and the setting).
-press('l');
-eq(view.lock, 'scene', 'L holds the scene');
-eq(app.settings.get('burstLock'), 'scene', 'remembered as an app setting');
-view.setCrop([150, 100, 400, 400]);
-eq(view.crop.join(), [150, 100, 400, 400].join(), 'the same crop fits the scene lock');
-const sceneGif = path.join(dir, 'scene.gif');
-exportTo(sceneGif);
-const m2 = measure(sceneGif, 'marker');
-assert(m2.every((p) => p.n > 200), `the marker is in every frame (${m2.map((p) => p.n).join(' ')})`);
-const markerSpread = spread(m2);
-const s2 = measure(sceneGif, 'subject');
-console.log(`scene lock: marker spread ${markerSpread.toFixed(2)} px; subject travels ${spread(s2).toFixed(1)} px`);
-assert(markerSpread <= 1, `the scene holds still within 1 px (${markerSpread.toFixed(2)})`);
-// Over the ground the subject moved by its own motion less the camera's: frame 0 to the last.
-const f0 = frames[0], fz = frames[frames.length - 1];
-const wantDx = (fz.subject[0] - fz.bg[0]) - (f0.subject[0] - f0.bg[0]);
-const wantDy = (fz.subject[1] - fz.bg[1]) - (f0.subject[1] - f0.bg[1]);
-const got = [s2[s2.length - 1].x - s2[0].x, s2[s2.length - 1].y - s2[0].y];
-assert(Math.abs(got[0] - wantDx) <= 1 && Math.abs(got[1] - wantDy) <= 1,
-  `the subject moves over the ground as it flew (${got.map((v) => v.toFixed(1))} vs ${wantDx}, ${wantDy})`);
+  // Scene held: L toggles the lock (and the setting).
+  press('l');
+  eq(view.lock, 'scene', 'L holds the scene');
+  eq(app.settings.get('burstLock'), 'scene', 'remembered as an app setting');
+  view.setCrop([150, 100, 400, 400]);
+  eq(view.crop.join(), [150, 100, 400, 400].join(), 'the same crop fits the scene lock');
+  const sceneGif = path.join(dir, 'scene.gif');
+  exportTo(sceneGif);
+  const m2 = measure(sceneGif, 'marker');
+  assert(m2.every((p) => p.n > 200), `the marker is in every frame (${m2.map((p) => p.n).join(' ')})`);
+  const markerSpread = spread(m2);
+  const s2 = measure(sceneGif, 'subject');
+  console.log(`scene lock: marker spread ${markerSpread.toFixed(2)} px; subject travels ${spread(s2).toFixed(1)} px`);
+  assert(markerSpread <= 1, `the scene holds still within 1 px (${markerSpread.toFixed(2)})`);
+  // Over the ground the subject moved by its own motion less the camera's: frame 0 to the last.
+  const f0 = frames[0], fz = frames[frames.length - 1];
+  const wantDx = (fz.subject[0] - fz.bg[0]) - (f0.subject[0] - f0.bg[0]);
+  const wantDy = (fz.subject[1] - fz.bg[1]) - (f0.subject[1] - f0.bg[1]);
+  const got = [s2[s2.length - 1].x - s2[0].x, s2[s2.length - 1].y - s2[0].y];
+  assert(Math.abs(got[0] - wantDx) <= 1 && Math.abs(got[1] - wantDy) <= 1,
+    `the subject moves over the ground as it flew (${got.map((v) => v.toFixed(1))} vs ${wantDx}, ${wantDy})`);
 
-// The lock comes back the next time.
-press('escape');
-eq(app.state.mode, 'image', 'Escape closes the stabilize view');
-press('b');
-waitFor(() => app.burst.active && app.burst.session.ready() && view.crop, 'open again');
-eq(view.lock, 'scene', 'the last lock used');
+  // The lock comes back the next time.
+  press('escape');
+  eq(app.state.mode, 'image', 'Escape closes the stabilize view');
+  press('b');
+  waitFor(() => app.burst.active && app.burst.session.ready() && view.crop, 'open again');
+  eq(view.lock, 'scene', 'the last lock used');
 
-console.log('test_burst_stabilize PASSED');
+  console.log('test_burst_stabilize PASSED');
+}

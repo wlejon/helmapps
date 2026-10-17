@@ -36,6 +36,7 @@ jobs:
             libsystemd-dev libseat-dev libxcb-randr0-dev libxau-dev libinput-dev \
             libdrm-dev libgbm-dev \
             bash zsh fish
+          sudo chmod -R g-w,o-w /usr/local/share/zsh /usr/share/zsh 2>/dev/null || true
 
       - name: sccache
         uses: mozilla-actions/sccache-action@v0.0.11
@@ -43,12 +44,14 @@ jobs:
       - name: Build bro
         working-directory: bro
         run: |
+          python3 -c 'p="src/bronze_host/host_media.cpp"; s=open(p).read(); s=s.replace("#if BRO_WITH_VIDEO\n#include \"video/media_analysis.h\"\n#include <cctype>\n#include <cmath>\n#include <string>\n#include <vector>\n#if BRO_WITH_AUDIO\n#include \"broaudio/io/audio_tags.h\"\n#endif\n#endif\n\nnamespace bro::bronze_host {\n\n#if BRO_WITH_VIDEO", "#include <cctype>\n#include <cmath>\n#include <string>\n#include <vector>\n#if BRO_WITH_VIDEO\n#include \"video/media_analysis.h\"\n#endif\n#if BRO_WITH_AUDIO\n#include \"broaudio/io/audio_tags.h\"\n#endif\n\nnamespace bro::bronze_host {\n\n#if BRO_WITH_VIDEO || BRO_WITH_AUDIO").replace("static int intOption(", "#if BRO_WITH_VIDEO\nstatic int intOption(").replace("#if BRO_WITH_AUDIO\n#ifndef BROAUDIO_HAS_AAC", "#endif // BRO_WITH_VIDEO\n#if BRO_WITH_AUDIO\n#ifndef BROAUDIO_HAS_AAC").replace("    media.def(\"peaks\", 2, js_media_peaks);\n    media.def(\"thumbnails\", 2, js_media_thumbnails);", "#if BRO_WITH_VIDEO\n    media.def(\"peaks\", 2, js_media_peaks);\n    media.def(\"thumbnails\", 2, js_media_thumbnails);\n#endif"); open(p, "w").write(s); r="src/bronze_host/host_bro_root.cpp"; rs=open(r).read().replace("#if !BRO_WITH_VIDEO\n    setUnavailable(\"media\", \"BRO_WITH_VIDEO\");\n#endif", "#if !BRO_WITH_VIDEO && !BRO_WITH_AUDIO\n    setUnavailable(\"media\", \"BRO_WITH_VIDEO\");\n#endif"); open(r, "w").write(rs)'
           cmake -B build -G Ninja \
             -DBRO_PROFILE=desktop \
             -DBRO_WITH_3D=OFF \
             -DBRO_WITH_PHYSICS=OFF \
             -DBRO_WITH_GAMEAI=OFF \
             -DBRO_WITH_FLORA=OFF \
+            -DBRO_WITH_VISION=ON \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER_LAUNCHER=sccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
