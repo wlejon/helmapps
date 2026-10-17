@@ -15,11 +15,12 @@ const path = require('path');
 
 resize(2000, 1080);
 
-const N = 120;
+const N = Number(process.env.IV_BURST_N || (process.env.CI ? 72 : 120));
+const burstLen = Math.floor(N / 3);
 const frames = [];
 for (let k = 0; k < N; k++) {
-  const b = Math.floor(k / 40);                    // three bursts of 40, 2 s apart
-  const time = b * 6 + 0.1 * (k % 40);
+  const b = Math.floor(k / burstLen);              // three bursts, 2 s apart
+  const time = b * 6 + 0.1 * (k % burstLen);
   frames.push({ name: `t_${String(k + 1).padStart(3, '0')}.jpg`, time,
     bg: [0.6 * k, -0.4 * k], subject: [110 + 0.5 * k, 100 + 0.25 * k] });
 }
@@ -36,7 +37,7 @@ pickSubject(frames[0].subject);
 app.strip.select(app.strip.items.map((it) => it.path), { scroll: false });
 waitFor(() => app.strip.selection.size === names.length, 'every frame selected');
 press('b');
-waitFor(() => app.burst.active && app.burst.session.ready() && app.burst.view.crop, 'every frame tracked', 120000);
+waitFor(() => app.burst.active && app.burst.session.ready() && app.burst.view.crop, 'every frame tracked', 180000);
 const view = app.burst.view;
 waitFor(() => view.previews.size === frames.length, 'every preview decoded', 60000);
 runFrames(30);

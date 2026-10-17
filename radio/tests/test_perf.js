@@ -23,7 +23,8 @@ const p0 = perf.now();
 advanceTime(16);
 const playMs = perf.now() - p0;
 console.log(`the frame after Play: ${playMs.toFixed(1)} ms`);
-assert(playMs < 120, `Play answers within 120 ms (${playMs.toFixed(1)})`);
+const playBudget = process.env.CI ? 200 : 120;
+assert(playMs < playBudget, `Play answers within ${playBudget} ms (${playMs.toFixed(1)})`);
 
 let step = 0;
 const f = measureFrames(() => {

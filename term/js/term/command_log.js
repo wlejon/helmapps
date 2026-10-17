@@ -36,12 +36,17 @@ export class CommandLog extends Emitter {
             this.state = 'prompt';
         } else if (m === 'C') {
             this.state = 'running';
-            this.runningSince = now;
+            if (!this.runningSince) this.runningSince = now;
             // Events arrive after the parser has moved on, so the running
             // record is the last one with output that has not finished (if
-            // the command already finished, D below files the time).
-            const running = [...list].reverse().find((c) => c.output && !c.finished);
-            if (running) this._time(running.prompt.row).start = now;
+            // the command already finished in the same PTY batch, fall back
+            // to the latest record with output that has no start time yet).
+            const running = [...list].reverse().find((c) => c.output && !c.finished)
+                || [...list].reverse().find((c) => c.output && !this.times.has(c.prompt.row));
+            if (running) {
+                const t = this._time(running.prompt.row);
+                if (!t.start) t.start = now;
+            }
             this.emit('start', running || cur);
         } else if (m === 'D') {
             this.state = 'prompt';
@@ -50,9 +55,9 @@ export class CommandLog extends Emitter {
             let duration = null;
             if (done) {
                 const t = this._time(done.prompt.row);
-                if (!t.start) t.start = this.runningSince;
-                if (t.start && !t.end) t.end = now;
-                duration = t.start ? t.end - t.start : null;
+                if (!t.start) t.start = this.runningSince || now;
+                if (!t.end) t.end = Math.max(t.start, now);
+                duration = t.end - t.start;
             } else if (this.runningSince) {
                 duration = now - this.runningSince;
             }
@@ -77,8 +82,8 @@ export class CommandLog extends Emitter {
     /// running (then `elapsed` says how long so far).
     duration(cmd) {
         const t = cmd && this.times.get(cmd.prompt.row);
-        if (!t || !t.start) return null;
-        return t.end ? t.end - t.start : null;
+        if (!t || !t.start || !t.end) return null;
+        return t.end - t.start;
     }
 
     elapsed(cmd) {

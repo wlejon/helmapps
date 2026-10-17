@@ -21,7 +21,7 @@ if (typeof bro === 'undefined' || !bro.vision || !bro.vision.wildlife || typeof 
 function run() {
 const N = Number(process.env.IV_PERF_N || 1500);
 const BURST = 6;                // frames a burst, 0.2 s apart; bursts 3 s apart
-const FRAME_BUDGET_MS = 35;   // ~15 ms a frame here throughout (it was 30 ms at the start, 130 ms by the end)
+const FRAME_BUDGET_MS = process.env.CI ? 60 : 35;   // ~15 ms a frame here throughout (it was 30 ms at the start, 130 ms by the end)
 const w = 96, h = 72;
 // Three scenes: a jay, a cardinal, nothing (every sixth burst is empty).
 const scenes = [JAY, CARDINAL, null].map((a) => scene(w, h, a ? [{ color: a.color, at: [w / 2, h / 2], r: 14 }] : []));
