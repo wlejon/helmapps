@@ -268,8 +268,10 @@ export class EditorView {
     const mono = this.settings.get('monospace') !== false;
     const tabWidth = clamp(Number(this.settings.get('tabWidth')) || 4, 1, 16);
     const fontFamily = mono ? 'var(--font-mono)' : 'var(--font-ui)';
-    const lineHeight = `${Math.round(fontSize * 1.55)}px`;
+    const lineHeightPx = Math.round(fontSize * 1.55);
+    const lineHeight = `${lineHeightPx}px`;
 
+    entry.lineHeightPx = lineHeightPx;
     entry.textarea.classList.toggle('wrap', wrap);
     entry.textarea.classList.toggle('nowrap', !wrap);
     entry.textarea.style.fontFamily = fontFamily;
@@ -282,6 +284,9 @@ export class EditorView {
     entry.gutter.style.fontFamily = fontFamily;
     entry.gutter.style.fontSize = `${fontSize}px`;
     entry.gutter.style.lineHeight = lineHeight;
+
+    entry.renderedKey = '';
+    this.syncGutter(entry);
   }
 
   applySettings() {

@@ -415,9 +415,12 @@ export class FindBar {
         usedExec = false;
       }
     }
+    doc.setText(nextText, { markDirty: true });
     if (!usedExec) {
-      doc.setText(nextText, { markDirty: true });
       this.editorView.refreshDoc(doc);
+    } else if (entry) {
+      this.editorView.syncGutter(entry);
+      this.editorView.updateCaret(entry);
     }
     if (prevFocus && prevFocus !== ta && prevFocus.focus) prevFocus.focus();
     if (this.onDocMutated) this.onDocMutated(doc);

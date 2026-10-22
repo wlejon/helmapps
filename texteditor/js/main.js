@@ -139,7 +139,7 @@ const externalKeepBtn = h('button.btn.small', {
   text: 'Keep mine',
   onclick: () => keepMineOnExternalChange(),
 });
-const externalBanner = h('div.te-banner.warn.te-external-banner.hidden',
+const externalBanner = h('div#external-banner.te-banner.warn.te-external-banner.hidden',
   icon('alert'),
   externalBannerText,
   h('div.te-banner-actions', externalReloadBtn, externalKeepBtn),
@@ -311,6 +311,9 @@ function onTabActivated(doc) {
 function onDocumentEdited(doc) {
   tabManager.updateDoc(doc);
   updateStatusBar(doc);
+  if (findBar.visible) {
+    findBar.recompute({ selectFirst: false });
+  }
   toolbar.refresh();
   session.scheduleAutosave(doc);
 }
@@ -576,6 +579,9 @@ async function reloadActiveFromDisk() {
     await session.clearRecoveryForDoc(doc);
     editorView.refreshDoc(doc);
     tabManager.updateDoc(doc);
+    if (findBar.visible) {
+      findBar.recompute({ selectFirst: false });
+    }
     updateBanners(doc);
     updateStatusBar(doc);
     toolbar.refresh();
@@ -590,9 +596,11 @@ function keepMineOnExternalChange() {
   const doc = tabManager.activeDoc();
   if (!doc) return;
   doc.externalChanged = false;
+  doc.deletedOnDisk = false;
   doc.dirty = true;
   tabManager.updateDoc(doc);
   updateBanners(doc);
+  toolbar.refresh();
 }
 
 // ---- Crash Recovery Restore / Discard -----------------------------------------
