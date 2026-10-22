@@ -54,6 +54,8 @@ const state = {
   filterQuery: '',
   searchRecursive: false,
   searching: false,
+  get showHidden() { return !!settings.get('showHidden'); },
+  set showHidden(v) { settings.set('showHidden', !!v); },
   loading: false,
   done: false,
   clipboard: null,        // { mode: 'copy'|'cut', paths: [] }
@@ -77,6 +79,7 @@ const vfsBanner = h('div.files-banner.hidden',
 const trash = new TrashManager({
   state,
   onChanged: () => model.reload({ preserveSelection: true }),
+  onUndoRequest: () => transfer.undo(),
 });
 
 const model = new DirectoryModel({
@@ -175,6 +178,7 @@ commands.addAll([
   { id: 'search', label: 'Search…', icon: 'search', keys: ['Mod+F'],
     inText: true, run: () => search.focus() },
   { id: 'toggle-hidden', label: 'Show Hidden Files', icon: 'eye', keys: ['Mod+H'],
+    inText: true,
     checked: () => settings.get('showHidden'),
     run: () => {
       settings.set('showHidden', !settings.get('showHidden'));

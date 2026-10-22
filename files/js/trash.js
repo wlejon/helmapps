@@ -16,9 +16,10 @@ const fs = require('fs');
 const path = require('path');
 
 export class TrashManager {
-  constructor({ state, onChanged }) {
+  constructor({ state, onChanged, onUndoRequest }) {
     this.state = state;
     this.onChanged = onChanged;
+    this.onUndoRequest = onUndoRequest || null;
     this.provider = null; // optional custom/mock provider for tests
 
     this.restoreBtn = h('button.btn.small', {
@@ -196,6 +197,10 @@ export class TrashManager {
         key: 'trash',
         action: 'Undo',
         onAction: async () => {
+          if (this.onUndoRequest) {
+            await this.onUndoRequest();
+            return;
+          }
           for (const t of trashedIds) {
             if (t.id && typeof backend.restoreTrash === 'function') {
               await backend.restoreTrash(t.id);

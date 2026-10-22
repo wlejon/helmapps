@@ -70,78 +70,55 @@ export class TransferManager {
     this.undoStack.push(entry);
     if (this.undoStack.length > 50) this.undoStack.shift();
     this.redoStack = [];
+    if (this.onStatusUpdate) this.onStatusUpdate();
   }
 
   canUndo() {
     if (this.state.disableVfs) return false;
-    if (this.undoStack.length > 0) return true;
-    const vfs = this.vfs;
-    return !!(vfs && typeof vfs.canUndo === 'function' && vfs.canUndo());
+    return this.undoStack.length > 0;
   }
 
   canRedo() {
     if (this.state.disableVfs) return false;
-    if (this.redoStack.length > 0) return true;
-    const vfs = this.vfs;
-    return !!(vfs && typeof vfs.canRedo === 'function' && vfs.canRedo());
+    return this.redoStack.length > 0;
   }
 
   async undo() {
     if (!this.canUndo()) return false;
-    const vfs = this.vfs;
-    if (this.undoStack.length > 0) {
-      const entry = this.undoStack.pop();
-      try {
-        if (entry.useVfsUndo && vfs && typeof vfs.canUndo === 'function' && vfs.canUndo()) {
-          await vfs.undo();
-        } else if (entry.undo) {
-          await entry.undo();
-        }
-        this.redoStack.push(entry);
-        await this.model.reload({ preserveSelection: true });
-        toast('Undid last action', { icon: 'undo', key: 'undo' });
-        return true;
-      } catch (err) {
-        toast(`Could not undo: ${err.message || err}`, { error: true });
-        return false;
+    const entry = this.undoStack.pop();
+    try {
+      if (entry.undo) {
+        await entry.undo();
       }
-    }
-    if (vfs && typeof vfs.undo === 'function' && vfs.canUndo()) {
-      const ok = await vfs.undo();
+      this.redoStack.push(entry);
       await this.model.reload({ preserveSelection: true });
-      if (ok) toast('Undid last action', { icon: 'undo', key: 'undo' });
-      return ok;
+      if (this.onStatusUpdate) this.onStatusUpdate();
+      toast('Undid last action', { icon: 'undo', key: 'undo' });
+      return true;
+    } catch (err) {
+      if (this.onStatusUpdate) this.onStatusUpdate();
+      toast(`Could not undo: ${err.message || err}`, { error: true });
+      return false;
     }
-    return false;
   }
 
   async redo() {
     if (!this.canRedo()) return false;
-    const vfs = this.vfs;
-    if (this.redoStack.length > 0) {
-      const entry = this.redoStack.pop();
-      try {
-        if (entry.useVfsUndo && vfs && typeof vfs.canRedo === 'function' && vfs.canRedo()) {
-          await vfs.redo();
-        } else if (entry.redo) {
-          await entry.redo();
-        }
-        this.undoStack.push(entry);
-        await this.model.reload({ preserveSelection: true });
-        toast('Redid action', { icon: 'redo', key: 'undo' });
-        return true;
-      } catch (err) {
-        toast(`Could not redo: ${err.message || err}`, { error: true });
-        return false;
+    const entry = this.redoStack.pop();
+    try {
+      if (entry.redo) {
+        await entry.redo();
       }
-    }
-    if (vfs && typeof vfs.redo === 'function' && vfs.canRedo()) {
-      const ok = await vfs.redo();
+      this.undoStack.push(entry);
       await this.model.reload({ preserveSelection: true });
-      if (ok) toast('Redid action', { icon: 'redo', key: 'undo' });
-      return ok;
+      if (this.onStatusUpdate) this.onStatusUpdate();
+      toast('Redid action', { icon: 'redo', key: 'undo' });
+      return true;
+    } catch (err) {
+      if (this.onStatusUpdate) this.onStatusUpdate();
+      toast(`Could not redo: ${err.message || err}`, { error: true });
+      return false;
     }
-    return false;
   }
 
   /** Run an async operation and show progress in the status bar if it takes > 300 ms. */
@@ -229,20 +206,14 @@ export class TransferManager {
     try {
       if (vfs && typeof vfs.move === 'function') {
         await vfs.move(item.path, dest);
-        this.pushUndo({
-          type: 'rename',
-          useVfsUndo: true,
-          undo: async () => { await fs.promises.rename(dest, item.path); },
-          redo: async () => { await fs.promises.rename(item.path, dest); },
-        });
       } else {
         await fs.promises.rename(item.path, dest);
-        this.pushUndo({
-          type: 'rename',
-          undo: async () => { await fs.promises.rename(dest, item.path); },
-          redo: async () => { await fs.promises.rename(item.path, dest); },
-        });
       }
+      this.pushUndo({
+        type: 'rename',
+        undo: async () => { await fs.promises.rename(dest, item.path); },
+        redo: async () => { await fs.promises.rename(item.path, dest); },
+      });
       await this.model.reload({ select: dest });
       return dest;
     } catch (err) {
@@ -379,7 +350,6 @@ export class TransferManager {
     if (createdOrMoved.length > 0) {
       this.pushUndo({
         type: copy ? 'copy' : 'move',
-        useVfsUndo: undoOps.length === 1,
         undo: async () => {
           for (const op of undoOps.slice().reverse()) await op.undo();
         },
@@ -417,7 +387,6 @@ export class TransferManager {
     if (created.length) {
       this.pushUndo({
         type: 'duplicate',
-        useVfsUndo: created.length === 1,
         undo: async () => {
           for (const c of created) await fs.promises.rm(c.dest, { recursive: true, force: true });
         },

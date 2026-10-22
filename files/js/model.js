@@ -46,6 +46,7 @@ export class DirectoryModel {
     this.onError = onError;
 
     this.rawEntries = [];
+    this.recursiveEntries = null;
     this.entries = [];
     this.watcher = null;
     this.loadSeq = 0;
@@ -164,6 +165,7 @@ export class DirectoryModel {
     this.state.done = false;
     this.state.filterQuery = '';
     this.state.searchRecursive = false;
+    this.recursiveEntries = null;
     if (norm !== TRASH_URI) {
       this.settings.set('lastFolder', norm);
     }
@@ -312,9 +314,21 @@ export class DirectoryModel {
     return out.filter(Boolean);
   }
 
+  setRecursiveEntries(entries) {
+    this.recursiveEntries = Array.isArray(entries) ? entries.slice() : null;
+  }
+
   applyFilterAndSort() {
-    const showHidden = this.settings.get('showHidden');
+    const showHidden = this.state && typeof this.state.showHidden === 'boolean'
+      ? this.state.showHidden
+      : !!this.settings.get('showHidden');
     const isTrash = this.state.currentPath === TRASH_URI;
+
+    if (this.state.searchRecursive && Array.isArray(this.recursiveEntries)) {
+      const visible = this.recursiveEntries.filter((e) => showHidden || !(e.isHidden || isHidden(e.name)));
+      this.entries = this.sortList(visible);
+      return;
+    }
 
     let visible = isTrash
       ? this.rawEntries.slice()

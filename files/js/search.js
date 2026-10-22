@@ -86,6 +86,7 @@ export class SearchController {
     this.searchSeq++;
     this.state.searching = false;
     this.state.searchRecursive = false;
+    this.model.setRecursiveEntries(null);
     this.bannerEl.classList.add('hidden');
     this.state.filterQuery = query;
     this.model.applyFilterAndSort();
@@ -96,6 +97,7 @@ export class SearchController {
     this.searchSeq++;
     this.state.searching = false;
     this.state.searchRecursive = false;
+    this.model.setRecursiveEntries(null);
     this.state.filterQuery = '';
     this.input.value = '';
     this.clearBtn.classList.add('hidden');
@@ -117,7 +119,6 @@ export class SearchController {
     this.bannerEl.classList.remove('hidden');
     this.bannerText.textContent = `Searching for “${query}” in ${path.basename(rootDir) || rootDir}…`;
 
-    const showHidden = this.settings.get('showHidden');
     const searchApi = api('search');
     const results = [];
 
@@ -131,19 +132,21 @@ export class SearchController {
 
     const flush = () => {
       if (seq !== this.searchSeq) return;
-      this.model.entries = this.model.sortList(results);
+      this.model.setRecursiveEntries(results);
+      this.model.applyFilterAndSort();
+      const count = this.model.entries.length;
       this.bannerText.textContent = this.state.searching
-        ? `Searching for “${query}”… (${formatCount(results.length, 'match', 'matches')})`
-        : `Found ${formatCount(results.length, 'match', 'matches')} for “${query}”`;
+        ? `Searching for “${query}”… (${formatCount(count, 'match', 'matches')})`
+        : `Found ${formatCount(count, 'match', 'matches')} for “${query}”`;
       if (this.onUpdate) this.onUpdate();
     };
 
     // Walk directory tree asynchronously, streaming matches
-    const queue = [rootDir];
+    const queue = [{ dir: rootDir, hiddenAncestor: false }];
     let processedSinceFlush = 0;
 
     while (queue.length > 0 && seq === this.searchSeq) {
-      const dir = queue.shift();
+      const { dir, hiddenAncestor } = queue.shift();
       let dirents = [];
       try {
         dirents = await fs.promises.readdir(dir, { withFileTypes: true });
@@ -154,12 +157,11 @@ export class SearchController {
 
       for (const d of dirents) {
         if (!d || !d.name || d.name.startsWith('.brovfs-')) continue;
-        const hidden = isHidden(d.name);
-        if (hidden && !showHidden) continue;
+        const hidden = hiddenAncestor || isHidden(d.name);
 
         const fullPath = path.join(dir, d.name);
         const isDir = d.isDirectory();
-        if (isDir) queue.push(fullPath);
+        if (isDir) queue.push({ dir: fullPath, hiddenAncestor: hidden });
 
         const score = matchScore(d.name);
         if (score !== null) {
@@ -177,6 +179,7 @@ export class SearchController {
           results.push({
             path: fullPath,
             name: d.name,
+            nameLower: d.name.toLowerCase(),
             relDir: relDir ? relDir.replace(/\\/g, '/') : '',
             isDirectory: isDir,
             isHidden: hidden,
