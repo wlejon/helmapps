@@ -67,7 +67,7 @@ for appdir in "$here"/*/; do
     [ -f "$appdir/bro.json" ] || continue
     [ -n "$only_app" ] && [ "$app" != "$only_app" ] && continue
     if [ -n "$bronze_bin" ] && [ -z "$filter" ] && [ -f "$appdir/js/main.js" ]; then
-        if "$bronze_bin" check "$appdir/js/main.js" > "$work/$app-check.log" 2>&1; then
+        if "$bronze_bin" check "$appdir/js/main.js" --module-root /="$here" > "$work/$app-check.log" 2>&1; then
             pass=$((pass + 1)); printf '  PASS  %s/bronze-check (0s)\n' "$app"
         else
             fail=$((fail + 1)); failed+=("$app/bronze-check")
