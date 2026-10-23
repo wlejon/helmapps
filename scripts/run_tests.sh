@@ -56,10 +56,25 @@ fi
 
 pass=0; fail=0; skip=0
 failed=()
+bronze_bin=${BRONZE_BIN:-}
+if [ -z "$bronze_bin" ]; then
+    for b in "$here/../bronze/build/src/cli/bronze$exe" "$(dirname "$headless")/_deps/bronze-build/src/cli/bronze$exe"; do
+        if [ -n "$b" ] && [ -x "$b" ]; then bronze_bin=$b; break; fi
+    done
+fi
 for appdir in "$here"/*/; do
     app=$(basename "$appdir")
     [ -f "$appdir/bro.json" ] || continue
     [ -n "$only_app" ] && [ "$app" != "$only_app" ] && continue
+    if [ -n "$bronze_bin" ] && [ -z "$filter" ] && [ -f "$appdir/js/main.js" ]; then
+        if "$bronze_bin" check "$appdir/js/main.js" > "$work/$app-check.log" 2>&1; then
+            pass=$((pass + 1)); printf '  PASS  %s/bronze-check (0s)\n' "$app"
+        else
+            fail=$((fail + 1)); failed+=("$app/bronze-check")
+            printf '  FAIL  %s/bronze-check\n' "$app"
+            cat "$work/$app-check.log" | sed 's/^/        /'
+        fi
+    fi
     for t in "$appdir"tests/test_*.js; do
         [ -f "$t" ] || continue
         name=$(basename "$t" .js)
