@@ -86,7 +86,10 @@ for appdir in "$here"/*/; do
         # The run grants the app what its bro.json declares, as a user who
         # allowed every prompt would, so a test exercises the app as it runs;
         # what it did not declare stays refused, as it would for the user.
-        XDG_DATA_HOME="$home/data" BRO_APP_HOME="$home" timeout "$timeout_s" "$headless" --grant declared --width 1280 --height 800 "${appdir%/}" "$t" > "$log" 2>&1
+        # The XDG data home is apart from the app's own data dir
+        # (BRO_APP_HOME/data): bro's install roots live under the former, and
+        # an app may not write a folder holding them.
+        XDG_DATA_HOME="$home/xdg-data" BRO_APP_HOME="$home" timeout "$timeout_s" "$headless" --grant declared --width 1280 --height 800 "${appdir%/}" "$t" > "$log" 2>&1
         rc=$?
         secs=$(( $(date +%s) - start ))
         if [ $rc -eq 0 ]; then
