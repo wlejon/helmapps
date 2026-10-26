@@ -175,7 +175,7 @@ waitFor(() => focusTag(), 'the mallard\'s tag');
 away();
 
 // ---- the setting across a start of the app -------------------------------------------------
-const child = spawnSync(process.execPath, ['--width', '1280', '--height', '800', bro.appDir, path.join(bro.appDir, 'tests', 'outlines_restart.js')], {
+const child = spawnSync(process.execPath, ['--grant', 'declared,env', '--width', '1280', '--height', '800', bro.appDir, path.join(bro.appDir, 'tests', 'outlines_restart.js')], {
   env: { ...process.env, IV_OUTLINES_EXPECT: JSON.stringify({ dir }) },
   encoding: 'utf8',
   timeout: 90000,

@@ -42,7 +42,7 @@ eq(app.settings.get('queueIndex'), want.index, 'and the place in it');
 assert(Math.abs(app.settings.get('position') - want.position) < 0.6, 'the position is saved');
 
 // The second start: a separate process, the same home, nothing else shared.
-const child = spawnSync(process.execPath, ['--width', '1280', '--height', '800', bro.appDir, path.join(bro.appDir, 'tests', 'resume_check.js')], {
+const child = spawnSync(process.execPath, ['--grant', 'declared,env', '--width', '1280', '--height', '800', bro.appDir, path.join(bro.appDir, 'tests', 'resume_check.js')], {
   env: { ...process.env, MUSIC_EXPECT: JSON.stringify(want) },
   encoding: 'utf8',
   timeout: 60000,

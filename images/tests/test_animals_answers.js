@@ -205,7 +205,7 @@ waitFor(() => JSON.parse(fs.readFileSync(file, 'utf-8')).answers.length === W.an
 const want = {};
 for (const it of app.shownItems()) want[path.basename(it.path)] = { tag: it.tag, mine: it.mine };
 eq(want['b_01.jpg'], { tag: 'Mallard ×4', mine: true }, 'what the restart should show');
-const child = spawnSync(process.execPath, ['--width', '1280', '--height', '800', bro.appDir, path.join(bro.appDir, 'tests', 'answers_restart.js')], {
+const child = spawnSync(process.execPath, ['--grant', 'declared,env', '--width', '1280', '--height', '800', bro.appDir, path.join(bro.appDir, 'tests', 'answers_restart.js')], {
   env: { ...process.env, IV_ANSWERS_EXPECT: JSON.stringify({ dir, want, scope: 'burst' }) },
   encoding: 'utf8',
   timeout: 90000,
