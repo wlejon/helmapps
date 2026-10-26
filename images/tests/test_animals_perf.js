@@ -7,7 +7,7 @@
 // bro.vision.wildlife.labels() is called O(n) times over the whole run, not
 // once a photo a result (which made the 300th result cost 400 ms a frame).
 
-import { app, waitFor, eq, fixtureDir } from '/lib/test.js';
+import { app, waitFor, eq, fixtureDir, timeFrame } from '/lib/test.js';
 import { stubTable, scene, JAY, CARDINAL, TABLE } from '/app/tests/wildlife.js';
 import { datedJpeg } from '/app/tests/burst.js';
 import { shown } from '/app/tests/images.js';
@@ -76,9 +76,7 @@ const end = Date.now() + 300000;
 let done = false;
 while (Date.now() < end) {
   k = Math.min(9, Math.floor((a.results.size / N) * 10));
-  const t = perf.now();
-  advanceTime(16);
-  const dt = perf.now() - t;
+  const dt = timeFrame();
   frames++;
   if (dt > tenths[k]) tenths[k] = dt;
   if (dt > worst) worst = dt;
@@ -87,11 +85,7 @@ while (Date.now() < end) {
 }
 assert(done, `every photo analysed (${a.results.size} of ${N})`);
 // What the last results' frames left to draw.
-for (let i = 0; i < 4; i++) {
-  const t = perf.now();
-  advanceTime(16);
-  worst = Math.max(worst, perf.now() - t);
-}
+for (let i = 0; i < 4; i++) worst = Math.max(worst, timeFrame());
 console.log(`Find Animals over ${N} photos: ${frames} frames, worst ${worst.toFixed(1)} ms; worst a tenth: ` +
   `${tenths.map((x) => x.toFixed(0)).join(' ')} ms; labels() ${calls} calls (${(calls / N).toFixed(2)} a photo)`);
 eq(app.state.path, first, 'the photo stays on screen');

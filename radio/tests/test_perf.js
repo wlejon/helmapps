@@ -31,7 +31,9 @@ const f = measureFrames(() => {
   const t = step++ / 40;
   app.moveTo(0.8 * Math.cos(t), 0.8 * Math.sin(t), step % 30 === 0);
   return app.state.radio.playhead > 40 * 48000 && document.querySelectorAll('.tl-card.played').length >= 3;
-}, '40 s of program while dragging', 60000);
+  // 40 s of program is 2500 frames of the page clock whatever the machine; the
+  // wall-clock limit only catches a stream that never gets there.
+}, '40 s of program while dragging', 150000);
 console.log(`playing + dragging: ${f.frames} frames, worst ${f.maxMs.toFixed(1)} ms, mean ${f.avgMs.toFixed(1)} ms, ${f.slow} over 16.7 ms`);
 assert(f.maxMs < FRAME_BUDGET_MS, `no frame over ${FRAME_BUDGET_MS} ms (worst ${f.maxMs.toFixed(1)})`);
 
