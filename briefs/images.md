@@ -6,7 +6,7 @@
 | id | `helm.images` |
 | Replaces | Gwenview, Eye of GNOME, Photos |
 | Size | about 2000 lines |
-| Permissions | none |
+| Permissions | `["files", "net", "spawn"]`: photo folders, model downloads, opening other apps |
 
 ## What it is
 

@@ -10,7 +10,7 @@
     "fileTypes": [
         { "name": "WAV Audio", "mimeTypes": ["audio/wav", "audio/x-wav"], "extensions": ["wav"] }
     ],
-    "permissions": [],
+    "permissions": ["mic"],
     "app": ".",
     "width": 1060,
     "height": 700,

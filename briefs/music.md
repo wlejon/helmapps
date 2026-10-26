@@ -6,7 +6,7 @@
 | id | `helm.music` |
 | Replaces | Elisa, Rhythmbox, Lollypop |
 | Size | about 3000 lines |
-| Permissions | none |
+| Permissions | `["files", "spawn"]`: the Music folder, showing a song in Files |
 
 ## What it is
 

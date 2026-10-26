@@ -6,7 +6,7 @@
 | id | `helm.texteditor` |
 | Replaces | Kate, gedit, Notepad |
 | Size | about 2500 lines |
-| Permissions | none |
+| Permissions | `["files"]`: files named on its command line, as well as those picked |
 
 ## What it is
 

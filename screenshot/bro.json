@@ -18,7 +18,7 @@
         { "id": "full", "name": "Capture Full Screen", "args": ["--full"] },
         { "id": "region", "name": "Capture Region", "args": ["--region"] }
     ],
-    "permissions": ["wl"],
+    "permissions": ["wl", "files", "spawn"],
     "app": ".",
     "width": 980,
     "height": 700,

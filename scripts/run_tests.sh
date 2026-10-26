@@ -83,10 +83,10 @@ for appdir in "$here"/*/; do
         mkdir -p "$home"
         log="$work/$app-$name.log"
         start=$(date +%s)
-        # The app's own folder is trusted, so a test may use the privileged
-        # namespaces its bro.json asks for ("permissions": remote's remote).
-        trusted=$(cd "$appdir" && (pwd -W 2>/dev/null || pwd))
-        XDG_DATA_HOME="$home/data" BRO_TRUSTED_APP_DIR="$trusted" BRO_APP_HOME="$home" timeout "$timeout_s" "$headless" --width 1280 --height 800 "${appdir%/}" "$t" > "$log" 2>&1
+        # The run grants the app what its bro.json declares, as a user who
+        # allowed every prompt would, so a test exercises the app as it runs;
+        # what it did not declare stays refused, as it would for the user.
+        XDG_DATA_HOME="$home/data" BRO_APP_HOME="$home" timeout "$timeout_s" "$headless" --grant declared --width 1280 --height 800 "${appdir%/}" "$t" > "$log" 2>&1
         rc=$?
         secs=$(( $(date +%s) - start ))
         if [ $rc -eq 0 ]; then

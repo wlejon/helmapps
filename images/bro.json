@@ -13,7 +13,7 @@
           "extensions": ["png", "jpg", "jpeg", "jpe", "gif", "webp", "bmp", "svg", "ico", "tif", "tiff", "avif", "heic", "heif", "hif"] },
         { "name": "Folder", "mimeTypes": ["inode/directory"] }
     ],
-    "permissions": [],
+    "permissions": ["files", "net", "spawn"],
     "app": ".",
     "width": 1000,
     "height": 700,

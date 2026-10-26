@@ -3,6 +3,7 @@
     "name": "Kit Tests",
     "description": "The helm app kit's own tests (lib/); not a user-facing app",
     "display": false,
+    "permissions": ["spawn"],
     "app": ".",
     "width": 900,
     "height": 600,

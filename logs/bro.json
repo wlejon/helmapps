@@ -14,7 +14,7 @@
             "extensions": ["log", "jsonl", "txt"]
         }
     ],
-    "permissions": ["vfs"],
+    "permissions": ["files"],
     "app": ".",
     "width": 1100,
     "height": 720,

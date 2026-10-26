@@ -12,7 +12,7 @@
           "mimeTypes": ["audio/mpeg", "audio/flac", "audio/x-flac", "audio/ogg", "audio/x-vorbis+ogg", "audio/opus", "audio/x-opus+ogg", "audio/wav", "audio/x-wav", "audio/mp4", "audio/x-m4a"],
           "extensions": ["mp3", "flac", "ogg", "oga", "opus", "wav", "m4a", "m4b"] }
     ],
-    "permissions": ["mpris"],
+    "permissions": ["files", "spawn"],
     "app": ".",
     "width": 1100,
     "height": 720,

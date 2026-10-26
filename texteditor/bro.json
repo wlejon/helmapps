@@ -27,7 +27,7 @@
     "actions": [
         { "id": "new-window", "name": "New Window", "args": ["--new-window"] }
     ],
-    "permissions": [],
+    "permissions": ["files"],
     "app": ".",
     "width": 1000,
     "height": 700,

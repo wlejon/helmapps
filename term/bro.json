@@ -7,6 +7,7 @@
     "categories": ["System", "TerminalEmulator"],
     "keywords": ["terminal", "shell", "console", "command line", "prompt", "term"],
     "singleInstance": true,
+    "permissions": ["spawn", "files"],
     "actions": [
         { "id": "new-window", "name": "New Window", "args": ["--new-window"] }
     ],

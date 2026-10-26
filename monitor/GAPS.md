@@ -18,4 +18,4 @@
 
 ## 4. Resolved: Cross-platform process listing and termination (`bro.sys.processes`)
 - **Where:** `brosys` (`bro.sys.processes.list`, `bro.sys.processes.kill`, `bro.sys.listProcesses`, `bro.sys.killProcess`)
-- **Status:** Resolved. `helm.monitor` requests `"permissions": ["sys"]`, polls `bro.sys.processes.list()` when `/proc` is absent, computes per-process CPU % deltas from `cpuTimeMs` (`userTimeMs + kernelTimeMs`) over elapsed wall-clock time, and wires **End Process** (`SIGTERM` / `15`, `Delete`) and **Kill Process** (`SIGKILL` / `9`, `Shift+Delete` with confirmation dialog) to `bro.sys.processes.kill(pid, signal)`.
+- **Status:** Resolved. `helm.monitor` declares `"permissions": ["sys.processes", "spawn"]`, polls `bro.sys.processes.list()` when `/proc` is absent, computes per-process CPU % deltas from `cpuTimeMs` (`userTimeMs + kernelTimeMs`) over elapsed wall-clock time, and wires **End Process** (`SIGTERM` / `15`, `Delete`) and **Kill Process** (`SIGKILL` / `9`, `Shift+Delete` with confirmation dialog) to `bro.sys.processes.kill(pid, signal)`.

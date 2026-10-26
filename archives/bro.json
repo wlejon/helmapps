@@ -24,7 +24,7 @@
             "extensions": ["tar.gz", "tgz", "gz"]
         }
     ],
-    "permissions": [],
+    "permissions": ["files"],
     "app": ".",
     "width": 1020,
     "height": 680,

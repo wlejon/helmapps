@@ -7,7 +7,7 @@
     "categories": ["AudioVideo", "Audio", "Music"],
     "keywords": ["radio", "music", "generative", "endless", "ambient", "stream", "yue"],
     "singleInstance": true,
-    "permissions": [],
+    "permissions": ["net", "files"],
     "app": ".",
     "width": 1100,
     "height": 720,

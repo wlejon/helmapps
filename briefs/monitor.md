@@ -6,7 +6,7 @@
 | id | `helm.monitor` |
 | Replaces | System Monitor (KDE / GNOME), btop, Task Manager |
 | Size | about 2500 lines |
-| Permissions | none |
+| Permissions | `["sys.processes", "spawn"]`: the process table, opening Disk Usage |
 
 ## What it is
 

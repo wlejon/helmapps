@@ -6,7 +6,7 @@
 | id | `helm.screenshot` |
 | Replaces | Spectacle, GNOME Screenshot, Snipping Tool |
 | Size | about 2000 lines |
-| Permissions | `["wl"]` (screencopy) |
+| Permissions | `["wl", "files", "spawn"]`: screencopy, the Screenshots folder, showing a shot in Files |
 
 ## What it is
 
@@ -18,9 +18,9 @@ later.
 
 Under helm on Linux, the app is a Wayland client and captures through
 `bro.wl.captureOutput(outputIndex)` (wlr-screencopy), which returns RGBA
-pixels. That needs `"permissions": ["wl"]` in `bro.json`, plus trust (see
-`../bro/docs/apps.md`, Permissions; during development, run with
-`BRO_TRUST_ALL=1` or list the app in your permissions file). If
+pixels. That needs `"wl"` in bro.json's `permissions`, and the user's
+yes when the app first captures (see `../bro/docs/apps.md`, Permissions;
+during development, `bro --dev-mode on` or `--grant declared`). If
 `bro.wl.hasScreencopy()` is false (another compositor, Windows, a test),
 the app shows an empty state saying capture is unavailable here. It can
 still open and annotate an existing image, so it is useful anyway and

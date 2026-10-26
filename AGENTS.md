@@ -95,9 +95,16 @@ GAPS.md and code to what actually runs.
    use `lib/dialog.js`. Never use `localStorage` for settings; use
    `app.settings` (bro.conf). Native file pickers (`showOpenFileDialog`,
    `showSaveFileDialog`, `showOpenFolderDialog`) are fine.
-6. **Optional and privileged APIs may be missing.** `bro.vfs`, `bro.apps`,
-   `bro.thumb`, `bro.sys` and others can be compiled out, refused by
-   permissions, or have no backend on the platform. Get them through
+6. **Optional and gated APIs may be missing.** `bro.vfs`, `bro.apps`,
+   `bro.thumb`, `bro.sys` and others can be compiled out, refused for want
+   of a capability, or have no backend on the platform. Declare in
+   bro.json's `permissions` each capability the app's code needs (`files`,
+   `net`, `spawn`, `mic`, `wl`, `sys.processes`, ...; the list is in
+   `../bro/docs/apps.md`, Permissions): opening another app (`openApp`,
+   `openFile` in `lib/files.js`) needs `spawn`, files beyond the app's own
+   directories and what the user picks need `files`, `bro.models.fetch`
+   needs `net`. An undeclared capability is refused without asking; a
+   declared one is asked for at first use. Get them through
    `api('vfs')` from `lib/dom.js`, which returns null when unavailable. Then
    hide or disable that feature, or show an empty state saying why. Never
    crash, and never fake data.

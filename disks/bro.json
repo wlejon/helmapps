@@ -7,7 +7,7 @@
     "categories": ["System", "Filesystem", "Utility"],
     "keywords": ["disk", "volume", "partition", "drive", "storage", "mount", "nvme", "ssd"],
     "singleInstance": true,
-    "permissions": ["vfs", "sys"],
+    "permissions": ["spawn"],
     "app": ".",
     "width": 1040,
     "height": 680,

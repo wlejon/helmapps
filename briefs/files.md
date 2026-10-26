@@ -6,7 +6,7 @@
 | id | `helm.files` |
 | Replaces | Dolphin, Nautilus, Explorer |
 | Size | about 4000 lines, the largest Wave 1 app |
-| Permissions | none (`bro.vfs`, `bro.apps`, `bro.thumb` are not privileged) |
+| Permissions | `["files", "spawn"]`: the user's folders, and opening files with other apps |
 
 ## What it is
 

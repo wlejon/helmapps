@@ -13,7 +13,7 @@
     "actions": [
         { "id": "new-window", "name": "New Window", "args": ["--new-window"] }
     ],
-    "permissions": [],
+    "permissions": ["files", "spawn"],
     "app": ".",
     "width": 1080,
     "height": 720,
