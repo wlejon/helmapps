@@ -64,7 +64,14 @@ N ms (code cache hit)` says which you got.)
 
 `measureFrames(pred, what, ms)` from `lib/test.js` is `waitFor` that times
 every frame on the way: each frame is one `advanceTime(16)`, which runs your
-timers, `requestAnimationFrame` callbacks, style, layout and paint.
+timers, `requestAnimationFrame` callbacks, style, layout and paint. A
+frame's time is the main thread's CPU time in it (`perf.threadCpuMs()`), not
+the clock's: a build running beside the test preempts the thread for tens of
+ms, which is the machine's load and not your app's, while anything your app
+does on the main thread (sync work, layout, a GC pause) is CPU time all the
+same. `f.maxWallMs` is the worst frame by the clock, load included. Time the
+main thread spends blocked (a sync read waiting on the disk) is not CPU time,
+so keep blocking calls off the main thread for that reason too.
 
 ```js
 import { app, measureFrames } from '/lib/test.js';
