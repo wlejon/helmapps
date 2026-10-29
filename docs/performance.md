@@ -248,7 +248,7 @@ synchronous and slow, it is an engine gap: write it down.
 
 - [ ] `bro.app.startup.firstFrameMs` is within 100 ms of `kit-tests`'.
 - [ ] No sync I/O and no `await` before the window is built.
-- [ ] Your app has a perf test: the heaviest scenario from your brief,
+- [ ] Your app has a perf test: its heaviest scenario,
       wrapped in `measureFrames`, asserting a worst frame under 50 ms and
       logging its numbers.
 - [ ] Long work shows progress, can be cancelled, and the window stays

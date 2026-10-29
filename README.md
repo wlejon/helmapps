@@ -36,8 +36,7 @@ engine gaps are reported. Apps share the **helm app kit** in
 the window layout, virtual lists, menus, dialogs, settings, commands and
 test helpers. bro mounts it at `/lib` because the root `bro.json` makes
 this folder a project, and `bro --install` bundles it into the installed
-copy. The apps still to build are in [briefs/](briefs/README.md), and the
-gaps found so far are in [GAPS.md](GAPS.md).
+copy. The gaps found so far are in [GAPS.md](GAPS.md).
 
 ## Running
 

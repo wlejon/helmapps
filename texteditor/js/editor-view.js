@@ -2,8 +2,7 @@
  * EditorView: manages the per-document <textarea> instances and synchronized
  * line-number gutter.
  *
- * Uses one native <textarea> per open document as required by briefs/texteditor.md
- * so native typing, selection, IME, clipboard, and per-document undo/redo stacks
+ * Uses one native <textarea> per open document so native typing, selection, IME, clipboard, and per-document undo/redo stacks
  * are preserved across tab switches.
  */
 

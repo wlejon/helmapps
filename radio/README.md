@@ -1,7 +1,7 @@
 # Radio (`helm.radio`)
 
 Endless generated instrumental music that you steer with a genre, a few
-instruments and a mood. Design: [`../briefs/radio.md`](../briefs/radio.md).
+instruments and a mood.
 
 YuE2-3B makes the music on the GPU, 10 s at a time (`yue.endless`, bro's
 `docs/music-endless-api.js`). Every chunk is written from a style prompt

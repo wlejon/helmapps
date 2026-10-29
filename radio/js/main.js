@@ -1,6 +1,6 @@
 /**
  * Radio: an endless stream of generated instrumental music that you steer
- * (briefs/radio.md).
+ * (README.md).
  *
  * The music is YuE2-3B's yue.endless stream, made 10 s at a time on the GPU.
  * You choose a genre (and its instruments) on the left, and stand somewhere

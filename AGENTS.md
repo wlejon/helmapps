@@ -1,7 +1,6 @@
 # Building a helm app
 
-Read this whole file before you write anything. Then read your brief in
-[`briefs/`](briefs/), the kit's reference [`lib/README.md`](lib/README.md),
+Read this whole file before you write anything. Then read the kit's reference [`lib/README.md`](lib/README.md),
 [`docs/performance.md`](docs/performance.md) (how an app starts fast and
 never freezes, and how you check that), and the reference app
 [`diskusage/`](diskusage/), all of it, since it is short.
@@ -43,7 +42,6 @@ helmapps/
   AGENTS.md          this file
   bro.json           marks helmapps as a project: /lib is mounted for every app
   lib/               the helm app kit, shared by every app. Read-only for you.
-  briefs/            one brief per app: what to build, how it is tested
   docs/performance.md  starting fast and staying responsive, and measuring both
   diskusage/         the reference app: copy its shape
   term/              the terminal (older, predates the kit; do not copy its CSS)
@@ -61,7 +59,7 @@ Docs you will need, all in `../bro/docs/`:
 | `brokit-api.js` | Node modules (`fs`, `path`, `os`, `child_process`) and web globals |
 | `headless.md` | The test runner: headless globals, input simulation, screenshots, timing |
 | `profiler-api.js` | `bro.profiler`: which functions a slow frame spent its time in |
-| `<namespace>-api.js` | Every `bro.*` namespace. Your brief lists the ones you need. |
+| `<namespace>-api.js` | Every `bro.*` namespace. Read the ones your app uses. |
 | `file-api.js`, `dialogs-api.js`, `menu-api.js`, `window-api.js` | Files, native pickers, the window |
 
 The `*-api.js` docs are annotated examples. **Read the doc before you call
@@ -120,8 +118,8 @@ GAPS.md and code to what actually runs.
 9. **Keep files small.** Aim for under 600 lines per file and split by
    responsibility (`main.js` wires things up; models, views and I/O live in
    their own modules). Nothing over 1000 lines.
-10. **Tests are part of the app.** Your brief lists acceptance scenarios.
-    Each becomes a headless test in `<app>/tests/`, and all of them pass
+10. **Tests are part of the app.** Every scenario the app must handle
+    becomes a headless test in `<app>/tests/`, and all of them pass
     before you are done. Tests never touch the user's real files: make
     everything with `fixtureDir()` from `lib/test.js`.
 11. **Start fast, never freeze.** Your page's JavaScript, style, layout and
@@ -225,8 +223,8 @@ script and open the PNG. Exit code 77 (`skipTest(reason)`) means "cannot
 test here" (for example a Linux-only feature on Windows), and is never a
 pass.
 
-Every app has a perf test (`tests/test_perf.js`): the heaviest scenario in
-its brief, wrapped in `measureFrames()`, asserting the worst frame and
+Every app has a perf test (`tests/test_perf.js`): its heaviest scenario,
+wrapped in `measureFrames()`, asserting the worst frame and
 logging the numbers. `diskusage/tests/test_perf.js` is the model, and
 [`docs/performance.md`](docs/performance.md) says how to find the cause of a
 slow frame (the frame trace, the profiler).
@@ -262,14 +260,14 @@ wrong).
 
 ## Done means
 
-- [ ] Every acceptance scenario in your brief is a passing headless test.
+- [ ] Every scenario the app must handle is a passing headless test.
 - [ ] `scripts/run_tests.sh <app>` passes, and the app boots with no errors
       in its log (`bro-headless <app> -e "0"` exits 0).
 - [ ] A headless screenshot looks like the reference app: kit frame, kit
       controls, tokens only.
 - [ ] The checklist at the end of [`docs/performance.md`](docs/performance.md)
       holds, and `tests/test_perf.js` proves the worst case stays responsive.
-- [ ] Every action is a command, with shortcuts where the brief says.
+- [ ] Every action is a command, with shortcuts for the common ones.
 - [ ] Missing optional APIs leave a clear empty or disabled state, not an
       exception.
 - [ ] `GAPS.md` lists every engine or kit gap you hit, or says "None found".

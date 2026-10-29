@@ -1,4 +1,4 @@
-// The real thing (briefs/radio.md acceptance 8): YuE2-3B, its VAE and CLAP
+// The real thing: YuE2-3B, its VAE and CLAP
 // found by bro.models, 60 s of stream with one style change, the audio
 // contiguous (no gap, no underrun), and the change heard: CLAP gives the
 // chunks after it more of the new genre than the chunks before.

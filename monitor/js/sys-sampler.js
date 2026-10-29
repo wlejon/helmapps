@@ -96,7 +96,7 @@ export function computeCpuDelta(prev, curr) {
 
 /**
  * Parse /proc/meminfo into byte counts and percentages.
- * Memory used = MemTotal - MemAvailable (brief requirement #1 & #3).
+ * Memory used = MemTotal - MemAvailable.
  */
 export function parseMeminfo(text) {
   const map = {};
