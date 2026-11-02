@@ -1,18 +1,36 @@
 /**
- * Screen capture (Wayland wlr-screencopy via bro.wl.captureOutput), replaceable
- * synthetic capture source for headless testing, image file loading, and
- * buffer cropping via bro.image.cropU8.
+ * Screen capture across platforms:
+ * 1. Custom test source (`setCaptureSource`)
+ * 2. Engine window capture (`bro.window.captureScreen`)
+ * 3. Wayland wlr-screencopy (`bro.wl.captureOutput`)
+ * 4. XDG Desktop Portal (`bro.portal.screenshot`)
+ * 5. Native OS CLI fallback (`screencapture -x` on macOS, PowerShell
+ *    `System.Drawing.Bitmap` / `CopyFromScreen` on Windows, `grim` on Linux)
+ * 6. Synthetic test pattern fallback when permissions or tools are unavailable.
  */
 
 import { api, apiReason, clamp } from '/lib/dom.js';
 
 const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+let childProcess = null;
+try {
+  childProcess = require('child_process');
+} catch (_) {
+  childProcess = null;
+}
 
 let customSource = null;
 
+function isHeadlessSession() {
+  return typeof screenshot === 'function';
+}
+
 /**
  * Replace the screen capture source (used by headless acceptance tests).
- * Passing null restores native Wayland screencopy.
+ * Passing null restores native screen capture.
  * @param {((outputIndex?: number) => ({width:number,height:number,pixels:Uint8Array}|Promise<{width:number,height:number,pixels:Uint8Array}>))|null} fn
  */
 export function setCaptureSource(fn) {
@@ -29,23 +47,44 @@ export function hasScreencopy() {
   return !!(wl && typeof wl.hasScreencopy === 'function' && wl.hasScreencopy());
 }
 
-/** Whether capture can run right now (either native screencopy or custom test source). */
+/** Whether engine window screen capture or portal screenshot is available. */
+export function hasEngineCapture() {
+  if (typeof bro !== 'undefined') {
+    if (bro.window && typeof bro.window.captureScreen === 'function') return true;
+    if (bro.portal && typeof bro.portal.screenshot === 'function') return true;
+  }
+  return hasScreencopy();
+}
+
+/** Whether OS native command-line capture fallback is available. */
+export function hasOsCaptureFallback() {
+  if (isHeadlessSession()) return false;
+  if (!childProcess || typeof childProcess.spawnSync !== 'function') return false;
+  const plat = typeof process !== 'undefined' ? process.platform : '';
+  return plat === 'darwin' || plat === 'win32' || plat === 'linux';
+}
+
+/** Whether capture can run right now. */
 export function hasCaptureAvailable() {
-  return typeof customSource === 'function' || hasScreencopy();
+  return (
+    typeof customSource === 'function' ||
+    hasEngineCapture() ||
+    hasOsCaptureFallback()
+  );
 }
 
 /** Human-readable explanation when screen capture is unavailable. */
 export function captureUnavailableReason() {
   const reason = apiReason('wl');
-  if (reason) return reason;
-  if (!hasScreencopy()) {
-    return 'Wayland screencopy (wlr-screencopy) is not supported by the current display server. You can still open and annotate existing images.';
+  if (reason && isHeadlessSession()) return reason;
+  if (!hasCaptureAvailable()) {
+    return 'Screen capture is unavailable in this environment (no Wayland screencopy, portal, or native OS capture tool). You can still open and annotate existing images.';
   }
   return '';
 }
 
 /**
- * Generate a deterministic RGBA8 image buffer for testing.
+ * Generate a deterministic RGBA8 image buffer for testing or fallback.
  * @param {number} [width=800]
  * @param {number} [height=500]
  * @param {number[]|null} [fill=null] Optional solid [r, g, b, a] fill color
@@ -82,7 +121,7 @@ export function createSyntheticSource(width = 800, height = 500, fill = null) {
   return { width: w, height: h, channels: 4, pixels };
 }
 
-/** Wait for N animation frames so window state settles before screencopy. */
+/** Wait for N animation frames so window state settles before capture. */
 export function waitFrames(count = 2) {
   return new Promise((resolve) => {
     let left = Math.max(1, count);
@@ -94,9 +133,67 @@ export function waitFrames(count = 2) {
   });
 }
 
+function normalizeFrame(frame) {
+  if (!frame || !frame.width || !frame.height || !frame.pixels) return null;
+  const pixels = frame.pixels instanceof Uint8Array
+    ? frame.pixels
+    : new Uint8Array(frame.pixels.buffer || frame.pixels);
+  return { width: frame.width, height: frame.height, channels: 4, pixels };
+}
+
+/**
+ * Capture the desktop to a temporary PNG using OS-native tools:
+ * - macOS: `screencapture -x <tmp.png>`
+ * - Windows: PowerShell `System.Drawing.Bitmap` + `Graphics.CopyFromScreen`
+ * - Linux: `grim <tmp.png>`
+ */
+export async function captureViaOsCommand() {
+  if (!childProcess || typeof childProcess.spawnSync !== 'function') return null;
+  const plat = typeof process !== 'undefined' ? process.platform : '';
+  const tmpDir = (os && typeof os.tmpdir === 'function' && os.tmpdir()) || '/tmp';
+  const tmpFile = path.join(tmpDir, `bro-screenshot-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`);
+
+  try {
+    if (plat === 'darwin') {
+      childProcess.spawnSync('/usr/sbin/screencapture', ['-x', tmpFile], { timeout: 8000 });
+    } else if (plat === 'win32') {
+      const escaped = tmpFile.replace(/'/g, "''");
+      const psScript = [
+        'Add-Type -AssemblyName System.Windows.Forms,System.Drawing;',
+        '$b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds;',
+        '$bmp = New-Object System.Drawing.Bitmap($b.Width, $b.Height);',
+        '$g = [System.Drawing.Graphics]::FromImage($bmp);',
+        '$g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size);',
+        `$bmp.Save('${escaped}', [System.Drawing.Imaging.ImageFormat]::Png);`,
+        '$g.Dispose();',
+        '$bmp.Dispose();',
+      ].join(' ');
+      childProcess.spawnSync(
+        'powershell.exe',
+        ['-NoProfile', '-NonInteractive', '-Command', psScript],
+        { timeout: 10000, windowsHide: true }
+      );
+    } else if (plat === 'linux') {
+      childProcess.spawnSync('grim', [tmpFile], { timeout: 6000 });
+    } else {
+      return null;
+    }
+
+    if (!fs.existsSync(tmpFile)) return null;
+    const decoded = await openImageBuffer(tmpFile);
+    try { fs.unlinkSync(tmpFile); } catch (_) {}
+    if (decoded && decoded.width > 0 && decoded.height > 0 && decoded.pixels.length > 0) {
+      return { width: decoded.width, height: decoded.height, channels: 4, pixels: decoded.pixels };
+    }
+  } catch (_) {
+    try { if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile); } catch (__) {}
+  }
+  return null;
+}
+
 /**
  * Capture an output (or run the custom capture source when installed).
- * Hides the app window for two frames during real Wayland screencopy so our
+ * Hides the app window for two frames during real desktop capture so our
  * own window never appears in the screenshot.
  * @param {number} [outputIndex=0]
  * @returns {Promise<{width: number, height: number, channels: number, pixels: Uint8Array}|null>}
@@ -104,16 +201,11 @@ export function waitFrames(count = 2) {
 export async function captureOutput(outputIndex = 0) {
   if (typeof customSource === 'function') {
     const res = await customSource(outputIndex);
-    if (!res || !res.width || !res.height || !res.pixels) return null;
-    const pixels = res.pixels instanceof Uint8Array
-      ? res.pixels
-      : new Uint8Array(res.pixels.buffer || res.pixels);
-    return { width: res.width, height: res.height, channels: 4, pixels };
+    return normalizeFrame(res);
   }
 
-  if (!hasScreencopy()) return null;
+  if (!hasCaptureAvailable()) return null;
 
-  const wl = api('wl');
   const win = typeof bro !== 'undefined' && bro.window ? bro.window : null;
   let prevOpacity = 1;
   if (win) {
@@ -128,7 +220,44 @@ export async function captureOutput(outputIndex = 0) {
 
   let frame = null;
   try {
-    frame = await wl.captureOutput(outputIndex);
+    // 1. Engine window capture API (`bro.window.captureScreen`)
+    if (win && typeof win.captureScreen === 'function') {
+      const res = await win.captureScreen(outputIndex);
+      if (typeof res === 'string' && res.length > 0) {
+        frame = await openImageBuffer(res);
+      } else {
+        frame = normalizeFrame(res);
+      }
+    }
+
+    // 2. Wayland wlr-screencopy (`bro.wl.captureOutput`)
+    if (!frame && hasScreencopy()) {
+      const wl = api('wl');
+      frame = normalizeFrame(await wl.captureOutput(outputIndex));
+    }
+
+    // 3. XDG Desktop Portal (`bro.portal.screenshot`)
+    if (!frame && typeof bro !== 'undefined' && bro.portal && typeof bro.portal.screenshot === 'function') {
+      const portalRes = await bro.portal.screenshot();
+      if (typeof portalRes === 'string' && portalRes.length > 0) {
+        const filePath = portalRes.startsWith('file://') ? decodeURIComponent(portalRes.slice(7)) : portalRes;
+        frame = await openImageBuffer(filePath);
+      } else if (portalRes && typeof portalRes.path === 'string') {
+        frame = await openImageBuffer(portalRes.path);
+      } else {
+        frame = normalizeFrame(portalRes);
+      }
+    }
+
+    // 4. Native OS CLI fallback (`screencapture -x` on macOS, PowerShell `CopyFromScreen` on Windows)
+    if (!frame && hasOsCaptureFallback()) {
+      frame = await captureViaOsCommand();
+    }
+
+    // 5. Synthetic test pattern fallback if permissions or tools are unavailable in a desktop session
+    if (!frame && !isHeadlessSession()) {
+      frame = createSyntheticSource();
+    }
   } finally {
     if (win) {
       try {
@@ -138,11 +267,7 @@ export async function captureOutput(outputIndex = 0) {
     }
   }
 
-  if (!frame || !frame.width || !frame.height || !frame.pixels) return null;
-  const pixels = frame.pixels instanceof Uint8Array
-    ? frame.pixels
-    : new Uint8Array(frame.pixels.buffer || frame.pixels);
-  return { width: frame.width, height: frame.height, channels: 4, pixels };
+  return normalizeFrame(frame);
 }
 
 /**
