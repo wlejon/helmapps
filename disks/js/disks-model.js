@@ -5,6 +5,8 @@
  * `/sys/block/*` topology when available, correlating partitions with live
  * filesystem usage from `bro.vfs.volumes()`. When `/sys/block` is absent
  * (Windows or restricted containers), falls back cleanly to volume grouping.
+ * On Linux, `bro.sys.disks` (UDisks2) adds which blocks are filesystems that
+ * can be mounted or unmounted, which drives eject or power off, and SMART.
  */
 
 import { api, clamp } from '/lib/dom.js';
@@ -515,6 +517,57 @@ async function readSysBlockDir(root, isCancelled) {
 }
 
 /**
+ * Attach what UDisks2 (`bro.sys.disks`) knows to the grouped drives, matched by
+ * device path: each drive gets `udisks` ({ id, ejectable, canPowerOff,
+ * smartSupported, smartKind, serial } or null) and each segment `block`
+ * ({ id, isFilesystem, usage, type, label } or null), `canMount` and
+ * `canUnmount`. A filesystem type or label the kernel view lacks is filled in
+ * from the block. Mutates and returns `drives`.
+ */
+export function annotateWithUDisks(drives, udState) {
+  const ok = Boolean(udState && udState.available);
+  const blocksByDev = new Map();
+  const drivesById = new Map();
+  if (ok) {
+    for (const b of udState.blocks || []) {
+      if (b.device) blocksByDev.set(b.device, b);
+      if (b.preferredDevice && !blocksByDev.has(b.preferredDevice)) blocksByDev.set(b.preferredDevice, b);
+    }
+    for (const d of udState.drives || []) drivesById.set(d.id, d);
+  }
+  for (const drive of drives) {
+    const whole = blocksByDev.get(drive.device);
+    const ud = whole && whole.drive ? drivesById.get(whole.drive) : null;
+    drive.udisks = ud
+      ? {
+        id: ud.id,
+        ejectable: Boolean(ud.ejectable),
+        canPowerOff: Boolean(ud.canPowerOff),
+        smartSupported: Boolean(ud.smartSupported),
+        smartKind: ud.smartKind || null,
+        serial: ud.serial || '',
+      }
+      : null;
+    for (const seg of drive.segments) {
+      const blk = seg.isUnallocated ? null : blocksByDev.get(seg.device) || null;
+      seg.block = blk
+        ? { id: blk.id, isFilesystem: Boolean(blk.isFilesystem), usage: blk.usage || '', type: blk.type || '', label: blk.label || '' }
+        : null;
+      if (blk) {
+        if (!seg.fsType && blk.type) seg.fsType = blk.type;
+        if (!seg.volumeLabel && blk.label) {
+          seg.volumeLabel = blk.label;
+          if (seg.label === seg.name) seg.label = blk.label;
+        }
+      }
+      seg.canMount = Boolean(blk && blk.isFilesystem && !seg.isMounted);
+      seg.canUnmount = Boolean(blk && blk.isFilesystem && seg.isMounted && seg.mountPoint !== '/');
+    }
+  }
+  return drives;
+}
+
+/**
  * Stateful model managing block device discovery, volume usage, and I/O rate sampling.
  */
 export class DisksModel {
@@ -526,6 +579,8 @@ export class DisksModel {
     this.prevDiskstats = null;
     this.lastSampleMs = 0;
     this._seq = 0;
+    this.disksOverride = undefined;
+    this.udisks = null;
   }
 
   setRoot(rootDir) {
@@ -538,6 +593,24 @@ export class DisksModel {
   setMockVolumes(volumesArrayOrNull) {
     this.mockVolumes = Array.isArray(volumesArrayOrNull) ? volumesArrayOrNull : null;
     this._seq++;
+  }
+
+  /** Use `ns` (bro.sys.disks's shape) for UDisks2; null for none, undefined for the real one. */
+  setDisks(ns) {
+    this.disksOverride = ns;
+    this._seq++;
+  }
+
+  /**
+   * The UDisks2 namespace in use, or null: bro.sys.disks on Linux when the
+   * model reads the real machine (root '/').
+   */
+  disks() {
+    if (this.disksOverride !== undefined) return this.disksOverride;
+    if (this.root !== '/' || process.platform !== 'linux') return null;
+    const sys = api('sys');
+    const d = sys && sys.disks;
+    return d && d.available !== false && typeof d.getState === 'function' ? d : null;
   }
 
   async refresh(nowMs = Date.now()) {
@@ -575,6 +648,13 @@ export class DisksModel {
       prevDiskstats: this.prevDiskstats,
       dtSec,
     });
+    const ud = this.disks();
+    let udState = null;
+    if (ud) {
+      try { udState = ud.getState(); } catch (_) { udState = null; }
+    }
+    this.udisks = udState && udState.available ? udState : null;
+    annotateWithUDisks(this.drives, this.udisks);
     this.prevDiskstats = diskstats;
     this.lastSampleMs = nowMs;
     return this.drives;

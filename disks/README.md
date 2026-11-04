@@ -1,12 +1,14 @@
 # Disks (`helm.disks`)
 
-Inspect physical drives, partition layouts, filesystem usage, and live disk I/O activity across Linux block devices (`/sys/block`, `/proc/mounts`, `/proc/partitions`, `/proc/diskstats`) and `bro.vfs.volumes()`.
+Inspect physical drives, partition layouts, filesystem usage, and live disk I/O activity across Linux block devices (`/sys/block`, `/proc/mounts`, `/proc/partitions`, `/proc/diskstats`) and `bro.vfs.volumes()`; mount, unmount, eject, and read drive health through `bro.sys.disks` (UDisks2).
 
 ## Features
 
 - **Physical Drive Inventory**: Lists physical drives and logical volumes in the sidebar with capacity meters and media classification (`NVMe`, `SSD`, `HDD`, `Removable`, `Network`, `Local Drive`).
 - **Visual Partition Layout Map**: Proportional horizontal bar displaying allocated partitions and unallocated space on the selected drive. Clicking any segment or using the arrow keys inspects that partition.
 - **Partition & Volume Inspector**: Displays mount point, block device path, filesystem type, mount flags (`rw`/`ro`), capacity breakdown (Total, Used, Free, Available), and live read/write throughput and cumulative byte counters.
+- **Mount, Unmount, Eject, Power Off**: On Linux, through `bro.sys.disks` (UDisks2 over D-Bus, never `udisksctl`; capability `sys.disks`): **Mount** an unmounted filesystem (UDisks picks `/run/media/<user>/<label>`), **Unmount** a mounted one (not `/`), and **Eject** or **Power Off** a removable drive (its filesystems unmounted first; power off asks first). polkit decides who may; a refusal shows as a toast with its message. Drives plugged in, removed, or mounted elsewhere refresh the view.
+- **Drive Health**: A health card from SMART (NVMe health log or ATA attributes, read through UDisks): an assessment (Healthy / Warning / Failing), temperature, power-on time, NVMe wear and available spare or ATA bad sectors and self-test, data written, unsafe shutdowns, power cycles, and any critical warnings spelled out.
 - **Desktop Integration**: One-click handoff to **Files** (`helm.files`) to browse a mounted volume or **Disk Usage** (`helm.diskusage`) to analyze what takes up space on it.
 
 ## Running & Testing

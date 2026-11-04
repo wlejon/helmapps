@@ -76,6 +76,25 @@
   color: var(--t1);
 }
 
+/* Drive health (SMART) ---------------------------------------------------- */
+
+.disks-health-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s4) var(--s5);
+}
+
+.disks-health-card .disks-section-head {
+  justify-content: flex-start;
+  gap: var(--s2);
+}
+
+.disks-health-warn {
+  color: var(--warn);
+  font-weight: 600;
+}
+
 /* Visual partition layout map -------------------------------------------- */
 
 .disks-map-card {

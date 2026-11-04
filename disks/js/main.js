@@ -1,7 +1,9 @@
 /**
  * Disks (`helm.disks`): inspect physical drives, partition layouts, and
  * mounted volumes, with one-click handoff to Files (`helm.files`) and Disk
- * Usage (`helm.diskusage`).
+ * Usage (`helm.diskusage`). On Linux, through `bro.sys.disks` (UDisks2):
+ * mount and unmount filesystems, eject or power off drives, and a SMART
+ * health panel.
  */
 
 import { startApp } from '/lib/app.js';
@@ -10,6 +12,7 @@ import { icon } from '/lib/icons.js';
 import { appFrame, Toolbar, Sidebar, emptyState } from '/lib/layout.js';
 import { menu } from '/lib/menu.js';
 import { toast } from '/lib/toast.js';
+import { confirmDialog } from '/lib/dialog.js';
 import { Progress } from '/lib/controls.js';
 import { formatBytes, formatCount, formatPercent } from '/lib/format.js';
 import { openApp } from '/lib/files.js';
@@ -21,6 +24,7 @@ import {
   computeDiskIoRates,
   classifyDriveMedia,
   groupVolumesAndBlockDevices,
+  annotateWithUDisks,
 } from './disks-model.js';
 
 const app = startApp({
@@ -42,6 +46,8 @@ const state = {
   filter: '',
   loading: true,
   refreshSeq: 0,
+  busy: '',              // the UDisks action running, '' when none
+  smart: new Map(),      // UDisks drive id -> { loading, data, error }
 };
 
 function currentDrive() {
@@ -100,17 +106,57 @@ const mPartVal = h('span.disks-metric-val.num');
 const mPartSub = h('span.dim');
 const mIoRate = h('span.disks-metric-val.num.disks-drive-io-rate');
 const mIoTotal = h('span.dim.num.disks-drive-io-total');
+const btnEject = h('button.btn.small.disks-btn-eject.hidden', {
+  onclick: () => commands.run('eject'),
+}, icon('upload'), 'Eject');
+const btnPowerOff = h('button.btn.small.disks-btn-poweroff.hidden', {
+  onclick: () => commands.run('power-off'),
+}, icon('power'), 'Power Off');
 
 const driveCard = h('div.card.disks-drive-card',
   h('div.disks-drive-top',
     driveGlyph,
     h('div.disks-drive-meta', driveTitleEl, driveSubEl),
-    h('div.disks-drive-badges', driveMediaBadge, driveRoBadge)),
+    h('div.disks-drive-badges', driveMediaBadge, driveRoBadge, btnEject, btnPowerOff)),
   h('div.disks-drive-metrics',
     h('div.disks-metric', h('span.micro', 'CAPACITY'), mCapVal, mCapSub),
     h('div.disks-metric', h('span.micro', 'USED SPACE'), mUsedVal, mUsedSub),
     h('div.disks-metric', h('span.micro', 'PARTITIONS'), mPartVal, mPartSub),
     h('div.disks-metric', h('span.micro', 'I/O ACTIVITY'), mIoRate, mIoTotal)));
+
+// Drive health (SMART through UDisks2) card
+const healthBadge = h('span.badge.disks-health-badge');
+const healthSub = h('span.dim.num.disks-health-sub');
+const healthRefresh = h('button.icon-btn.small.disks-health-refresh', {
+  'data-tip': 'Read SMART Again',
+  onclick: () => commands.run('refresh-health'),
+}, icon('refresh', 'sm'));
+const healthMsg = h('div.dim.disks-health-msg.hidden');
+const healthWarn = h('div.disks-health-warn.hidden');
+const hTemp = h('span.disks-stat-val.num.disks-health-temp');
+const hHours = h('span.disks-stat-val.num.disks-health-hours');
+const hWearLabel = h('span.micro', 'WEAR');
+const hWear = h('span.disks-stat-val.num.disks-health-wear');
+const hSpareLabel = h('span.micro', 'AVAILABLE SPARE');
+const hSpare = h('span.disks-stat-val.num.disks-health-spare');
+const hWritten = h('span.disks-stat-val.num.disks-health-written');
+const hShutdowns = h('span.disks-stat-val.num.disks-health-shutdowns');
+const hCycles = h('span.disks-stat-val.num.disks-health-cycles');
+const hErrorsLabel = h('span.micro', 'MEDIA ERRORS');
+const hErrors = h('span.disks-stat-val.num.disks-health-errors');
+const healthGrid = h('div.disks-stat-grid.disks-health-grid',
+  h('div.disks-stat-cell', h('span.micro', 'TEMPERATURE'), hTemp),
+  h('div.disks-stat-cell', h('span.micro', 'POWER-ON TIME'), hHours),
+  h('div.disks-stat-cell', hWearLabel, hWear),
+  h('div.disks-stat-cell', hSpareLabel, hSpare),
+  h('div.disks-stat-cell', h('span.micro', 'DATA WRITTEN'), hWritten),
+  h('div.disks-stat-cell', h('span.micro', 'UNSAFE SHUTDOWNS'), hShutdowns),
+  h('div.disks-stat-cell', h('span.micro', 'POWER CYCLES'), hCycles),
+  h('div.disks-stat-cell', hErrorsLabel, hErrors));
+const healthCard = h('div.card.disks-health-card.hidden',
+  h('div.disks-section-head',
+    h('span.micro', 'HEALTH'), healthBadge, healthSub, h('span.grow'), healthRefresh),
+  healthWarn, healthMsg, healthGrid);
 
 // Visual Partition Layout Map card
 const mapBar = h('div.disks-map-bar', { role: 'listbox', 'aria-label': 'Partition layout' });
@@ -133,6 +179,12 @@ const btnAnalyze = h('button.btn.disks-btn-analyze', {
 const btnCopyMount = h('button.btn.disks-btn-copy', {
   onclick: () => commands.run('copy-mount'),
 }, icon('copy'), 'Copy Mount Path');
+const btnMount = h('button.btn.disks-btn-mount.hidden', {
+  onclick: () => commands.run('mount'),
+}, icon('link'), 'Mount');
+const btnUnmount = h('button.btn.disks-btn-unmount.hidden', {
+  onclick: () => commands.run('unmount'),
+}, icon('stop'), 'Unmount');
 
 const partProgress = new Progress(0);
 const stTotal = h('span.disks-stat-val.num.disks-stat-total');
@@ -160,7 +212,7 @@ function propRow(label, sub, ...controlEls) {
 const partCard = h('div.card.disks-part-card',
   h('div.disks-part-head',
     h('div.disks-part-title-wrap', partTitleEl, partFsBadge, partStatusBadge, partRoBadge),
-    h('div.disks-part-actions', btnOpenFiles, btnAnalyze, btnCopyMount)),
+    h('div.disks-part-actions', btnMount, btnUnmount, btnOpenFiles, btnAnalyze, btnCopyMount)),
   h('div.disks-part-usage',
     partProgress.el,
     h('div.disks-stat-grid',
@@ -175,7 +227,7 @@ const partCard = h('div.card.disks-part-card',
     propRow('I/O Read Activity', 'Live throughput and cumulative bytes read', propReadEl),
     propRow('I/O Write Activity', 'Live throughput and cumulative bytes written', propWriteEl)));
 
-const mainPane = h('div.scroll.disks-main.hidden', driveCard, mapCard, partCard);
+const mainPane = h('div.scroll.disks-main.hidden', driveCard, healthCard, mapCard, partCard);
 const emptyView = emptyState({
   icon: 'hard-drive',
   title: 'No drives found',
@@ -194,6 +246,16 @@ commands.addAll([
     enabled: () => Boolean(currentPartition()?.mountPoint), run: () => analyzeInDiskUsage() },
   { id: 'copy-mount', label: 'Copy Mount Path', icon: 'copy', keys: ['Mod+Shift+C'],
     enabled: () => Boolean(currentPartition()?.mountPoint || currentPartition()?.device), run: () => copyMountPath() },
+  { id: 'mount', label: 'Mount', icon: 'link',
+    enabled: () => !state.busy && Boolean(currentPartition()?.canMount), run: () => mountPartition() },
+  { id: 'unmount', label: 'Unmount', icon: 'stop',
+    enabled: () => !state.busy && Boolean(currentPartition()?.canUnmount), run: () => unmountPartition() },
+  { id: 'eject', label: 'Eject', icon: 'upload',
+    enabled: () => !state.busy && Boolean(currentDrive()?.udisks?.ejectable), run: () => ejectDrive() },
+  { id: 'power-off', label: 'Power Off Drive', icon: 'power',
+    enabled: () => !state.busy && Boolean(currentDrive()?.udisks?.canPowerOff), run: () => powerOffDrive() },
+  { id: 'refresh-health', label: 'Read SMART Again', icon: 'activity',
+    enabled: () => Boolean(currentDrive()?.udisks?.smartSupported), run: () => loadHealth(currentDrive(), true) },
   { id: 'find', label: 'Filter Drives & Volumes', icon: 'search', keys: ['Mod+F'], inText: true,
     run: () => { searchInput.focus(); searchInput.select(); } },
   { id: 'clear-filter', label: 'Clear Filter', keys: ['Escape'], inText: true,
@@ -282,6 +344,7 @@ function selectDrive(driveId) {
   renderDetail();
   toolbar.refresh();
   updateStatus();
+  loadHealth(drive, false);
 }
 
 function selectPartition(partId) {
@@ -332,6 +395,10 @@ function renderDriveCard(drive) {
   driveSubEl.textContent = `${drive.device} • ${formatCount(drive.partitions.length, 'partition')}`;
   driveMediaBadge.textContent = drive.mediaType;
   driveRoBadge.classList.toggle('hidden', !drive.isReadOnly);
+  btnEject.classList.toggle('hidden', !drive.udisks?.ejectable);
+  btnPowerOff.classList.toggle('hidden', !drive.udisks?.canPowerOff);
+  btnEject.disabled = Boolean(state.busy);
+  btnPowerOff.disabled = Boolean(state.busy);
 
   mCapVal.textContent = formatBytes(drive.sizeBytes);
   mCapSub.textContent = drive.unallocatedBytes >= 1024 * 1024
@@ -412,6 +479,10 @@ function renderPartitionCard(drive, part) {
   btnOpenFiles.disabled = !part.mountPoint;
   btnAnalyze.disabled = !part.mountPoint;
   btnCopyMount.disabled = !(part.mountPoint || part.device);
+  btnMount.classList.toggle('hidden', !part.canMount);
+  btnUnmount.classList.toggle('hidden', !part.canUnmount);
+  btnMount.disabled = Boolean(state.busy);
+  btnUnmount.disabled = Boolean(state.busy);
 
   stTotal.textContent = formatBytes(part.sizeBytes);
   stUsed.textContent = part.usedBytes != null ? `${formatBytes(part.usedBytes)} (${formatPercent(part.usedPct)})` : '—';
@@ -435,6 +506,88 @@ function renderPartitionCard(drive, part) {
   propWriteEl.textContent = `${formatBytes(part.writeBps || 0)}/s (${formatBytes(part.writeBytes || 0)} total)`;
 }
 
+const ASSESSMENT = {
+  good: ['badge ok', 'Healthy'],
+  warning: ['badge warn', 'Warning'],
+  failing: ['badge danger', 'Failing'],
+  unknown: ['badge', 'Unknown'],
+};
+
+const WARNING_TEXT = {
+  spare: 'available spare below threshold',
+  temperature: 'temperature over its limit',
+  degraded: 'reliability degraded',
+  readonly: 'media placed in read-only mode',
+  volatile_mem: 'volatile memory backup failed',
+  pmr_readonly: 'persistent memory region read-only',
+};
+
+function orDash(v, fmt = String) {
+  return v === null || v === undefined ? '—' : fmt(v);
+}
+
+function formatHours(hours) {
+  if (hours < 48) return `${hours} h`;
+  const days = Math.floor(hours / 24);
+  return days < 730 ? `${days} days (${hours} h)` : `${(days / 365).toFixed(1)} years (${hours} h)`;
+}
+
+function renderHealth(drive) {
+  const ud = drive.udisks;
+  if (!ud || !ud.smartSupported) {
+    healthCard.classList.add('hidden');
+    return;
+  }
+  healthCard.classList.remove('hidden');
+  const entry = state.smart.get(ud.id);
+  const s = entry && entry.data;
+  healthRefresh.disabled = Boolean(entry && entry.loading);
+  if (!s) {
+    healthBadge.className = 'badge disks-health-badge';
+    healthBadge.textContent = entry && entry.error ? 'Unavailable' : 'Reading…';
+    healthSub.textContent = ud.smartKind === 'nvme' ? 'NVMe' : ud.smartKind === 'ata' ? 'ATA SMART' : '';
+    healthMsg.textContent = entry && entry.error ? `Could not read SMART: ${entry.error}` : 'Reading SMART data…';
+    healthMsg.classList.remove('hidden');
+    healthWarn.classList.add('hidden');
+    healthGrid.classList.add('hidden');
+    return;
+  }
+  const [cls, text] = ASSESSMENT[s.assessment] || ASSESSMENT.unknown;
+  healthBadge.className = `${cls} disks-health-badge`;
+  healthBadge.textContent = text;
+  const kind = s.kind === 'nvme' ? 'NVMe' : 'ATA SMART';
+  healthSub.textContent = s.updated ? `${kind} • read ${new Date(s.updated).toLocaleTimeString()}` : kind;
+  healthMsg.classList.add('hidden');
+  healthGrid.classList.remove('hidden');
+
+  const warnings = (s.criticalWarnings || []).map((w) => WARNING_TEXT[w] || w);
+  if (s.kind === 'ata' && s.badSectors > 0) warnings.push(`${formatCount(s.badSectors, 'bad sector')}`);
+  if (s.kind === 'ata' && s.failing) warnings.push('the drive predicts its own failure');
+  healthWarn.textContent = warnings.length ? `⚠ ${warnings.join(' • ')}` : '';
+  healthWarn.classList.toggle('hidden', warnings.length === 0);
+
+  hTemp.textContent = orDash(s.temperatureC, (t) => `${Math.round(t)} °C`);
+  hHours.textContent = orDash(s.powerOnHours, formatHours);
+  if (s.kind === 'nvme') {
+    hWearLabel.textContent = 'WEAR';
+    hWear.textContent = orDash(s.percentUsed, (p) => `${p}% used`);
+    hSpareLabel.textContent = 'AVAILABLE SPARE';
+    hSpare.textContent = orDash(s.availableSpare, (p) => `${p}%${s.spareThreshold != null ? ` (min ${s.spareThreshold}%)` : ''}`);
+    hErrorsLabel.textContent = 'MEDIA ERRORS';
+    hErrors.textContent = orDash(s.mediaErrors, (n) => String(n));
+  } else {
+    hWearLabel.textContent = 'BAD SECTORS';
+    hWear.textContent = orDash(s.badSectors, (n) => String(n));
+    hSpareLabel.textContent = 'SELF-TEST';
+    hSpare.textContent = s.selftestStatus || '—';
+    hErrorsLabel.textContent = 'FAILING ATTRIBUTES';
+    hErrors.textContent = String((s.attributes || []).filter((a) => a.failing).length);
+  }
+  hWritten.textContent = orDash(s.bytesWritten, formatBytes);
+  hShutdowns.textContent = orDash(s.unsafeShutdowns, (n) => String(n));
+  hCycles.textContent = orDash(s.powerCycles, (n) => String(n));
+}
+
 function renderDetail() {
   const drive = currentDrive();
   if (!drive) {
@@ -447,6 +600,7 @@ function renderDetail() {
   const part = currentPartition();
   app.setTitle(`${drive.title} — Disks`);
   renderDriveCard(drive);
+  renderHealth(drive);
   renderMapCard(drive, part);
   renderPartitionCard(drive, part);
 }
@@ -506,13 +660,106 @@ async function copyMountPath() {
   }
 }
 
+/**
+ * Run one UDisks action: the buttons disable while it runs, a refusal (polkit,
+ * a busy filesystem) is a toast with UDisks' message, and the view refreshes
+ * after. Resolves with the action's value, or null when it failed.
+ */
+async function runDiskAction(label, failText, fn) {
+  if (state.busy) return null;
+  state.busy = label;
+  renderAll();
+  try {
+    return await fn();
+  } catch (err) {
+    toast(`${failText}: ${err && err.message ? err.message : err}`, { error: true, key: 'disk-action' });
+    return null;
+  } finally {
+    state.busy = '';
+    await refresh();
+  }
+}
+
+async function mountPartition() {
+  const part = currentPartition();
+  const ud = model.disks();
+  if (!ud || !part || !part.canMount) return null;
+  const where = await runDiskAction('mount', `Could not mount ${part.device}`, () => ud.mount(part.block.id));
+  if (where) toast(`Mounted ${part.label || part.device} at ${where}`, { icon: 'link', key: 'disk-action' });
+  return where;
+}
+
+async function unmountPartition() {
+  const part = currentPartition();
+  const ud = model.disks();
+  if (!ud || !part || !part.canUnmount) return false;
+  const ok = await runDiskAction('unmount', `Could not unmount ${part.device}`,
+    () => ud.unmount(part.block.id).then(() => true));
+  if (ok) toast(`Unmounted ${part.label || part.device}`, { icon: 'stop', key: 'disk-action' });
+  return Boolean(ok);
+}
+
+async function ejectDrive() {
+  const drive = currentDrive();
+  const ud = model.disks();
+  if (!ud || !drive || !drive.udisks?.ejectable) return false;
+  const ok = await runDiskAction('eject', `Could not eject ${drive.title}`,
+    () => ud.eject(drive.udisks.id).then(() => true));
+  if (ok) toast(`Ejected ${drive.title}`, { icon: 'upload', key: 'disk-action' });
+  return Boolean(ok);
+}
+
+async function powerOffDrive() {
+  const drive = currentDrive();
+  const ud = model.disks();
+  if (!ud || !drive || !drive.udisks?.canPowerOff) return false;
+  const yes = await confirmDialog({
+    title: `Power off ${drive.title}?`,
+    body: 'Its mounted filesystems are unmounted first. Once it is off it can be unplugged safely.',
+    ok: 'Power Off',
+    icon: 'power',
+  });
+  if (!yes) return false;
+  const ok = await runDiskAction('power-off', `Could not power off ${drive.title}`,
+    () => ud.powerOff(drive.udisks.id).then(() => true));
+  if (ok) toast(`${drive.title} is powered off`, { icon: 'power', key: 'disk-action' });
+  return Boolean(ok);
+}
+
+/** Read SMART for `drive` (once per drive unless `force`), then re-render it if shown. */
+async function loadHealth(drive, force) {
+  const ud = model.disks();
+  const id = drive && drive.udisks && drive.udisks.smartSupported ? drive.udisks.id : '';
+  if (!ud || !id) return null;
+  const have = state.smart.get(id);
+  if (have && (have.loading || (!force && (have.data || have.error)))) return have.data || null;
+  const entry = { loading: true, data: have ? have.data : null, error: '' };
+  state.smart.set(id, entry);
+  if (currentDrive()?.udisks?.id === id) renderHealth(currentDrive());
+  try {
+    entry.data = await ud.smart(id);
+  } catch (err) {
+    entry.error = err && err.message ? err.message : String(err);
+  }
+  entry.loading = false;
+  const cur = currentDrive();
+  if (cur && cur.udisks?.id === id) renderHealth(cur);
+  return entry.data;
+}
+
 function showContextMenu(e) {
   const part = currentPartition();
+  const drive = currentDrive();
   menu.show([
     part ? { heading: part.label || part.name } : null,
+    part?.canMount ? commands.item('mount') : null,
+    part?.canUnmount ? commands.item('unmount') : null,
     commands.item('open-files'),
     commands.item('analyze-usage'),
     commands.item('copy-mount'),
+    drive?.udisks?.ejectable || drive?.udisks?.canPowerOff ? { separator: true } : null,
+    drive?.udisks?.ejectable ? commands.item('eject') : null,
+    drive?.udisks?.canPowerOff ? commands.item('power-off') : null,
     { separator: true },
     commands.item('refresh'),
   ], e.clientX, e.clientY);
@@ -526,11 +773,42 @@ async function refresh(nowMs = Date.now()) {
   state.drives = drives;
   applyFilter();
   renderAll();
+  loadHealth(currentDrive(), false);
   return drives;
+}
+
+// UDisks reports drives and filesystems coming and going (a stick plugged in,
+// a mount made elsewhere): refresh on the next frame after a burst of changes.
+let watchedDisks = null;
+let changeQueued = false;
+function onDisksChange() {
+  if (changeQueued) return;
+  changeQueued = true;
+  requestAnimationFrame(() => {
+    changeQueued = false;
+    refresh();
+  });
+}
+
+function watchDisks() {
+  const ud = model.disks();
+  if (ud === watchedDisks) return;
+  if (watchedDisks && typeof watchedDisks.off === 'function') watchedDisks.off('change', onDisksChange);
+  watchedDisks = ud;
+  if (ud && typeof ud.on === 'function') ud.on('change', onDisksChange);
+}
+
+/** Use `ns` (bro.sys.disks's shape) for UDisks2; null for none, undefined for the real one. */
+function setDisks(ns) {
+  model.setDisks(ns);
+  state.smart.clear();
+  watchDisks();
+  return refresh();
 }
 
 // ---- launch & expose --------------------------------------------------------
 
+watchDisks();
 refresh();
 
 app.onLaunch(({ argv, first }) => {
@@ -550,6 +828,12 @@ app.expose({
   selectPartition,
   setFilter,
   refresh,
+  setDisks,
+  mountPartition,
+  unmountPartition,
+  ejectDrive,
+  powerOffDrive,
+  loadHealth,
   parsers: {
     parseProcMounts,
     parseProcPartitions,
@@ -557,5 +841,6 @@ app.expose({
     computeDiskIoRates,
     classifyDriveMedia,
     groupVolumesAndBlockDevices,
+    annotateWithUDisks,
   },
 });
