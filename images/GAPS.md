@@ -15,13 +15,6 @@ beyond saying so in the window.
   dialog leaves it out.
 - **Belongs in:** broimage (an HEVC backend, if one with a usable licence is chosen)
 
-## bro.media.tags does not read WebM
-- **Where:** bro (`bro.media.tags`, docs/video-api.js)
-- **Expected:** a WebM's length (and any tags) like the other containers.
-- **Actual:** `bro.media.tags(file.webm)` answers null. The tests read the
-  exported WebM back through `<video>` (duration, `stepFrame`) instead.
-- **Belongs in:** bro (a Matroska/WebM reader in the tags code)
-
 ## Burst carry-over matches boxes, not tracks
 - **Where:** this app (`js/wildlife/crops.js`, `editor.js`)
 - **Expected:** a name given to one animal of a burst follows that animal

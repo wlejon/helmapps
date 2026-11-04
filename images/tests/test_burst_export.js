@@ -75,14 +75,17 @@ if (typeof GifEncoder !== 'function' || typeof VideoEncoder !== 'function') {
   waitFor(() => view.exporting, 'the WebM export starts');
   waitFor(() => !view.exporting, 'the WebM is written', 120000);
   assert(fs.existsSync(webmOut) && fs.statSync(webmOut).size > 1000, 'the WebM has content');
+  const total = repeats.reduce((a, b) => a + b, 0);
+  const tags = bro.media.tags(webmOut);
+  assert(tags && tags.container === 'webm', `bro.media.tags reads the WebM (${tags && tags.container})`);
+  near(tags.duration, total / 30, 'WebM duration: the repeated frames at 30 fps', 0.034);
+  // The picture count is the decoder's to tell.
   const v = document.createElement('video');
   v.muted = true;
   document.body.appendChild(v);
   v.src = webmOut;
   flush();
   assert(v.readyState >= 1, `the WebM loads (readyState ${v.readyState})`);
-  const total = repeats.reduce((a, b) => a + b, 0);
-  near(v.duration, total / 30, 'WebM duration: the repeated frames at 30 fps', 0.034);
   let pictures = 1;
   while (pictures < 200 && v.stepFrame(1) > 0) pictures++;
   eq(pictures, total, 'WebM pictures');
