@@ -42,9 +42,9 @@ beyond saying so in the window. Kit-level gaps shared by every app are in
   through the other frames, even where it moved far or overlaps another.
 - **Actual:** each other frame's crop that overlaps the named box most (IoU
   0.3 or more) is taken as the same animal; a frame where it moved farther
-  is left alone. bro.vision's SAM 2.1 tracking (one object across frames)
-  could follow it instead; not built, as overlap holds for bursts shot
-  0.1-0.5 s apart.
+  is left alone. bro.vision's SAM 2.1 tracking (one object across frames,
+  built; see above) could follow it instead; the app does not use it here
+  yet, as overlap holds for bursts shot 0.1-0.5 s apart.
 - **Belongs in:** this app (using `bro.vision` SAM 2.1 tracking)
 
 ## Fixed after corrections (your answers)

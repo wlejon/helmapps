@@ -8,9 +8,6 @@
 - **Impact:** Bound `copy-buffer` to `['Mod+Shift+C', 'Mod+Shift+B']` so the button displays `Ctrl+Shift+C` and `Mod+Shift+B` (or clicking the `Copy Buffer` button) works in headless and windowed runs.
 - **Belongs in:** bro
 
-## `VirtualList` only creates `.list-header` if constructed with `layout: 'list'`
-- **Where:** `lib/list.js` (`new VirtualList(o)` and `setLayout()`)
-- **Expected:** Constructing `new VirtualList({ layout: 'grid', columns: [...] })` and later calling `list.setLayout('list')` should display the column header, and `fill()` should use `columns` in `'list'` mode even when `render` was supplied for `'grid'` mode.
-- **Actual:** `this.header` is only created in `constructor` when `this.layout === 'list'`, and `fill()` checks `if (kind === 'row' && this.o.columns && !this.o.render)`.
-- **Impact:** Constructed `VirtualList` with `layout: 'list'` so `this.header` is created, then immediately applied the initial layout (`'grid'` or `'list'`) and toggled `list.o.render` between `renderGridCell` (in grid view) and `null` (in list view).
-- **Belongs in:** kit
+## Resolved: `VirtualList` builds `.list-header` whenever `columns` are given
+- **Where:** `lib/list.js`
+- **Status:** Resolved in the kit (see `../GAPS.md`): the header is built whatever the initial `layout`, `setLayout()` toggles it, and `'list'` mode uses `columns` even when `render` is supplied for `'grid'`.
