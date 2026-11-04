@@ -2,7 +2,7 @@
 
 Engine, platform and kit gaps found building Music. Each was measured with
 `bro-headless`; the app works around none of them beyond saying so in the
-window. Gaps every app shares (the MPRIS player side) are in `../GAPS.md`.
+window.
 
 ## Engine (bro, broaudio)
 
@@ -24,8 +24,3 @@ window. Gaps every app shares (the MPRIS player side) are in `../GAPS.md`.
   ~16–19 ms mean and ~28–37 ms worst, down from ~23 / ~35. Music keeps only
   the list on screen in the document and fills only the rows shown.
 - **Belongs in:** bro
-
-## Resolved
-
-- **MPRIS2 player service (`bro.mpris.createService`):** Resolved in `brompris`. `js/mpris.js` publishes `"Music"` (`desktopEntry: "helm.music"`), syncs playback status, metadata, position, volume, loop status, shuffle, capabilities, and `Seeked` signals, and routes incoming MPRIS commands to the player.
-- **Waveform seek bar (`bro.media.peaks`):** Resolved. `js/library-worker.js` extracts normalized waveform peaks via `bro.media.peaks` off the main thread and `js/nowplaying.js` renders subtle waveform peak bars on the seek slider.

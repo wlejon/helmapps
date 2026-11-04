@@ -1,13 +1,12 @@
 # Gaps Found While Building Calculator
 
 ## Ctrl+C / Ctrl+V dispatch `copy` / `paste` events without `keydown`
-- **Where:** `lib/commands.js` (`Commands.attach`) / bro input dispatch
-- **Expected:** Registering a command with `keys: ['Mod+C']` or `keys: ['Mod+V']` in `app.commands` triggers the command when the user presses `Ctrl+C` / `Ctrl+V`.
-- **Actual:** `keyDown` for `Ctrl+C` / `Ctrl+V` in `bro` dispatches `copy` / `paste` clipboard events on `window`/`document` without firing a `keydown` event, so `Commands.attach` (which only listens to `keydown`) never sees `Mod+C` or `Mod+V`.
-- **Repro:** `bro-headless calculator -e "window.addEventListener('keydown', e => console.log('kd', e.key)); keyDown(99, 6, 0x0040);"`
-- **Impact:** Calculator binds `window` `'copy'` and `'paste'` listeners that delegate to `commands.run('copy')` and `commands.run('paste')`.
-- **Belongs in:** kit (`lib/commands.js`) / bro
-- **Status:** The kit half is resolved: `Commands.attach` now runs `Mod+C` / `Mod+X` / `Mod+V` commands from the `copy` / `cut` / `paste` events, so Calculator's own listeners are no longer needed. The bro half is still open: the repro still prints no `keydown` (only the `copy` event), where a browser fires `keydown` first.
+- **Where:** bro input dispatch
+- **Expected:** `Ctrl+C` / `Ctrl+V` fire `keydown` on the page first, then `copy` / `paste`, as a browser does.
+- **Actual:** `keyDown` for `Ctrl+C` / `Ctrl+V` dispatches only the `copy` / `paste` clipboard events, with no `keydown`.
+- **Repro:** `bro-headless calculator -e "window.addEventListener('keydown', e => console.log('kd', e.key)); keyDown(99, 64, 0x0040);"` prints nothing.
+- **Impact:** none for commands: the kit's `Commands.attach` runs `Mod+C` / `Mod+X` / `Mod+V` commands from the clipboard events. A page listening for the keydown itself never sees it.
+- **Belongs in:** bro
 
 ## `test.js` `SPECIAL` key table lacks `+`, `*`, `(`, `)`, `^`, `%`, `!`
 - **Where:** `lib/test.js` (`sdlKey`)
