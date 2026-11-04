@@ -12,11 +12,13 @@ const path = require('path');
 const dir = fixtureDir({});
 app.settings.set('saveFolder', dir);
 
-// 1. In headless mode, Wayland screencopy is unavailable by default.
-eq(app.hasScreencopy(), false, 'screencopy unavailable in headless');
+// 1. Capture is offered exactly when bro sees a desktop to read (headless
+// reads the real one where the machine has it); the empty state otherwise.
 const unavail = document.querySelector('.ss-unavail');
-assert(unavail && !unavail.classList.contains('hidden'), 'capture unavailable empty state is visible');
-assert(unavail.textContent.includes('unavailable'), 'empty state explains capture is unavailable');
+const desktop = bro.window.captureDisplays().length > 0;
+eq(app.hasCaptureAvailable(), desktop, 'capture offered when bro sees displays');
+eq(unavail.classList.contains('hidden'), desktop, 'the unavailable empty state matches');
+if (!desktop) assert(unavail.textContent.includes('unavailable'), 'empty state explains capture is unavailable');
 
 // Create a 120x80 fixture PNG on disk and verify Open Image works even without screencopy.
 const samplePath = path.join(dir, 'sample.png');
@@ -43,6 +45,14 @@ assert(unavail.classList.contains('hidden'), 'unavailable state hides once captu
 clickEl(document.querySelector('.ss-take-btn'));
 waitFor(() => app.state.view === 'result' && app.state.image && app.state.image.width === 640, 'Full Screen capture result');
 eq([app.state.image.width, app.state.image.height], [640, 400], 'Result view matches source size 640x400');
+
+// 2b. Full Screen asks for every display, Current Display for one.
+const asked = [];
+app.setCaptureSource((display) => { asked.push(display); return app.createSyntheticSource(640, 400); });
+await app.takeScreenshot('full');
+await app.takeScreenshot('display');
+eq(asked[0], 'all', 'Full Screen captures every display');
+assert(asked[1] === 'primary' || typeof asked[1] === 'number', `Current Display names one display: ${asked[1]}`);
 
 // 3. Save (Mod+S) writes a dated PNG of 640x400 to the configured folder.
 const savedPath = await app.saveScreenshot();

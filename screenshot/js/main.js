@@ -1,7 +1,7 @@
 /**
  * Screenshot (helm.screenshot) — main application module.
- * Supports Full Screen, Current Display, and Region capture via Wayland
- * screencopy (or synthetic test sources), opening existing images, object-based
+ * Supports Full Screen, Current Display, and Region capture via
+ * bro.window.captureScreen (or synthetic test sources), opening existing images, object-based
  * annotations with Undo/Redo, region cropping, and saving/copying.
  */
 
@@ -15,8 +15,9 @@ import { homeDir } from '/lib/files.js';
 
 import {
   setCaptureSource as setCaptureSourceImpl,
-  hasScreencopy,
   hasCaptureAvailable,
+  lastCaptureError,
+  currentDisplay,
   captureUnavailableReason,
   createSyntheticSource,
   captureOutput,
@@ -420,9 +421,13 @@ async function takeScreenshot(modeOverride, { delayOverride, autoSaveAndQuit = f
         await new Promise((r) => setTimeout(r, 1000));
       }
     }
-    const captured = await captureOutput(0);
+    const captured = await captureOutput({
+      display: mode === 'display' ? currentDisplay() : 'all',
+      cursor: !!settings.get('includePointer'),
+    });
     if (!captured) {
-      toast('Could not capture screen', { error: true });
+      const why = lastCaptureError();
+      toast(why ? `Could not capture screen: ${why}` : 'Could not capture screen', { error: true });
       return null;
     }
     state.image = captured;
@@ -554,7 +559,7 @@ async function handleLaunch({ argv = [], cwd = '' } = {}) {
 app.onLaunch((info) => { handleLaunch(info); });
 
 app.expose({
-  state, settings, commands, hasScreencopy, hasCaptureAvailable, setCaptureSource,
+  state, settings, commands, hasCaptureAvailable, setCaptureSource,
   createSyntheticSource, takeScreenshot, openImageFile, startRegionSelect, setRegionRect,
   nudgeRegion, confirmRegion, cancelRegion, setTool, addAnnotation, undo, redo,
   clearAnnotations, saveScreenshot, saveScreenshotAs, copyScreenshot, formatFilename,

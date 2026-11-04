@@ -1,37 +1,21 @@
 /**
- * Screen capture across platforms:
- * 1. Custom test source (`setCaptureSource`)
- * 2. Engine window capture (`bro.window.captureScreen`)
- * 3. Wayland wlr-screencopy (`bro.wl.captureOutput`)
- * 4. XDG Desktop Portal (`bro.portal.screenshot`)
- * 5. Native OS CLI fallback (`screencapture -x` on macOS, PowerShell
- *    `System.Drawing.Bitmap` / `CopyFromScreen` on Windows, `grim` on Linux)
- * 6. Synthetic test pattern fallback when permissions or tools are unavailable.
+ * Screen capture: bro.window.captureScreen({ display, cursor }) reads the
+ * desktop on every platform (bro's docs/screen-capture.md), behind the
+ * `screen` capability. Tests install a source of their own instead
+ * (`setCaptureSource`).
  */
 
-import { api, apiReason, clamp } from '/lib/dom.js';
+import { api, clamp } from '/lib/dom.js';
 
 const fs = require('fs');
-const os = require('os');
-const path = require('path');
-
-let childProcess = null;
-try {
-  childProcess = require('child_process');
-} catch (_) {
-  childProcess = null;
-}
 
 let customSource = null;
-
-function isHeadlessSession() {
-  return typeof screenshot === 'function';
-}
+let lastError = '';
 
 /**
  * Replace the screen capture source (used by headless acceptance tests).
  * Passing null restores native screen capture.
- * @param {((outputIndex?: number) => ({width:number,height:number,pixels:Uint8Array}|Promise<{width:number,height:number,pixels:Uint8Array}>))|null} fn
+ * @param {((display?: number|'all'|'primary') => ({width:number,height:number,pixels:Uint8Array}|Promise<{width:number,height:number,pixels:Uint8Array}>))|null} fn
  */
 export function setCaptureSource(fn) {
   customSource = fn || null;
@@ -41,50 +25,35 @@ export function getCaptureSource() {
   return customSource;
 }
 
-/** Whether native Wayland screencopy is available in this session. */
-export function hasScreencopy() {
-  const wl = api('wl');
-  return !!(wl && typeof wl.hasScreencopy === 'function' && wl.hasScreencopy());
-}
-
-/** Whether engine window screen capture or portal screenshot is available. */
-export function hasEngineCapture() {
-  if (typeof bro !== 'undefined') {
-    if (bro.window && typeof bro.window.captureScreen === 'function') return true;
-    if (bro.portal && typeof bro.portal.screenshot === 'function') return true;
+/** The displays bro can capture ([] where it can read no desktop). */
+export function captureDisplays() {
+  const win = typeof bro !== 'undefined' && bro.window ? bro.window : null;
+  if (!win || typeof win.captureDisplays !== 'function') return [];
+  try {
+    return win.captureDisplays() || [];
+  } catch (_) {
+    return [];
   }
-  return hasScreencopy();
-}
-
-/** Whether OS native command-line capture fallback is available. */
-export function hasOsCaptureFallback() {
-  if (isHeadlessSession()) return false;
-  if (!childProcess || typeof childProcess.spawnSync !== 'function') return false;
-  const plat = typeof process !== 'undefined' ? process.platform : '';
-  return plat === 'darwin' || plat === 'win32' || plat === 'linux';
 }
 
 /** Whether capture can run right now. */
 export function hasCaptureAvailable() {
-  return (
-    typeof customSource === 'function' ||
-    hasEngineCapture() ||
-    hasOsCaptureFallback()
-  );
+  return typeof customSource === 'function' || captureDisplays().length > 0;
+}
+
+/** Why the last capture failed ('' after a success). */
+export function lastCaptureError() {
+  return lastError;
 }
 
 /** Human-readable explanation when screen capture is unavailable. */
 export function captureUnavailableReason() {
-  const reason = apiReason('wl');
-  if (reason && isHeadlessSession()) return reason;
-  if (!hasCaptureAvailable()) {
-    return 'Screen capture is unavailable in this environment (no Wayland screencopy, portal, or native OS capture tool). You can still open and annotate existing images.';
-  }
-  return '';
+  if (hasCaptureAvailable()) return '';
+  return 'Screen capture is unavailable here: bro sees no desktop to read. You can still open and annotate existing images.';
 }
 
 /**
- * Generate a deterministic RGBA8 image buffer for testing or fallback.
+ * Generate a deterministic RGBA8 image buffer for testing.
  * @param {number} [width=800]
  * @param {number} [height=500]
  * @param {number[]|null} [fill=null] Optional solid [r, g, b, a] fill color
@@ -142,132 +111,61 @@ function normalizeFrame(frame) {
 }
 
 /**
- * Capture the desktop to a temporary PNG using OS-native tools:
- * - macOS: `screencapture -x <tmp.png>`
- * - Windows: PowerShell `System.Drawing.Bitmap` + `Graphics.CopyFromScreen`
- * - Linux: `grim <tmp.png>`
+ * The capture display the app's window is on (its centre), else the primary.
+ * @returns {number|'primary'}
  */
-export async function captureViaOsCommand() {
-  if (!childProcess || typeof childProcess.spawnSync !== 'function') return null;
-  const plat = typeof process !== 'undefined' ? process.platform : '';
-  const tmpDir = (os && typeof os.tmpdir === 'function' && os.tmpdir()) || '/tmp';
-  const tmpFile = path.join(tmpDir, `bro-screenshot-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`);
-
+export function currentDisplay() {
+  const displays = captureDisplays();
+  const win = typeof bro !== 'undefined' && bro.window ? bro.window : null;
   try {
-    if (plat === 'darwin') {
-      childProcess.spawnSync('/usr/sbin/screencapture', ['-x', tmpFile], { timeout: 8000 });
-    } else if (plat === 'win32') {
-      const escaped = tmpFile.replace(/'/g, "''");
-      const psScript = [
-        'Add-Type -AssemblyName System.Windows.Forms,System.Drawing;',
-        '$b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds;',
-        '$bmp = New-Object System.Drawing.Bitmap($b.Width, $b.Height);',
-        '$g = [System.Drawing.Graphics]::FromImage($bmp);',
-        '$g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size);',
-        `$bmp.Save('${escaped}', [System.Drawing.Imaging.ImageFormat]::Png);`,
-        '$g.Dispose();',
-        '$bmp.Dispose();',
-      ].join(' ');
-      childProcess.spawnSync(
-        'powershell.exe',
-        ['-NoProfile', '-NonInteractive', '-Command', psScript],
-        { timeout: 10000, windowsHide: true }
-      );
-    } else if (plat === 'linux') {
-      childProcess.spawnSync('grim', [tmpFile], { timeout: 6000 });
-    } else {
-      return null;
+    const pos = win && typeof win.getPosition === 'function' ? win.getPosition() : null;
+    const size = win && typeof win.getSize === 'function' ? win.getSize() : null;
+    if (pos && size) {
+      const cx = pos.x + size.width / 2;
+      const cy = pos.y + size.height / 2;
+      const hit = displays.find((d) => cx >= d.x && cx < d.x + d.width && cy >= d.y && cy < d.y + d.height);
+      if (hit) return hit.index;
     }
-
-    if (!fs.existsSync(tmpFile)) return null;
-    const decoded = await openImageBuffer(tmpFile);
-    try { fs.unlinkSync(tmpFile); } catch (_) {}
-    if (decoded && decoded.width > 0 && decoded.height > 0 && decoded.pixels.length > 0) {
-      return { width: decoded.width, height: decoded.height, channels: 4, pixels: decoded.pixels };
-    }
-  } catch (_) {
-    try { if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile); } catch (__) {}
-  }
-  return null;
+  } catch (_) {}
+  return 'primary';
 }
 
 /**
- * Capture an output (or run the custom capture source when installed).
- * Hides the app window for two frames during real desktop capture so our
- * own window never appears in the screenshot.
- * @param {number} [outputIndex=0]
+ * Capture the desktop (or run the custom capture source when installed).
+ * Hides the app window for two frames during a real capture so our own
+ * window never appears in the screenshot.
+ * @param {{display?: number|'all'|'primary', cursor?: boolean}} [options]
  * @returns {Promise<{width: number, height: number, channels: number, pixels: Uint8Array}|null>}
  */
-export async function captureOutput(outputIndex = 0) {
+export async function captureOutput({ display = 'all', cursor = false } = {}) {
+  lastError = '';
   if (typeof customSource === 'function') {
-    const res = await customSource(outputIndex);
-    return normalizeFrame(res);
+    return normalizeFrame(await customSource(display));
+  }
+  if (!hasCaptureAvailable()) {
+    lastError = captureUnavailableReason();
+    return null;
   }
 
-  if (!hasCaptureAvailable()) return null;
-
-  const win = typeof bro !== 'undefined' && bro.window ? bro.window : null;
+  const win = bro.window;
   let prevOpacity = 1;
-  if (win) {
-    try {
-      if (typeof win.getOpacity === 'function') prevOpacity = win.getOpacity();
-      if (typeof win.setOpacity === 'function') win.setOpacity(0);
-      if (typeof win.minimize === 'function') win.minimize();
-    } catch (_) {}
-  }
-
+  try {
+    if (typeof win.getOpacity === 'function') prevOpacity = win.getOpacity();
+    if (typeof win.setOpacity === 'function') win.setOpacity(0);
+  } catch (_) {}
   await waitFrames(2);
 
   let frame = null;
   try {
-    // 1. Engine window capture API (`bro.window.captureScreen`)
-    if (win && typeof win.captureScreen === 'function') {
-      const res = await win.captureScreen(outputIndex);
-      if (typeof res === 'string' && res.length > 0) {
-        frame = await openImageBuffer(res);
-      } else {
-        frame = normalizeFrame(res);
-      }
-    }
-
-    // 2. Wayland wlr-screencopy (`bro.wl.captureOutput`)
-    if (!frame && hasScreencopy()) {
-      const wl = api('wl');
-      frame = normalizeFrame(await wl.captureOutput(outputIndex));
-    }
-
-    // 3. XDG Desktop Portal (`bro.portal.screenshot`)
-    if (!frame && typeof bro !== 'undefined' && bro.portal && typeof bro.portal.screenshot === 'function') {
-      const portalRes = await bro.portal.screenshot();
-      if (typeof portalRes === 'string' && portalRes.length > 0) {
-        const filePath = portalRes.startsWith('file://') ? decodeURIComponent(portalRes.slice(7)) : portalRes;
-        frame = await openImageBuffer(filePath);
-      } else if (portalRes && typeof portalRes.path === 'string') {
-        frame = await openImageBuffer(portalRes.path);
-      } else {
-        frame = normalizeFrame(portalRes);
-      }
-    }
-
-    // 4. Native OS CLI fallback (`screencapture -x` on macOS, PowerShell `CopyFromScreen` on Windows)
-    if (!frame && hasOsCaptureFallback()) {
-      frame = await captureViaOsCommand();
-    }
-
-    // 5. Synthetic test pattern fallback if permissions or tools are unavailable in a desktop session
-    if (!frame && !isHeadlessSession()) {
-      frame = createSyntheticSource();
-    }
+    frame = normalizeFrame(await win.captureScreen({ display, cursor }));
+  } catch (err) {
+    lastError = (err && err.message) || String(err);
   } finally {
-    if (win) {
-      try {
-        if (typeof win.restore === 'function') win.restore();
-        if (typeof win.setOpacity === 'function') win.setOpacity(prevOpacity);
-      } catch (_) {}
-    }
+    try {
+      if (typeof win.setOpacity === 'function') win.setOpacity(prevOpacity);
+    } catch (_) {}
   }
-
-  return normalizeFrame(frame);
+  return frame;
 }
 
 /**

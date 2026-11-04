@@ -5,7 +5,7 @@ Screen capture, region crop, and lightweight image annotation utility for the **
 ## Features
 
 - **Capture Modes:** Full Screen, Current Display, and interactive Region selection, with configurable capture delay (`0 s`, `3 s`, `5 s`, `10 s`) and pointer inclusion option.
-- **Window Hiding:** Automatically hides its own window for two frames before invoking `bro.wl.captureOutput` so the Screenshot app never appears in the captured frame.
+- **Capture:** `bro.window.captureScreen({ display, cursor })` reads the desktop on Windows, macOS and Wayland alike (the `screen` capability); Full Screen is every display, Current Display the one the window is on. The app hides its own window for two frames first so it never appears in the captured frame.
 - **Region Selection Overlay:** Dimmed fullscreen scrim with an undimmed selection rectangle, live pixel dimensions pill (`W × H`), rule-of-thirds grid, 8 resize handles, and pixel-accurate arrow-key nudging (`1 px`, or `10 px` with `Shift`).
 - **Non-Destructive Annotations:** Object-based vector annotations with 50-step Undo/Redo history (`Mod+Z` / `Mod+Shift+Z`), burned into the full-resolution RGBA8 buffer at save time:
   - Select & Move (`V`)
