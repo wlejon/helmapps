@@ -14,7 +14,7 @@
             "extensions": ["log", "jsonl", "txt"]
         }
     ],
-    "permissions": ["files"],
+    "permissions": ["files", "sys.journal"],
     "app": ".",
     "width": 1100,
     "height": 720,

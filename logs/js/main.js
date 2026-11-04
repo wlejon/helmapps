@@ -25,7 +25,7 @@ import {
   parseLogText,
   filterLogEntries,
 } from './log-parser.js';
-import { LogSourceManager } from './log-sources.js';
+import { JOURNAL_ID, LogSourceManager } from './log-sources.js';
 
 const fs = require('fs');
 const path = require('path');
@@ -246,6 +246,12 @@ commands.addAll([
     run: () => clearView() },
   { id: 'refresh', label: 'Refresh', icon: 'refresh', keys: ['F5', 'Mod+R'],
     run: () => refresh() },
+  { id: 'load-older', label: 'Load Older Journal Records', icon: 'history',
+    enabled: () => {
+      const j = sources.getSource(JOURNAL_ID);
+      return Boolean(j && j.before && (state.activeSourceId === JOURNAL_ID || state.activeSourceId === 'all'));
+    },
+    run: () => loadOlderJournal() },
   { id: 'new-window', label: 'New Window', keys: ['Mod+N'], run: () => app.newWindow() },
   { id: 'quit', label: 'Quit', keys: ['Mod+Q'], run: () => app.quit() },
 ]);
@@ -468,6 +474,27 @@ export async function setRoot(rootDir) {
   await discoverSources({ selectDefault: true });
 }
 
+/** Use `ns` (bro.sys.journal's shape) as the journal source; null for none. */
+export async function setJournal(ns) {
+  sources.stopWatch();
+  sources.setJournal(ns);
+  await discoverSources({ selectDefault: false });
+}
+
+/** The journal page before the oldest record shown; returns how many were added. */
+export async function loadOlderJournal() {
+  const n = await sources.loadOlderJournal();
+  if (n > 0) {
+    drawSidebar();
+    if (state.activeSourceId === JOURNAL_ID || state.activeSourceId === 'all') {
+      const src = sources.getSource(state.activeSourceId);
+      state.entries = src ? src.entries.slice() : [];
+      applyFilter();
+    }
+  }
+  return n;
+}
+
 export async function openLogFile(filePath) {
   if (!filePath) return null;
   const src = await sources.addOpenedFile(filePath);
@@ -550,6 +577,7 @@ function entryContextMenu(e, items) {
     commands.item('toggle-tail'),
     commands.item('clear-view'),
     commands.item('refresh'),
+    commands.item('load-older'),
   ], e.clientX, e.clientY);
 }
 
@@ -560,6 +588,7 @@ function sourceContextMenu(e, item) {
     commands.item('refresh'),
     commands.item('toggle-tail'),
     commands.item('export-filtered'),
+    item.id === JOURNAL_ID ? commands.item('load-older') : null,
   ], e.clientX, e.clientY);
 }
 
@@ -587,6 +616,8 @@ app.expose({
   openLogFile,
   selectSource,
   setRoot,
+  setJournal,
+  loadOlderJournal,
   setSeverity,
   setQuery,
   setUseRegex,

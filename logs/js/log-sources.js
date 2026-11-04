@@ -1,18 +1,58 @@
 /**
  * Log sources discovery, tail-capped async reader, and live file watcher.
- * Reads real log files via fs.promises without spawning child processes.
- * Supports injectable rootDir via setRoot(dir) for deterministic headless testing.
+ * Reads real log files via fs.promises without spawning child processes, and
+ * the systemd journal through bro.sys.journal (queried and followed natively).
+ * Supports injectable rootDir via setRoot(dir) and a journal via
+ * setJournal(ns) for deterministic headless testing.
  */
 
 import { api } from '/lib/dom.js';
 import { homeDir, isLinux, isWindows } from '/lib/files.js';
-import { parseLogText, parseLogTextAsync } from './log-parser.js';
+import { normalizeSeverity, parseLogText, parseLogTextAsync } from './log-parser.js';
 
 const fs = require('fs');
 const path = require('path');
 
 /** Read at most the last 2 MB of any single log file so huge logs never stall the UI. */
 export const MAX_BYTES = 2 * 1024 * 1024;
+
+/** The journal source's id, and how many of this boot's newest records it loads. */
+export const JOURNAL_ID = 'journal:current-boot';
+export const JOURNAL_LIMIT = 5000;
+
+function pad(n, w = 2) {
+  return String(n).padStart(w, '0');
+}
+
+/** A bro.sys.journal record as a log entry (local time, syslog severity). */
+export function journalEntryToLog(rec, id) {
+  const d = new Date(rec.time);
+  const ymd = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const hms = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`;
+  const ident = rec.identifier || rec.unit || 'journal';
+  const tag = rec.pid ? `${ident}[${rec.pid}]` : ident;
+  return {
+    id,
+    timestamp: `${ymd} ${hms}`,
+    timeDisplay: hms,
+    severity: rec.priority == null ? 'info' : normalizeSeverity(rec.priority),
+    source: rec.unit || ident,
+    message: rec.message,
+    raw: `${ymd} ${hms} ${tag}: ${rec.message}`,
+    details: '',
+    json: {
+      unit: rec.unit,
+      identifier: rec.identifier,
+      pid: rec.pid,
+      priority: rec.priority,
+      transport: rec.transport,
+      hostname: rec.hostname,
+      bootId: rec.bootId,
+      cursor: rec.cursor,
+    },
+    cursor: rec.cursor,
+  };
+}
 
 const SYSTEM_LOG_NAMES = [
   'syslog',
@@ -152,11 +192,28 @@ export class LogSourceManager {
     this.sources = new Map(); // id -> source object
     this.openedPaths = new Set();
     this.activeWatch = null;
+    // undefined: bro.sys.journal outside a fixture root; null: none; else this namespace.
+    this.journalOverride = undefined;
   }
 
   setRoot(rootDir) {
     this.discoverGen++;
     this.rootDir = rootDir && rootDir !== '/' ? path.resolve(rootDir) : null;
+  }
+
+  /** Use `ns` (bro.sys.journal's shape) as the journal; null for none. */
+  setJournal(ns) {
+    this.discoverGen++;
+    this.journalOverride = ns;
+  }
+
+  /** The journal namespace in use, or null. */
+  journal() {
+    if (this.journalOverride !== undefined) return this.journalOverride;
+    if (this.rootDir || process.env.BRO_APP_HOME || !isLinux) return null;
+    const sys = api('sys');
+    const j = sys && sys.journal;
+    return j && j.available !== false && typeof j.query === 'function' ? j : null;
   }
 
   /**
@@ -290,6 +347,24 @@ export class LogSourceManager {
     };
 
     for (const p of desktopPaths) await registerPath(p, 'desktop');
+    if (this.journal()) {
+      const prev = this.sources.get(JOURNAL_ID);
+      nextSources.set(JOURNAL_ID, {
+        id: JOURNAL_ID,
+        path: '',
+        journal: true,
+        label: 'Journal (this boot)',
+        section: 'system',
+        icon: 'book',
+        entries: prev ? prev.entries : [],
+        errorCount: prev ? prev.errorCount : 0,
+        warnCount: prev ? prev.warnCount : 0,
+        loaded: prev ? prev.loaded : false,
+        truncated: prev ? prev.truncated : false,
+        before: prev ? prev.before : null,
+        error: '',
+      });
+    }
     for (const p of systemPaths) await registerPath(p, 'system');
     for (const p of this.openedPaths) await registerPath(p, 'opened');
 
@@ -317,6 +392,7 @@ export class LogSourceManager {
     }
     const src = this.sources.get(id);
     if (!src) return [];
+    if (src.journal) return this.loadJournal(src);
     const { text, size, mtimeMs, truncated } = await readLogTail(src.path);
     const entries = await parseLogTextAsync(text, { sourceName: src.label, startId: 1 });
     let errors = 0;
@@ -333,6 +409,52 @@ export class LogSourceManager {
     src.truncated = truncated;
     src.loaded = true;
     return entries;
+  }
+
+  /** This boot's newest JOURNAL_LIMIT records, read natively (no journalctl). */
+  async loadJournal(src) {
+    const j = this.journal();
+    let page = { entries: [], before: null, more: false };
+    src.error = '';
+    if (j) {
+      try {
+        page = await j.query({ boot: 'current', limit: JOURNAL_LIMIT });
+      } catch (e) {
+        src.error = String((e && e.message) || e);
+      }
+    }
+    src.entries = page.entries.map((r, i) => journalEntryToLog(r, i + 1));
+    src.before = page.more ? page.before : null;
+    src.truncated = !!page.more;
+    this.recount(src);
+    src.loaded = true;
+    return src.entries;
+  }
+
+  /** The page of journal records before the oldest one loaded; returns how many were added. */
+  async loadOlderJournal() {
+    const src = this.sources.get(JOURNAL_ID);
+    const j = this.journal();
+    if (!src || !j || !src.before) return 0;
+    const page = await j.query({ boot: 'current', limit: JOURNAL_LIMIT, before: src.before });
+    const older = page.entries.map((r) => journalEntryToLog(r, 0));
+    src.entries = older.concat(src.entries);
+    src.entries.forEach((e, i) => { e.id = i + 1; });
+    src.before = page.more ? page.before : null;
+    src.truncated = !!page.more;
+    this.recount(src);
+    return older.length;
+  }
+
+  recount(src) {
+    let errors = 0;
+    let warns = 0;
+    for (const e of src.entries) {
+      if (e.severity === 'error') errors++;
+      else if (e.severity === 'warn') warns++;
+    }
+    src.errorCount = errors;
+    src.warnCount = warns;
   }
 
   /**
@@ -425,7 +547,7 @@ export class LogSourceManager {
         label: s.label,
         icon: s.icon,
         sub: this.formatSourceSub(s.entries.length, s.errorCount),
-        title: s.path,
+        title: s.journal ? 'The systemd journal, this boot' : s.path,
       };
       if (s.section === 'desktop') desktopItems.push(item);
       else if (s.section === 'system') systemItems.push(item);
@@ -454,10 +576,34 @@ export class LogSourceManager {
     const targets = sourceId === 'all'
       ? Array.from(this.sources.values()).filter((s) => s && s.path)
       : [this.sources.get(sourceId)].filter((s) => s && s.path);
-    if (!targets.length) return;
+    const journalSrc = sourceId === 'all' || sourceId === JOURNAL_ID ? this.sources.get(JOURNAL_ID) : null;
+    if (!targets.length && !journalSrc) return;
 
     let stopped = false;
     let checking = false;
+
+    // The journal follows natively from its newest loaded record, so nothing
+    // between the load and the follow is missed.
+    let journalFollow = null;
+    const j = journalSrc ? this.journal() : null;
+    if (j && typeof j.follow === 'function') {
+      const last = journalSrc.entries.length ? journalSrc.entries[journalSrc.entries.length - 1] : null;
+      try {
+        journalFollow = j.follow({ boot: 'current', after: last && last.cursor ? last.cursor : undefined }, (recs) => {
+          if (stopped || !recs.length) return;
+          let nextId = journalSrc.entries.length ? journalSrc.entries[journalSrc.entries.length - 1].id + 1 : 1;
+          const added = recs.map((r) => journalEntryToLog(r, nextId++));
+          for (const e of added) {
+            journalSrc.entries.push(e);
+            if (e.severity === 'error') journalSrc.errorCount++;
+            else if (e.severity === 'warn') journalSrc.warnCount++;
+          }
+          if (onUpdate) onUpdate(added, sourceId === 'all' ? this.getAllEntries() : journalSrc.entries);
+        });
+      } catch (_) {
+        journalFollow = null;
+      }
+    }
 
     const checkGrowth = async () => {
       if (stopped || checking) return;
@@ -515,12 +661,15 @@ export class LogSourceManager {
       }
     }
 
-    const timer = setInterval(checkGrowth, 120);
+    const timer = targets.length ? setInterval(checkGrowth, 120) : null;
 
     this.activeWatch = {
       stop() {
         stopped = true;
-        clearInterval(timer);
+        if (timer) clearInterval(timer);
+        if (journalFollow) {
+          try { journalFollow.close(); } catch (_) {}
+        }
         for (const w of vfsWatchers) {
           if (w && typeof w.unwatch === 'function') {
             try { w.unwatch(); } catch (_) {}

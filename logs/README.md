@@ -5,6 +5,7 @@ System and application log viewer for the Helm desktop environment. Inspects, fi
 ## Features
 
 - **Automatic Source Discovery**: Discovers readable log files across `Desktop & Apps` (`$XDG_STATE_HOME`, `~/.local/state`, `%LOCALAPPDATA%`, `bro.app.logFile`), `System` (`/var/log/syslog`, `messages`, `dmesg`, `kern.log`, `Xorg.0.log`, `pacman.log`, `auth.log`, `boot.log`), and user-opened files, plus an **All Sources** combined view.
+- **systemd Journal**: On Linux, a **Journal (this boot)** source in System reads this boot's newest 5000 journal records through `bro.sys.journal` (native `sd_journal`, never `journalctl`; capability `sys.journal`), with the priority as severity, the unit as source and the record's fields in the detail drawer. **Load Older Journal Records** pages further back by cursor, and Live Follow follows the journal from the newest record shown.
 - **Multi-Format Log Parser**: Parses JSONL (`{...}`), Bro/Helm bracketed and ISO logs, RFC 5424 & RFC 3164 Syslog, kernel `dmesg`, `pacman.log`, and plain text logs, automatically grouping multi-line stack traces and indented continuation lines onto their parent entry.
 - **Fast Filtering & Search**: Instant severity filtering (`All`, `Errors`, `Warnings`, `Info`, `Debug`), case-insensitive substring search, and linear-time regular expression search powered by `bro.search.Regex`.
 - **Detail Drawer**: Inspect full log messages, pretty-printed structured JSON fields, attached stack traces, and raw log text.
