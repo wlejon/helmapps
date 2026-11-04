@@ -235,7 +235,7 @@ commands.addAll([
   { id: 'append-buffer', label: 'Append to Buffer', icon: 'plus',
     enabled: () => !!currentEntry(),
     run: () => appendToBuffer(currentEntry()) },
-  { id: 'copy-buffer', label: 'Copy Buffer', icon: 'clipboard', keys: ['Mod+Shift+C', 'Mod+Shift+B'], inText: true,
+  { id: 'copy-buffer', label: 'Copy Buffer', icon: 'clipboard', keys: ['Mod+Shift+C'], inText: true,
     enabled: () => state.buffer.length > 0,
     run: () => copyBuffer() },
   { id: 'clear-buffer', label: 'Clear Buffer', icon: 'trash',

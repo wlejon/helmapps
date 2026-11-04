@@ -25,7 +25,7 @@
 .plane { position: absolute; inset: 0; overflow: hidden; cursor: crosshair; }
 .plane-canvas { display: block; }
 .plane-word {
-  position: absolute; transform: translate(-50%, -100%); margin-top: -10px;
+  position: absolute; transform: translate(-50%, calc(-100% - 10px));
   padding: var(--s1) var(--s2); border-radius: var(--r-chip);
   color: var(--t3); font-size: var(--fs-cap);
 }

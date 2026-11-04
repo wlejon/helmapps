@@ -416,18 +416,6 @@ exprInput.addEventListener('input', () => {
   renderDisplay();
 });
 
-window.addEventListener('copy', (e) => { e.preventDefault(); commands.run('copy'); });
-window.addEventListener('paste', (e) => { e.preventDefault(); commands.run('paste'); });
-window.addEventListener('keydown', (e) => {
-  if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey) {
-    const k = (e.key || '').toLowerCase();
-    if (k === 'c' || k === 'v') {
-      e.preventDefault();
-      e.stopPropagation();
-      commands.run(k === 'c' ? 'copy' : 'paste');
-    }
-  }
-}, true);
 
 // ---- commands ---------------------------------------------------------------
 

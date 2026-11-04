@@ -100,9 +100,9 @@ settle(30);
 eq(app.state.lastCopied, 'α + β → ∞', 'Copy Buffer button copies the entire buffer');
 
 app.state.lastCopied = '';
-press('mod+shift+b');
+press('mod+shift+c');
 settle(30);
-eq(app.state.lastCopied, 'α + β → ∞', 'Mod+Shift+B shortcut copies the entire buffer');
+eq(app.state.lastCopied, 'α + β → ∞', 'Mod+Shift+C shortcut copies the entire buffer');
 
 // Recently copied includes characters appended/copied
 app.selectBlock('recent');
