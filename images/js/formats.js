@@ -7,8 +7,8 @@
  *   'vector'       an <img> drawn at the size it is shown, so it stays sharp
  *   'unsupported'  listed, but this machine cannot decode it: HEIC goes
  *                  through the system's decoder only (Windows needs the HEVC
- *                  Video Extensions, Linux has none), so its tile is a
- *                  placeholder and opening it says why (`reason`)
+ *                  Video Extensions, Linux needs libheif installed), so its
+ *                  tile is a placeholder and opening it says why (`reason`)
  */
 
 const path = require('path');

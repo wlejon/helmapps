@@ -102,6 +102,8 @@ if (heicSupport.supported) {
   shown(app, waitFor, 'q.heic');
   eq([app.viewer.model().width, app.viewer.model().height], [64, 48], 'the HEIC size');
   assert(!app.state.error, 'the HEIC shows without an error');
+  waitFor(() => app.state.pic && !app.state.pic.placeholder, 'the HEIC itself, not its placeholder');
+  assert(dialogFilter().includes('heic'), 'the Open dialog offers HEIC');
 } else {
   waitFor(() => app.state.error, 'the HEIC error state');
   assert(app.state.error.includes(heicSupport.reason), `opening a HEIC says why: ${app.state.error}`);
