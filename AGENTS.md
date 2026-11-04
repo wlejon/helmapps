@@ -145,7 +145,7 @@ myapp/
   js/main.js         startApp(), the window, commands, wiring
   js/*.js            the app's own modules
   tests/test_*.js    headless acceptance tests
-  GAPS.md            engine and kit gaps you hit (may stay empty)
+  GAPS.md            open engine and kit gaps (only while there are some)
 ```
 
 `bro.json`. The `id` is `helm.<name>` (lower-case, no dashes). `"app": "."`
@@ -270,6 +270,6 @@ wrong).
 - [ ] Every action is a command, with shortcuts for the common ones.
 - [ ] Missing optional APIs leave a clear empty or disabled state, not an
       exception.
-- [ ] `GAPS.md` lists every engine or kit gap you hit, or says "None found".
+- [ ] `GAPS.md` lists every open engine or kit gap you hit; with none, there is no `GAPS.md`.
 - [ ] A short `README.md` in your folder covers what the app does, how to
       run it, and its keyboard shortcuts.

@@ -97,5 +97,3 @@ entry (`Belongs in: kit`), so it can be lifted into `lib/` later:
 - a date picker
 - a command palette (the `Commands` registry has `list()` for building one)
 - a properties/inspector side panel beyond `SplitPane` + `.form-row`
-
-Kit gaps found while building the kit itself are in [../GAPS.md](../GAPS.md).

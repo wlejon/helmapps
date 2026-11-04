@@ -1,3 +1,0 @@
-# Gaps
-
-None open.
