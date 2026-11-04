@@ -5,7 +5,7 @@ Monitor running processes, live system performance graphs, and mounted file syst
 ## Features
 
 - **Processes**: Virtualized, sortable list of running processes (`Name`, `PID`, `User`, `CPU %`, `Memory`, `Threads`, `State`) from `/proc` on Linux or `bro.sys.processes` (`listProcesses` / `killProcess`) cross-platform, with live in-place updates that preserve selection and scroll position, live search filtering, parent-PID **Tree Mode**, **End Process** (`SIGTERM`), **Kill Process** (`SIGKILL` with confirmation), and a **Process Properties** dialog.
-- **Performance**: 120-sample Canvas 2D history graphs using helm kit tokens for total CPU %, optional per-core small multiples, Memory and Swap, Disk Read/Write throughput, Network Receive/Send throughput, and GPU Busy % / VRAM usage (when amdgpu sysfs or `bro.gpu` memory info is available).
+- **Performance**: 120-sample Canvas 2D history graphs using helm kit tokens for total CPU %, optional per-core small multiples, Memory and Swap, Disk Read/Write throughput and Network Receive/Send throughput (from `bro.sys.processes.ioCounters()` on every platform: whole physical disks, and the interfaces that are not loopback), and GPU Busy % / VRAM usage (when amdgpu sysfs or `bro.gpu` memory info is available).
 - **File Systems**: Mounted volumes from `bro.vfs.volumes()` showing filesystem type, capacity progress bar, used/free bytes, and one-click **Open in Disk Usage** (`helm.diskusage`).
 
 ## Running

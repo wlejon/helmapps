@@ -77,6 +77,7 @@ export class Sampler {
     this.gen++;
     this.inFlight = null;
     this.proc.setSysApi(sysApi);
+    this.sys.setSysApi(sysApi);
     this.tickCount = 0;
   }
 

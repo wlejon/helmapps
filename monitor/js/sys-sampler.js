@@ -1,7 +1,9 @@
 /**
  * System metrics parser and async sampler (/proc/stat, /proc/meminfo,
- * /proc/diskstats, /proc/net/dev, /proc/loadavg, /proc/uptime, /proc/cpuinfo,
- * and amdgpu sysfs files, with os.* / bro.gpu fallback when /proc is absent).
+ * /proc/loadavg, /proc/uptime, /proc/cpuinfo, and amdgpu sysfs files, with
+ * os.* / bro.gpu fallback when /proc is absent). Disk and network throughput
+ * come from bro.sys.processes.ioCounters() on every platform; a fixture root
+ * (setRoot) has its /proc/diskstats and /proc/net/dev read instead.
  *
  * Pure parser functions are exported for direct unit testing in test_parsers.js.
  */
@@ -234,10 +236,33 @@ function pushRing(arr, val, max = RING_SIZE) {
   while (arr.length > max) arr.shift();
 }
 
+/**
+ * Totals from `bro.sys.processes.ioCounters()`: bytes read/written over every
+ * disk, received/sent over the interfaces that are not loopback (the shapes
+ * parseDiskstats / parseNetDev give), and the counters' own timestamp.
+ */
+export function totalsFromIoCounters(c) {
+  const disk = { readBytes: 0, writeBytes: 0, devices: {} };
+  for (const d of (c && c.disks) || []) {
+    disk.devices[d.name] = { readBytes: d.readBytes, writeBytes: d.writeBytes };
+    disk.readBytes += d.readBytes;
+    disk.writeBytes += d.writeBytes;
+  }
+  const net = { rxBytes: 0, txBytes: 0, interfaces: {} };
+  for (const n of (c && c.interfaces) || []) {
+    if (n.loopback) continue;
+    net.interfaces[n.name] = { rxBytes: n.rxBytes, txBytes: n.txBytes };
+    net.rxBytes += n.rxBytes;
+    net.txBytes += n.txBytes;
+  }
+  return { timestampMs: (c && c.timestamp) || 0, disk, net };
+}
+
 export class SysSampler {
   constructor(root = '/') {
     this.root = root;
     this.gen = 0;
+    this.sysApi = undefined;
     this.reset();
   }
 
@@ -247,11 +272,71 @@ export class SysSampler {
     this.reset();
   }
 
+  // `undefined`: bro.sys on the real root; null: none; an object: a stand-in
+  // (tests), whatever the root.
+  setSysApi(sysApi) {
+    this.gen++;
+    this.sysApi = sysApi;
+    this.reset();
+  }
+
+  // The machine's disk and network counters (every platform), or null: a
+  // fixture root's /proc files are read instead.
+  _ioCountersFn() {
+    let api = this.sysApi;
+    if (api === undefined) {
+      if (this.root !== '/') return null;
+      api = typeof bro !== 'undefined' && bro.sys && bro.sys.available !== false ? bro.sys : null;
+    }
+    const procs = api && api.processes;
+    if (!procs || typeof procs.ioCounters !== 'function') return null;
+    return () => procs.ioCounters();
+  }
+
+  _applyDisk(currDisk, dtSec) {
+    const prev = this.prevDisk;
+    this.disk = {
+      readBps: prev ? Math.max(0, currDisk.readBytes - prev.readBytes) / dtSec : 0,
+      writeBps: prev ? Math.max(0, currDisk.writeBytes - prev.writeBytes) / dtSec : 0,
+      readBytes: currDisk.readBytes,
+      writeBytes: currDisk.writeBytes,
+    };
+    this.prevDisk = currDisk;
+  }
+
+  _applyNet(currNet, dtSec) {
+    const prev = this.prevNet;
+    this.net = {
+      rxBps: prev ? Math.max(0, currNet.rxBytes - prev.rxBytes) / dtSec : 0,
+      txBps: prev ? Math.max(0, currNet.txBytes - prev.txBytes) / dtSec : 0,
+      rxBytes: currNet.rxBytes,
+      txBytes: currNet.txBytes,
+    };
+    this.prevNet = currNet;
+  }
+
+  _sampleIoCounters(ioFn, dtSec) {
+    let counters = null;
+    try {
+      counters = ioFn();
+    } catch (_) {
+      return;   // refused (sys.processes not granted) or unavailable: the graphs stay at 0
+    }
+    const t = totalsFromIoCounters(counters);
+    // The counters' own clock where there is a previous read, so the rate is
+    // over the time between the reads, not between the ticks.
+    const dt = this.prevIoMs > 0 && t.timestampMs > this.prevIoMs ? (t.timestampMs - this.prevIoMs) / 1000 : dtSec;
+    this.prevIoMs = t.timestampMs;
+    this._applyDisk(t.disk, dt);
+    this._applyNet(t.net, dt);
+  }
+
   reset() {
     this.hasProc = false;
     this.prevStat = null;
     this.prevDisk = null;
     this.prevNet = null;
+    this.prevIoMs = 0;
     this.prevSampleMs = 0;
     this.lastJiffiesDelta = 0;
     this.cpuModel = '';
@@ -288,14 +373,16 @@ export class SysSampler {
     const dtSec = this.prevSampleMs > 0 ? Math.max(0.05, (nowMs - this.prevSampleMs) / 1000) : 1;
     this.prevSampleMs = nowMs;
 
+    const ioFn = this._ioCountersFn();
     if (statText != null) {
       this.hasProc = true;
-      await this._sampleProc(procDir, statText, dtSec, myGen);
+      await this._sampleProc(procDir, statText, dtSec, myGen, !ioFn);
     } else {
       this.hasProc = false;
       this._sampleOsFallback();
     }
     if (this.gen !== myGen) return this;
+    if (ioFn) this._sampleIoCounters(ioFn, dtSec);
 
     await this._sampleGpu(myGen);
     if (this.gen !== myGen) return this;
@@ -303,13 +390,13 @@ export class SysSampler {
     return this;
   }
 
-  async _sampleProc(procDir, statText, dtSec, myGen) {
+  async _sampleProc(procDir, statText, dtSec, myGen, readIoFiles) {
     const currStat = parseProcStat(statText);
     const delta = computeCpuDelta(this.prevStat, currStat);
     const [memText, diskText, netText, loadText, upText, cpuinfoText] = await Promise.all([
       readTextOrNull(path.join(procDir, 'meminfo')),
-      readTextOrNull(path.join(procDir, 'diskstats')),
-      readTextOrNull(path.join(procDir, 'net', 'dev')),
+      readIoFiles ? readTextOrNull(path.join(procDir, 'diskstats')) : Promise.resolve(null),
+      readIoFiles ? readTextOrNull(path.join(procDir, 'net', 'dev')) : Promise.resolve(null),
       readTextOrNull(path.join(procDir, 'loadavg')),
       readTextOrNull(path.join(procDir, 'uptime')),
       this.cpuModel ? Promise.resolve(null) : readTextOrNull(path.join(procDir, 'cpuinfo')),
@@ -322,39 +409,10 @@ export class SysSampler {
 
     if (memText != null) this.mem = parseMeminfo(memText);
 
-    if (diskText != null) {
-      const currDisk = parseDiskstats(diskText);
-      if (this.prevDisk) {
-        const dRead = Math.max(0, currDisk.readBytes - this.prevDisk.readBytes);
-        const dWrite = Math.max(0, currDisk.writeBytes - this.prevDisk.writeBytes);
-        this.disk = {
-          readBps: dRead / dtSec,
-          writeBps: dWrite / dtSec,
-          readBytes: currDisk.readBytes,
-          writeBytes: currDisk.writeBytes,
-        };
-      } else {
-        this.disk = { readBps: 0, writeBps: 0, readBytes: currDisk.readBytes, writeBytes: currDisk.writeBytes };
-      }
-      this.prevDisk = currDisk;
-    }
-
-    if (netText != null) {
-      const currNet = parseNetDev(netText);
-      if (this.prevNet) {
-        const dRx = Math.max(0, currNet.rxBytes - this.prevNet.rxBytes);
-        const dTx = Math.max(0, currNet.txBytes - this.prevNet.txBytes);
-        this.net = {
-          rxBps: dRx / dtSec,
-          txBps: dTx / dtSec,
-          rxBytes: currNet.rxBytes,
-          txBytes: currNet.txBytes,
-        };
-      } else {
-        this.net = { rxBps: 0, txBps: 0, rxBytes: currNet.rxBytes, txBytes: currNet.txBytes };
-      }
-      this.prevNet = currNet;
-    }
+    // A fixture root's disk and network files (the real machine's come from
+    // bro.sys.processes.ioCounters, in sample()).
+    if (diskText != null) this._applyDisk(parseDiskstats(diskText), dtSec);
+    if (netText != null) this._applyNet(parseNetDev(netText), dtSec);
 
     if (loadText != null) this.loadavg = parseLoadavg(loadText);
     if (upText != null) this.uptimeSec = parseUptime(upText);
