@@ -3,35 +3,16 @@
 Engine and platform gaps found while building `lib/` and the reference app.
 Each app keeps its own `GAPS.md` in the same format (see AGENTS.md).
 
-## Startup is mostly the engine's
-- **Where:** bro
-- **Actual:** headless brings the Vulkan device up on a thread while it
-  creates the window (`bro.app.startup.graphics`), and in headless and
-  windowed alike the realm's host globals (~45 ms) are installed and the
-  page's first script compiled while the device comes up
-  (`bro.app.startup.page`). First frame, `bro-headless` on Windows, warm
-  code cache, validation layer off (before -> after): empty page 200 -> 199
-  ms, kit-tests 273 -> 208, music 323 -> 236, images 323 -> 233; cold cache
-  kit-tests 282 -> 211, music 471 -> 389, images 428 -> 346. What is left is
-  the device itself (~175-195 ms, most of it loading the Vulkan loader and
-  the GPU driver): an empty page's first frame is about that. The windowed
-  `bro` still creates the device after the window (it picks the device
-  against the window's surface); its first frame was not measured.
-- **Impact:** none for an app to fix; recorded so startup budgets in
-  `docs/performance.md` are read as "the app's share".
-- **Belongs in:** bro: in the windowed path, load the driver and create the
-  instance alongside the window.
-
-## The Windows profiler samples below the rate asked for
-- **Where:** bro (`bro.profiler`, docs/profiler-api.js)
-- **Expected:** `start({ hz: 2000 })` takes about 2000 samples a second.
-- **Actual:** music/tests/bench_switch.js with `PROFILE=1 ROUNDS=80` took
-  19676 samples in 32 s, about 615 a second. Shares between functions hold,
-  but sample counts read about 3x low as time.
-- **Belongs in:** bronze: the sampler's timer on Windows (likely the default
-  timer resolution), or report the achieved rate beside the requested one.
-
 ## Fixed while building the kit
+- Windowed Vulkan instance preload: `Engine::initialize` (`src/engine/engine_init.cpp`,
+  `VulkanContext::preloadInstance` in `src/render/vulkan_context.cpp`) now loads the
+  Vulkan driver/ICDs and creates `VkInstance` on a worker thread alongside window
+  creation in `DisplayMode::Windowed`, overlapping loader/ICD initialization with
+  window creation and initial script compilation.
+- High-frequency Windows sampling profiler cadence: `bronze`'s `samplerBody`
+  (`src/runtime/profiler.cpp`) now uses `CREATE_WAITABLE_TIMER_HIGH_RESOLUTION`
+  sub-millisecond waits and drift-free `nextDue += periodMs` scheduling instead
+  of `::Sleep(1)`, reaching the requested 2000 Hz sampling rate.
 - MPRIS player service publisher: `bro.mpris.createService` in `brompris`
   (MPRIS2 on Linux, SMTC on Windows; `docs/mpris-api.js`) lets an app publish
   itself as a media player so helm's now-playing card and media keys reach it
