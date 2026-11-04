@@ -1,6 +1,6 @@
 // The kit's pure parts: chords, commands, settings, formatting, icons, h().
 
-import { app, eq, press, mod } from '/lib/test.js';
+import { app, eq, press, type, mod } from '/lib/test.js';
 import { normalizeChord, displayChord, Commands } from '/lib/commands.js';
 import { formatBytes, formatCount, formatNumber, formatDuration, formatDate } from '/lib/format.js';
 import { iconNames, hasIcon, icon } from '/lib/icons.js';
@@ -46,6 +46,18 @@ document.body.appendChild(field);
 field.focus();
 press(`${mod}+k`);
 eq(appRan, 1, 'not while typing in a field (inText is false)');
+// Shifted symbols are real keys: the base key with Shift, then the symbol's text.
+const keys = [];
+field.addEventListener('keydown', (e) => keys.push(`${e.shiftKey ? 'S+' : ''}${e.code}`));
+field.value = '';
+type('12+3*(4)!');
+eq(field.value, '12+3*(4)!', 'type() types shifted symbols');
+eq(keys.join(' '), 'Digit1 Digit2 S+Equal Digit3 S+Digit8 S+Digit9 Digit4 S+Digit0 S+Digit1',
+   'each a keydown of its base key with Shift');
+keys.length = 0;
+press('%');
+eq(keys.join(' '), 'S+Digit5', "press('%') is Shift+5");
+eq(field.value.endsWith('%'), true, 'and types it');
 field.remove();
 
 // Settings (bro.conf or the memory fallback; both behave the same)
