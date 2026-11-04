@@ -1,7 +1,8 @@
 /**
  * Alarms page: list of alarms with time (HH:MM), label, repeat day toggles,
- * enabled Switch, Edit/Delete, plus an explicit banner ("Alarms ring while
- * Clocks is open") and a ringing banner/modal with Snooze (10 min) and Dismiss.
+ * enabled Switch, Edit/Delete, a banner saying whether alarms ring with Clocks
+ * closed (each enabled alarm is a launch scheduled with the OS, see
+ * alarm-schedule.js) and a ringing banner with Snooze (10 min) and Dismiss.
  */
 
 import { h, api, attempt } from '/lib/dom.js';
@@ -13,6 +14,10 @@ import { toast } from '/lib/toast.js';
 import { now } from './time.js';
 import { getZonedParts } from './cities.js';
 import { playChime } from './sound.js';
+import { createAlarmScheduler } from './alarm-schedule.js';
+
+export const CLOSED_NOTICE = 'Alarms ring at their time, even with Clocks closed';
+export const OPEN_NOTICE = 'Alarms ring while Clocks is open';
 
 const DAY_LABELS = [
   { dow: 1, short: 'M', name: 'Mon' },
@@ -40,9 +45,17 @@ function parseTimeString(str) {
 }
 
 export function createAlarmsView({ state, settings, commands, onRing }) {
+  const infoText = h('span.alarm-info-text', '');
+  const scheduler = createAlarmScheduler({ state, clockNow: now, onStatus: () => updateNotice() });
+  function updateNotice() {
+    const s = state.alarmScheduling;
+    infoText.textContent = s.ok ? CLOSED_NOTICE : `${OPEN_NOTICE} (${s.reason})`;
+  }
+  updateNotice();
+
   const infoBanner = h('div.alarm-info-banner.card',
     icon('info', 'sm'),
-    h('span.alarm-info-text', 'Alarms ring while Clocks is open'),
+    infoText,
     h('button.btn.primary.small', {
       onclick: () => commands.run('alarm-new'),
     }, icon('plus', 'sm'), 'Add Alarm…')
@@ -87,6 +100,26 @@ export function createAlarmsView({ state, settings, commands, onRing }) {
 
   function persist() {
     settings.set('alarms', state.alarms);
+    scheduler.sync();
+  }
+
+  /**
+   * A launch the OS made for alarm `id` (`--alarm <id>`, with Clocks closed or
+   * handed to this one): ring it, unless it already rang this minute or was
+   * turned off since. Then reschedule, as the launch used up its entry.
+   */
+  function ringFromLaunch(id) {
+    const a = state.alarms.find((x) => x.id === id);
+    if (a && a.enabled && !a.ringing) {
+      const p = getZonedParts(now(), state.referenceZone || 'local');
+      const minuteKey = `${p.year}-${p.month}-${p.day}-${p.hour}:${p.minute}`;
+      if (a.lastFiredMinuteKey !== minuteKey) {
+        fireAlarm(a, minuteKey);
+        settings.set('alarms', state.alarms);
+        rebuildListIfNeeded();
+      }
+    }
+    return scheduler.sync().then(() => a || null);
   }
 
   function normalizeAlarm(input = {}) {
@@ -459,5 +492,7 @@ export function createAlarmsView({ state, settings, commands, onRing }) {
     snoozeAlarm,
     dismissAlarm,
     openAlarmDialog,
+    ringFromLaunch,
+    syncSchedules: scheduler.sync,
   };
 }

@@ -27,6 +27,7 @@ import { createWorldView } from './world.js';
 import { createTimersView } from './timers.js';
 import { createStopwatchView, formatStopwatchMs } from './stopwatch.js';
 import { createAlarmsView } from './alarms.js';
+import { alarmFromArgv, nextAlarmInstant } from './alarm-schedule.js';
 import { playChime } from './sound.js';
 
 const DEFAULT_CITIES = [
@@ -308,6 +309,9 @@ export function reloadFromSettings() {
     ? savedAlarms.map((a) => alarmsView.normalizeAlarm(a))
     : [];
   state.ringingAlarm = state.alarms.find((a) => a.ringing) || null;
+  // The OS's launches follow the alarms as saved (an earlier run's, or ones
+  // deleted with the OS's own tools).
+  alarmsView.syncSchedules();
 
   const savedSw = settings.get('stopwatch');
   if (savedSw && typeof savedSw === 'object') {
@@ -384,10 +388,18 @@ function rafLoop() {
 }
 requestAnimationFrame(rafLoop);
 
-app.onLaunch(({ argv }) => {
+/** A launch (the first, or one handed over): a page name, or a scheduled `--alarm <id>`. */
+function handleLaunch({ argv }) {
+  const alarmId = alarmFromArgv(argv);
+  if (alarmId) {
+    showPage('alarms');
+    return alarmsView.ringFromLaunch(alarmId);
+  }
   const pageArg = (argv || []).find((a) => PAGE_META[a]);
   if (pageArg) showPage(pageArg);
-});
+  return null;
+}
+app.onLaunch(handleLaunch);
 
 // Expose full state and helpers for headless tests
 app.expose({
@@ -438,6 +450,9 @@ app.expose({
   deleteAlarm: alarmsView.deleteAlarm,
   snoozeAlarm: alarmsView.snoozeAlarm,
   dismissAlarm: alarmsView.dismissAlarm,
+  syncSchedules: alarmsView.syncSchedules,
+  nextAlarmInstant,
+  handleLaunch,
   // Sound
   playChime: (kind) => playChime(state, kind),
 });

@@ -7,7 +7,7 @@
     "categories": ["Utility", "Clock"],
     "keywords": ["clock", "world", "timer", "stopwatch", "alarm", "time"],
     "singleInstance": true,
-    "permissions": [],
+    "permissions": ["schedule"],
     "app": ".",
     "width": 920,
     "height": 640,

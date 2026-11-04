@@ -1,8 +1,11 @@
 // Alarms acceptance test:
-// - Banner states "Alarms ring while Clocks is open".
+// - Banner states that alarms ring with Clocks closed (launches scheduled with
+//   the OS; headless records them and reaches no OS scheduler).
 // - An enabled alarm set for "now + 1 min" fires when the clock passes it.
 // - Snooze re-fires 10 minutes later.
 // - A disabled alarm does not fire when the clock passes its time.
+// - Every enabled alarm has a launch at its next ring; disabling or deleting
+//   one removes it; a `--alarm <id>` launch rings it once.
 
 import { app, eq, clickEl } from '/lib/test.js';
 
@@ -10,7 +13,7 @@ app.showPage('alarms');
 
 // Check required page banner
 const banner = document.querySelector('.alarm-info-banner');
-assert(banner && banner.textContent.includes('Alarms ring while Clocks is open'), 'Alarms page states that alarms ring while Clocks is open');
+assert(banner && banner.textContent.includes('even with Clocks closed'), `Alarms page states that alarms ring with Clocks closed: ${banner && banner.textContent}`);
 
 // Pin virtual time to 2024-01-15 08:30:00 UTC
 const baseTime = Date.UTC(2024, 0, 15, 8, 30, 0);
@@ -68,5 +71,53 @@ eq(enabledAlarm.firedCount, 2, 'enabled alarm has now fired twice');
 clickEl(document.querySelector('.alarm-dismiss-btn'));
 eq(enabledAlarm.ringing, false, 'alarm dismissed');
 eq(app.state.ringingAlarm, null, 'no active ringing alarm after dismiss');
+
+// Scheduled launches: one per enabled alarm, at its next ring on the wall clock.
+await app.syncSchedules();
+const launches = () => new Map(bro.app.scheduled().map((s) => [s.id, s]));
+let sched = launches();
+eq(sched.size, 1, 'one launch: the enabled alarm only');
+const launch = sched.get(enabledAlarm.id);
+assert(launch, 'the enabled alarm has a launch');
+eq(launch.args, ['--alarm', enabledAlarm.id], 'the launch names the alarm');
+// The alarms' zone (the pinned clock above makes it UTC).
+const zone = app.state.referenceZone;
+const at = app.getZonedParts(launch.when, zone);
+eq([at.hour, at.minute, at.second], [8, 31, 0], `at 08:31 in ${zone}`);
+assert(launch.when > Date.now() && launch.when - Date.now() <= 86400000, 'the next one, within a day');
+eq(launch.when, app.nextAlarmInstant(enabledAlarm, zone, Date.now()), 'nextAlarmInstant agrees');
+eq(launch.wake, true, 'the launch wakes the machine');
+
+// Repeat days: the next ring falls on one of them.
+app.updateAlarm(enabledAlarm.id, { days: [3] });
+await app.syncSchedules();
+eq(app.getZonedParts(launches().get(enabledAlarm.id).when, zone).weekday, 3, 'a Wednesday alarm launches on a Wednesday');
+
+// Enabling the second alarm schedules it; disabling and deleting remove launches.
+app.toggleAlarm(disabledAlarm.id, true);
+await app.syncSchedules();
+assert(launches().has(disabledAlarm.id), 'enabled: scheduled');
+app.toggleAlarm(disabledAlarm.id, false);
+await app.syncSchedules();
+assert(!launches().has(disabledAlarm.id), 'disabled: unscheduled');
+app.deleteAlarm(disabledAlarm.id);
+
+// A scheduled launch (`--alarm <id>`, as the OS starts Clocks) rings the alarm,
+// once, and leaves its next launch scheduled.
+app.showPage('world');
+advanceTime(60 * 1000);  // past the minute it last rang in
+const fired = enabledAlarm.firedCount;
+await app.handleLaunch({ argv: ['--alarm', enabledAlarm.id] });
+eq(app.state.page, 'alarms', 'the launch shows the Alarms page');
+eq(enabledAlarm.ringing, true, 'the launch rings the alarm');
+eq(enabledAlarm.firedCount, fired + 1, 'rang once');
+await app.handleLaunch({ argv: ['--alarm', enabledAlarm.id] });
+eq(enabledAlarm.firedCount, fired + 1, 'a second launch for the ringing alarm does not ring it again');
+assert(launches().has(enabledAlarm.id), 'its next launch stays scheduled');
+clickEl(document.querySelector('.alarm-dismiss-btn'));
+
+app.deleteAlarm(enabledAlarm.id);
+await app.syncSchedules();
+eq(bro.app.scheduled().length, 0, 'deleted: no launches left');
 
 console.log('test_alarm PASSED');
