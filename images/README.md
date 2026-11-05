@@ -80,11 +80,15 @@ are grouped into bursts (`groupBursts`).
   rank it is sure of at 85% or more: its species, else its genus, family,
   order or class ("Darners (Aeshnidae)"). A photo with an animal that no
   name covers is *Uncertain* (see Your answers).
-- **Animals** (the toolbar's filter button) lists every name in the folder
-  with its photo count (a photo counts once per name), *All photos* first,
-  then *Uncertain* with its count, and *Show Photos Without Animals*.
-  The choice filters the grid, the strip, Next / Previous and the
-  slideshow: a photo shows when any of its names is the one chosen.
+- **Animals** (the toolbar's filter button) lists, alphabetically with
+  photo counts (a photo counts once per name), every name you gave and
+  every name the identifier is very sure of (95% or more, the
+  `animalsListScore` setting), *All photos* first, then *Uncertain* with
+  its count (it also holds a photo whose names are all under 95%), and
+  *Show Photos Without Animals*. The choice filters the grid, the strip,
+  Next / Previous and the slideshow: a photo shows when any of its listed
+  names is the one chosen. The tiles and the details still show every
+  name at 85% or more.
 - Each grid tile carries a quiet tag: its top name and how sure, "+N" when
   it has more (all of them in the tag's tooltip), and on a burst's first
   frame how many frames it has.

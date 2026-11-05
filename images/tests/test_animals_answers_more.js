@@ -25,6 +25,7 @@ const tree = { ...shotsTree(), 'u_01.jpg': photo({ time: 25, animal: FROG }), 's
 const dir = fixtureDir(tree);
 const W = app.wildlife;
 const table = stubTable([...TABLE, FROG, SPIDER]);
+app.settings.set('animalsListScore', 0.85);   // the stub's names, 0.88 to 0.95, all listed
 W.useStub(table, { taxa: TAXA, names: MORE_NAMES });
 app.openPath(dir);
 waitFor(() => app.state.mode === 'grid' && app.folder.items.length === 11, 'the folder');
@@ -56,7 +57,8 @@ waitFor(() => mine('b_01.jpg'), 'b_01 is a Mallard');
 press('escape');
 waitFor(() => app.state.mode === 'grid', 'the grid');
 clickEl(btn);
-eq(menuLabels().slice(0, 5).join('|'), 'All photos|Northern Cardinal|Blue Jay|Eastern Gray Squirrel|Mallard', 'the groups by photo count');
+eq(menuLabels().slice(0, 6).join('|'), 'All photos|Blue Jay|Eastern Gray Squirrel|Mallard|Marbled Orbweaver|Northern Cardinal',
+  'the groups alphabetically');
 eq([menuCount('Blue Jay'), menuCount('Mallard')], ['2', '1'], 'her Mallard counts there, not as a jay');
 chooseMenu('Blue Jay');
 eq(gridNames(), 'c_01.jpg,c_02.jpg', 'the jay group: the one she confirmed and the guess');

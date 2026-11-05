@@ -40,6 +40,7 @@ const dir = fixtureDir({
   's_01.jpg': photo({ time: 70, discs: [[60, 60], [260, 60], [60, 180], [260, 180]].map((at, i) => ({ animal: SPARROW, at, r: 24 - 2 * i })) }),
   'x_01.jpg': photo({ time: 80, discs: [{ animal: EGRET, at: [90, 120], r: 26 }, { animal: MALLARD, at: [230, 120] }] }),
 });
+app.settings.set('animalsListScore', 0.85);   // the stub's names, 0.88 to 0.95, all listed
 app.wildlife.useStub(stubTable([EGRET, MALLARD, DARNER, SPARROW]), { taxa: TAXA, maxClassify: 2 });
 app.wildlife.isolate.useStub();
 app.openPath(dir);
@@ -68,11 +69,11 @@ eq(cell('m_02.jpg').querySelector('.iv-tag-more').textContent, '+1', 'a tile say
 eq(cell('m_02.jpg').querySelector('.iv-tag-name').textContent, 'Great Egret', 'beside its top name');
 eq(cell('n_01.jpg').querySelector('.iv-tag-name').textContent, 'Darners (Aeshnidae)', 'a family on a tile');
 
-// The menu: every taxon by photo count, a photo once per taxon.
+// The menu: every taxon alphabetically, a photo once per taxon.
 const btn = document.querySelector('.iv-animals-filter');
 clickEl(btn);
-eq(menuLabels().slice(0, 5).join('|'), 'All photos|Great Egret|Mallard|Darners (Aeshnidae)|House Sparrow', 'by photo count');
-eq(Array.from(document.querySelectorAll('.menu .menu-count')).map((k) => k.textContent).slice(0, 5).join(), '6,4,4,1,1', 'with counts');
+eq(menuLabels().slice(0, 5).join('|'), 'All photos|Darners (Aeshnidae)|Great Egret|House Sparrow|Mallard', 'alphabetical');
+eq(Array.from(document.querySelectorAll('.menu .menu-count')).map((k) => k.textContent).slice(0, 5).join(), '6,1,4,1,4', 'with counts');
 chooseMenu('Mallard');
 eq(names(app.grid.items).join(), 'm_01.jpg,m_02.jpg,m_03.jpg,x_01.jpg', 'the mallard filter finds every frame of the burst');
 eq(btn.textContent, 'Mallard', 'the button says the filter');

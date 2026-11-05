@@ -23,6 +23,7 @@ else run();
 function run() {
 // u_01: the frog, alone at 25 s.
 const dir = fixtureDir({ ...shotsTree(), 'u_01.jpg': photo({ time: 25, animal: FROG }) });
+app.settings.set('animalsListScore', 0.85);   // the stub's names, 0.88 to 0.92, all listed (the default 0.95 at the end)
 app.wildlife.useStub(stubTable([...TABLE, FROG]));
 app.openPath(dir);
 waitFor(() => app.state.mode === 'grid' && app.folder.items.length === 10, 'the folder');
@@ -59,17 +60,17 @@ const frogTile = cell('u_01.jpg');
 assert(frogTile && (!frogTile.querySelector('.iv-tags') || frogTile.querySelector('.iv-tags').classList.contains('hidden')),
   'the unidentified frog\'s tile has no tag');
 
-// The Animals menu: All, the species by photo count, Uncertain, the toggle.
+// The Animals menu: All, the species alphabetically, Uncertain, the toggle.
 const btn = document.querySelector('.iv-animals-filter');
 assert(btn && !btn.classList.contains('hidden'), 'the Animals button shows');
 clickEl(btn);
 const labels = menuLabels();
-eq(labels.slice(0, 5).join('|'), 'All photos|Blue Jay|Northern Cardinal|Eastern Gray Squirrel|Uncertain',
-  'All first, then the named species by photo count, then the uncertain');
+eq(labels.slice(0, 5).join('|'), 'All photos|Blue Jay|Eastern Gray Squirrel|Northern Cardinal|Uncertain',
+  'All first, then the named species alphabetically, then the uncertain');
 assert(!labels.includes('Green Frog'), 'a species under 85% is not in the menu');
 assert(labels.includes('Show Photos Without Animals'), 'the toggle is in the menu');
 const counts = Array.from(document.querySelectorAll('.menu .menu-count')).map((k) => k.textContent);
-eq(counts.slice(0, 5).join(), '8,3,3,1,1', 'with photo counts');
+eq(counts.slice(0, 5).join(), '8,3,1,3,1', 'with photo counts');
 chooseMenu('Uncertain');
 eq(gridNames(), 'u_01.jpg', 'Uncertain filters like a species');
 eq(btn.textContent, 'Uncertain', 'the button says so');
@@ -153,6 +154,16 @@ app.commands.run('find-animals');
 analysed(app, waitFor, 'on again: answered from the cache');
 eq(a.analysed, 10, 'nothing analysed again');
 eq(app.shownItems().length, 8, 'the filter is back');
+
+// The default, 0.95: the menu lists only names that sure; a photo whose names are all under it is Uncertain.
+app.settings.reset('animalsListScore');
+eq(app.settings.get('animalsListScore'), 0.95, 'the default');
+clickEl(btn);
+eq(menuLabels().slice(0, 2).join('|'), 'All photos|Uncertain', 'no name of the stub\'s is 95% sure');
+eq(document.querySelectorAll('.menu .menu-count')[1].textContent, '8', 'every photo with an animal is Uncertain');
+chooseMenu('All photos');
+eq(app.shownItems().find((it) => it.path.endsWith('b_01.jpg')).tag, 'Blue Jay', 'the tiles still name what the identifier thinks');
+app.settings.set('animalsListScore', 0.85);
 
 // The folder watch: a new photo and one rewritten in place are analysed, nothing else.
 if (app.folder.watching) {

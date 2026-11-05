@@ -4,9 +4,10 @@
  * (analysis.js) and the answers kept, so the folder opens instantly next
  * time. This module is the feature's face:
  *
- *  - the Animals menu (toolbar): every taxon named in the folder with its
- *    photo count ("Mallard", "Darners (Aeshnidae)"), "All" first,
- *    "Uncertain" (an animal no name covers: UNCERTAIN), and Show Photos
+ *  - the Animals menu (toolbar): "All" first, then alphabetically every
+ *    name she gave and every name the identifier is very sure of
+ *    (animalsListScore) with its photo count, "Uncertain" (an animal no
+ *    such name covers: UNCERTAIN), and Show Photos
  *    Without Animals; the choice filters the grid, the strip and Next /
  *    Previous (items());
  *  - a tag on each grid tile (its top name and how sure, "+N" for the
@@ -20,9 +21,10 @@
  * at the narrowest rank it is sure of (0.85 or more). Bursts stay whole:
  * every frame of a burst is a photo of its own in the grid and carries all
  * of the burst's names (an egret in two frames and mallards in the third
- * are on all three). A photo matches a filter when any of its names is that
- * taxon (by rank and scientific name); it counts once per taxon. A photo
- * with a crop no name covers, or an animal and no name, is Uncertain until she answers it. A photo counts as "without
+ * are on all three). A photo matches a filter when any of its listed names
+ * is that taxon (by rank and scientific name); it counts once per taxon. A
+ * photo with a crop no name covers, or an animal and no listed name, is
+ * Uncertain until she answers it. A photo counts as "without
  * animals" when it and its burst have no animal; such photos are hidden
  * once analysed, unless Show Photos Without Animals is on, and never
  * otherwise touched. Photos not analysed yet always show.
@@ -65,6 +67,10 @@ export const WILDLIFE_SETTINGS = {
   // Every animal's outline on the photo, a click to name one (outlines.js). Off: the photo
   // is for looking; an animal's box shows only while its details row is hovered or its picker open.
   showOutlines: { type: 'bool', default: false },
+  // The Animals menu lists a name the identifier gives at this score or more (and every name she gave);
+  // a photo with an animal and none of those is Uncertain. On a 1,383-photo card 0.95 kept 33 species
+  // over 1,002 photos where 0.85 listed 41, the extra ones mostly look-alikes of the 33.
+  animalsListScore: { type: 'double', default: 0.95, min: 0.5, max: 1 },
   ...EDITOR_SETTINGS,
 };
 
@@ -127,7 +133,10 @@ export class WildlifeFeature {
     this.seen = { dir: '', version: -1 };
     this.cache = { key: '', items: null };
     this.current = current;
-    this.known = null;             // answerOf's: { taxa, map: pathKey -> answer }, a photo dropped when it changes
+    this.known = null;             // answerOf's: { taxa, min, map: pathKey -> answer }, a photo dropped when it changes
+    // animalsListScore, read once and followed (answerOf asks it of every photo).
+    this.listScore = settings.get('animalsListScore');
+    settings.watch('animalsListScore', (v) => { this.listScore = v; this.analysisChanged(); });
     this.itemsSeq = 0;             // items()' cache: bumped when any photo's answer changed
     this.itemOf = new Map();       // path -> { ans, view, item }: the shown item of an answer, kept while it stays
     this.touched = new Set();      // pathKeys changed since the last flush (null: any)
@@ -307,7 +316,8 @@ export class WildlifeFeature {
    */
   answerOf(p) {
     const a = this.analysis, mine = this.answers;
-    if (!this.known || this.known.taxa !== a.taxa) this.known = { taxa: a.taxa, map: new Map() };
+    const min = this.listScore;
+    if (!this.known || this.known.taxa !== a.taxa || this.known.min !== min) this.known = { taxa: a.taxa, min, map: new Map() };
     const k = pathKey(p);
     const have = this.known.map.get(k);
     if (have) return have;
@@ -326,8 +336,11 @@ export class WildlifeFeature {
     for (const l of labels) this.names.set(labelKey(l), labelText(l));
     // Uncertain: a crop no shown name covers (crops.js), or an animal and no name; never once she answered.
     const uncertain = uncertainCrops(rec, labels, a.taxa, own);
-    const ans = { burst: b, labels, theirs, mine: own, keys: new Set(labels.map(labelKey)), animal, empty, uncertain,
-      isUncertain: !own && (uncertain.length > 0 || (animal && !labels.length)) };
+    // The names the Animals menu lists and filters by: hers, and those the identifier is very sure of.
+    const sure = own ? labels : labels.filter((l) => l.mine || l.score >= min);
+    const ans = { burst: b, labels, theirs, mine: own, keys: new Set(labels.map(labelKey)), sureKeys: new Set(sure.map(labelKey)),
+      sure, animal, empty, uncertain,
+      isUncertain: !own && (uncertain.length > 0 || (animal && !sure.length)) };
     this.known.map.set(k, ans);
     return ans;
   }
@@ -493,6 +506,7 @@ export class WildlifeFeature {
     const showEmpty = this.settings.get('showNoAnimals');
     const keep = new Set(this.keep ? this.keep().filter(Boolean) : []);
     const key = `${this.itemsSeq}|${this.filter}|${this.query}|${showEmpty}|${this.folder.version}|` +
+      `${this.listScore}|` +
       `${this.held ? this.heldSeq : ''}|${[...keep].join('\n')}`;
     if (this.cache.key === key && this.cache.src === folderItems) return (this.lastShown = this.cache.items);
     const out = [];
@@ -500,10 +514,10 @@ export class WildlifeFeature {
     const itemOf = new Map();
     for (const it of folderItems) {
       const ans = this.answerOf(it.path);
-      const { burst: b, labels, keys, empty, mine, uncertain, isUncertain } = ans;
+      const { burst: b, labels, sureKeys, empty, mine, uncertain, isUncertain } = ans;
       const stays = keep.has(it.path) || (this.held && this.held.has(it.path));
       if (!stays) {
-        if (uncertainView ? !isUncertain : this.filter && !keys.has(this.filter)) continue;
+        if (uncertainView ? !isUncertain : this.filter && !sureKeys.has(this.filter)) continue;
         if (!this.filter && !showEmpty && empty) continue;
         if (!this.matches(it, labels)) continue;
       }
@@ -566,16 +580,17 @@ export class WildlifeFeature {
   }
 
   /**
-   * Taxa named in the folder by photo count, most first: [{ key, label, count }]
-   * (a photo counts once per taxon); the uncertain photos (isUncertain; also
-   * as `unidentified`, its old name), and those without animals.
+   * The taxa the menu lists, alphabetical: [{ key, label, count }], each a
+   * name she gave or one the identifier is very sure of
+   * (animalsListScore; a photo counts once per taxon); the uncertain photos
+   * (isUncertain; also as `unidentified`, its old name), and those without animals.
    */
   counts() {
     const by = new Map();
     let empty = 0, uncertain = 0;
     for (const it of this.folder.items) {
-      const { labels, empty: none, isUncertain } = this.answerOf(it.path);
-      for (const l of labels) {
+      const { sure, empty: none, isUncertain } = this.answerOf(it.path);
+      for (const l of sure) {
         const k = labelKey(l);
         const t = by.get(k) || { key: k, label: labelText(l), count: 0 };
         t.count++;
@@ -584,7 +599,7 @@ export class WildlifeFeature {
       if (isUncertain) uncertain++;
       if (none) empty++;
     }
-    const taxa = [...by.values()].sort((x, y) => y.count - x.count || (x.label < y.label ? -1 : 1));
+    const taxa = [...by.values()].sort((x, y) => x.label.localeCompare(y.label, undefined, { sensitivity: 'base' }));
     return { taxa, uncertain, unidentified: uncertain, empty, all: this.folder.items.length - (this.settings.get('showNoAnimals') ? 0 : empty) };
   }
 

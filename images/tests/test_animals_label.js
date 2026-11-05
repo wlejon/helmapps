@@ -32,6 +32,7 @@ const dir = fixtureDir({
   'u_01.jpg': photo({ time: 100, animal: FROG }),
 });
 const W = app.wildlife;
+app.settings.set('animalsListScore', 0.85);   // the stub's names, 0.88 to 0.95, all listed
 W.useStub(stubTable([...TABLE, FROG]), { taxa: TAXA, names: MORE_NAMES });
 // Every outline shown (off by default: test_animals_outlines).
 app.settings.set('showOutlines', true);
