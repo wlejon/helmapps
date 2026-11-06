@@ -332,8 +332,8 @@ function libraryChanged() {
   bar.shown.path = null;                        // the song on the bar may have new tags or a cover
   playerChangedSoon();
   const due = REFRESH_MS - (performance.now() - state.lastDraw);
-  if (!library.scanning || due <= 0) { clearTimeout(refreshTimer); refreshTimer = null; draw(); return; }
-  if (!refreshTimer) refreshTimer = setTimeout(() => { refreshTimer = null; draw(); }, due);
+  if (!library.scanning || due <= 0) { clearTimeout(refreshTimer); refreshTimer = null; redrawSoon(); return; }
+  if (!refreshTimer) refreshTimer = setTimeout(() => { refreshTimer = null; redrawSoon(); }, due);
 }
 
 function scanned(s) {
@@ -341,7 +341,7 @@ function scanned(s) {
   refreshTimer = null;
   drawScanStatus();
   draw();
-  if (s && !library.watching) library.watch(libraryRoots(settings));
+  if (s && !library.watching) setTimeout(() => { if (!library.watching) library.watch(libraryRoots(settings)); }, 0);
 }
 
 // ---- playing --------------------------------------------------------------------------

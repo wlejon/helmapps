@@ -265,7 +265,7 @@ export class WildlifeFeature {
     }
     if (this.flushQueued) return;
     this.flushQueued = true;
-    requestAnimationFrame(() => this.flushChanges());
+    setTimeout(() => this.flushChanges(), 1);
   }
 
   /** The views after analysisChanged(): the status, the shown items, and the photo on screen's details and outlines. */
@@ -393,7 +393,7 @@ export class WildlifeFeature {
         photos.push({ key, model, entries });
       }
       if (photos.length) this.examplesStore.sync(photos);
-    }, 0));
+    }, 1));
   }
 
   /** The folder's item for a pathKey, or null (a map kept per listing). */

@@ -3,7 +3,7 @@
 // across the mood plane (on the fake backend; the real stream's work is on
 // its own worker).
 
-import { app, waitFor, measureFrames } from '/lib/test.js';
+import { app, waitFor, measureFrames, timeFrame } from '/lib/test.js';
 import { fakeBackend } from '/app/tests/fake_backend.js';
 
 const FRAME_BUDGET_MS = 50;
@@ -19,9 +19,7 @@ app.useBackend(fakeBackend());
 waitFor(() => app.state.phase === 'ready', 'ready');
 app.play();
 // The first frame after Play builds the playing screen and opens the audio: one frame, reported on its own.
-const p0 = perf.now();
-advanceTime(16);
-const playMs = perf.now() - p0;
+const playMs = timeFrame(16);
 console.log(`the frame after Play: ${playMs.toFixed(1)} ms`);
 const playBudget = process.env.CI ? 200 : 120;
 assert(playMs < playBudget, `Play answers within ${playBudget} ms (${playMs.toFixed(1)})`);

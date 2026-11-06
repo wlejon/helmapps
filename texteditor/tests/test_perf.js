@@ -26,8 +26,12 @@ for (let i = 1; i <= 5000; i++) {
   lines.push(`Line ${i}: config_key_${i} = "value_${i}" # token_marker_${i % 25 === 0 ? 'TARGET' : 'normal'}`);
 }
 const bigText = lines.join('\n') + '\n';
-const dir = fixtureDir({ 'large.conf': bigText });
+const dir = fixtureDir({ 'warm.conf': 'key = "val"\n', 'large.conf': bigText });
+const warmPath = path.join(dir, 'warm.conf');
 const bigPath = path.join(dir, 'large.conf');
+
+app.openFile(warmPath);
+waitFor(() => app.activeDoc() && app.activeDoc().path === warmPath, 'warming open file path');
 
 app.openFile(bigPath);
 const openFrames = measureFrames(

@@ -34,9 +34,13 @@ for (let i = 0; i < N; i++) tree[`shot-${String(i).padStart(3, '0')}.png`] = png
 const many = fixtureDir(tree);
 console.log(`fixture: ${N} images in ${(perf.now() - t0).toFixed(0)} ms`);
 
-app.openPath(many);
 const cellsWithPreview = () => Array.from(document.querySelectorAll('.iv-grid .vgrid-cell'))
   .filter((c) => c.querySelector('.iv-thumb img')).length;
+const warmDir = fixtureDir({ 'warm.png': png(240, 160, [200, 80, 120]) });
+app.openPath(warmDir);
+waitFor(() => app.grid.items.length === 1 && cellsWithPreview() === 1, 'warming grid');
+
+app.openPath(many);
 const gridFrames = measureFrames(() => {
   if (app.grid.items.length !== N) return false;
   // Scroll a screenful every frame until the end, then wait for that screen's previews.

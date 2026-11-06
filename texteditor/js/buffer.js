@@ -68,10 +68,13 @@ export class DocBuffer {
   }
 }
 
-/** Fast line count using native C++ split. */
+/** Fast line count without allocating a per-line array. */
 export function countLines(text) {
   if (!text) return 1;
-  return text.split('\n').length;
+  let count = 1;
+  let pos = -1;
+  while ((pos = text.indexOf('\n', pos + 1)) !== -1) count++;
+  return count;
 }
 
 /** Compute 1-based { line, col } for a character offset in `text`. */
@@ -174,6 +177,9 @@ export async function readBufferFromDisk(filePath, existingDoc = null) {
   const resolved = path.resolve(filePath);
   const raw = await fs.promises.readFile(resolved);
   const decoded = decodeBufferBytes(raw);
+  if (raw && raw.byteLength > 65536 && typeof requestAnimationFrame === 'function') {
+    await new Promise((r) => requestAnimationFrame(r));
+  }
   if (existingDoc) {
     existingDoc.path = resolved;
     existingDoc.title = path.basename(resolved);
