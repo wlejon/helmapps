@@ -148,7 +148,12 @@ export class WildlifeFeature {
       onPick: (a) => { if (this.outlines && a.boxes.length) this.outlines.openBox(a.path, a.boxes[0]); } }) : null;
     this.outlines = viewer && viewHost ? new Outlines({ viewer, host: viewHost, feature: this }) : null;
     // Her answers win over the identifier's everywhere (answerOf); kept apart from the analysis.
-    this.answers = new Answers({ dataDir, cacheDir, onChange: (_, paths) => this.analysisChanged(paths) });
+    this.answers = new Answers({
+      dataDir,
+      cacheDir,
+      onChange: (_, paths) => this.analysisChanged(paths),
+      onKeys: (paths) => { if (this.active && this.folder.dir && (this.answers.size || this.examplesStore.entries.length)) this.syncExamples(paths); },
+    });
     // The crops she has named, across folders ("looks like your ..."); on the answers' worker.
     this.examplesStore = new Examples({ dataDir, worker: this.answers.worker });
     this.examplesQueued = false;
@@ -368,7 +373,7 @@ export class WildlifeFeature {
       this.examplesQueued = false;
       const keys = this.examplesTouched;
       this.examplesTouched = new Set();
-      if (!this.active) return;
+      if (!this.active || (!this.answers.size && !this.examplesStore.entries.length)) return;
       const a = this.analysis, model = this.embeddingModel(), photos = [];
       const items = keys ? [...keys].map((k) => this.itemOfKey(k)).filter(Boolean) : this.folder.items;
       for (const it of items) {

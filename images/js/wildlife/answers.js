@@ -58,10 +58,11 @@ export function answersFile(dataDir) {
 }
 
 export class Answers {
-  constructor({ dataDir, cacheDir, onChange = null } = {}) {
+  constructor({ dataDir, cacheDir, onChange = null, onKeys = null } = {}) {
     this.file = answersFile(dataDir);
     this.indexFile = path.join(cacheDir, 'wildlife', 'file-keys.json');
     this.onChange = onChange;
+    this.onKeys = onKeys;
     this.worker = new WorkerClient('js/wildlife/answers-worker.js');
     this.byKey = new Map();     // key -> record
     this.keys = new Map();      // pathKey(path) -> key
@@ -90,7 +91,7 @@ export class Answers {
       this.loaded = this.worker.call({ op: 'load', file: this.file }).then((r) => {
         for (const rec of r.records) this.byKey.set(rec.key, rec);
         if (r.error) { this.error = r.error; console.warn(`answers: ${r.error}`); }
-        this.changed();
+        if (r.records.length || r.error) this.changed();
       }, (err) => {
         this.error = err.message;
         console.warn(`answers: ${err.message}`);
@@ -107,8 +108,11 @@ export class Answers {
     // A slice at a time: the first photos answer while the rest are read.
     for (let i = 0; i < todo.length && seq === this.folderSeq; i += 64) {
       const slice = todo.slice(i, i + 64);
-      await this.keysFor(slice);
-      if (seq === this.folderSeq) this.changed(new Set(slice.map(pathKey)));
+      const keys = await this.keysFor(slice);
+      if (seq !== this.folderSeq) break;
+      const hit = slice.filter((p) => keys[p] && this.byKey.has(keys[p]));
+      if (hit.length) this.changed(new Set(hit.map(pathKey)));
+      else if (this.onKeys) this.onKeys(new Set(slice.map(pathKey)));
     }
   }
 
