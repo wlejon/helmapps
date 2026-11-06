@@ -82,8 +82,12 @@ export function finished(pane) { return pane.commands().filter((c) => c.finished
 export function run(pane, line, what) {
     const before = finished(pane).length;
     pane.el.write(line + '\r');
-    waitFor(() => finished(pane).length > before && pane.shellState === 'prompt',
-        (what || line) + ' to finish: ' + JSON.stringify(pane.commands().slice(-2)), 30000);
+    waitFor(() => {
+        const list = finished(pane);
+        const last = list[list.length - 1];
+        return list.length > before && pane.shellState === 'prompt' &&
+            (!pane.commandLog.integrated || (last && pane.commandLog.duration(last) !== null));
+    }, (what || line) + ' to finish: ' + JSON.stringify(pane.commands().slice(-2)), 30000);
     return finished(pane).pop();
 }
 

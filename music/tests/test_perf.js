@@ -40,12 +40,6 @@ for (let a = 0; a < 100; a++) {
 }
 const lib = fixtureDir(tree);
 console.log(`fixture: ${n} songs and 200 covers in ${(perf.now() - t0).toFixed(0)} ms`);
-const warmLib = fixtureDir({ 'Warm Artist/Warm Album/01 Warm.wav': tone, 'Warm Artist/Warm Album/cover.jpg': cover });
-useLibrary(app, warmLib);
-waitFor(() => app.library.lastScan && !app.library.scanning && app.library.songs().length === 1, 'warming album grid');
-app.library.byPath.clear();
-app.library.changed();
-advanceTime(16);
 useLibrary(app, lib);
 
 // The first scan, from nothing; the album grid is on screen the whole time.

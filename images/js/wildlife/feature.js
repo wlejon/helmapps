@@ -265,7 +265,7 @@ export class WildlifeFeature {
     }
     if (this.flushQueued) return;
     this.flushQueued = true;
-    setTimeout(() => this.flushChanges(), 1);
+    requestAnimationFrame(() => this.flushChanges());
   }
 
   /** The views after analysisChanged(): the status, the shown items, and the photo on screen's details and outlines. */
