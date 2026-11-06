@@ -58,12 +58,29 @@ How it stays responsive (`../docs/performance.md`):
 | Mod+C | Copy the picture (as a PNG) |
 | Mod+Shift+C | Copy the path |
 | Mod+Shift+O | Show in Files |
+| Mod+D | Dates (the calendar) |
 | Mod+O | Open an image or folder |
 | Mod+W | Close the window |
 
 Drag the picture to pan it when it is larger than the window; double-click
 switches between Fit and 100%. The background (dark, grey, or a
 checkerboard behind transparent pixels) is in the More menu.
+
+Everything works with the mouse alone. On an image, a bar at the bottom
+centre of the picture holds the folder grid button, big Previous and Next
+arrows side by side with the position ("12 of 958") between them, and
+Leave Full Screen while full screen; it fades while the pointer is away and
+comes back when it moves (hidden during a slideshow). The grid's scrollbar
+is 18 px wide (CSS `scrollbar-width`), the strip's and the details' 12 px,
+so they are easy to find and drag on a 4K screen.
+
+**Dates** (the toolbar's calendar button, Mod+D) narrows the folder to a
+day or a month: a calendar of the month, each day with photos showing how
+many, arrows that jump to the previous or next month with photos, the
+month's title to take the whole month, and *All dates* to clear it. A
+photo's day is its EXIF date taken, else its modification time. The choice
+shows on the button and in the status bar, and Next and Previous stay
+within it; picking a day while looking at an image opens the grid.
 
 ## Find Animals
 
@@ -304,6 +321,8 @@ worker (`js/burst/track-worker.js`), previews and export on another
 |---|---|
 | `js/main.js` | The window, commands, opening and stepping, file action wiring |
 | `js/chrome.js` | The toolbar's buttons, the zoom / More / picture menus, Open and drops |
+| `js/navbar.js` | The bar over an image: grid, Previous / Next, position, Leave Full Screen |
+| `js/dates.js` | Dates: each photo's day, the filter, the calendar popover |
 | `js/wildlife/feature.js` | Find Animals: its commands, the Animals menu and filter, the status bar, the tile tags |
 | `js/wildlife/analysis.js` | One folder's analysis: cache, queue, the workers, bursts (`groupBursts`) |
 | `js/wildlife/models.js` | Which models, where (`bro.models`), and downloading the missing ones |
@@ -356,4 +375,6 @@ with a revert, Undo and Remove, the cap, one toast for her answers);
 `test_animals_models.js` runs the real models and skips without
 them (`BRO_MODELS=<folder with owlv2, bioclip-2, species> scripts/run_tests.sh
 images animals`). `IV_PERF_DIR=<photos> IV_PERF_ANIMALS=1` makes `test_perf`
-also time Find Animals over a real folder.
+also time Find Animals over a real folder. `test_dates_nav.js` clicks
+through the bar over an image (the keys still step too) and the Dates
+calendar: a day, a month, its arrows, Escape and *All dates*.

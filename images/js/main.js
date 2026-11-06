@@ -32,6 +32,8 @@ import { stripList, cellRenderer, paintThumb, visiblePaths } from './gallery.js'
 import { Details } from './details.js';
 import { FileActions } from './actions.js';
 import { Presentation } from './presentation.js';
+import { NavBar } from './navbar.js';
+import { DateFilter } from './dates.js';
 import { isImage, dialogFilter, compareNames } from './formats.js';
 import { buildToolbar, zoomMenu, moreMenu, stageMenu, viewNote, chooseImage, acceptDrops } from './chrome.js';
 import { BurstFeature, BURST_SETTINGS } from './burst/burst.js';
@@ -66,9 +68,13 @@ const state = {
 };
 let burst = null;      // the stabilize-a-burst feature (js/burst/burst.js), made below
 let wild = null;       // Find Animals (js/wildlife/feature.js), made below
+let dates = null;      // browse by date (js/dates.js), made below
 
-/** The folder's images as the grid, the strip and Next / Previous show them (Find Animals' filter). */
-const shownItems = () => (wild ? wild.items(folder.items) : folder.items);
+/** The folder's images as the grid, the strip and Next / Previous show them (Find Animals' filter, then the dates'). */
+const shownItems = () => {
+  const items = wild ? wild.items(folder.items) : folder.items;
+  return dates ? dates.items(items) : items;
+};
 
 // ---- the window ---------------------------------------------------------------
 
@@ -172,7 +178,10 @@ startEmpty.classList.add('iv-start');
 const loadingEl = h('div.iv-loading.hidden', h('div.spinner'));
 const errorEl = h('div.iv-error.hidden');
 
-const viewArea = h('div.iv-view', viewer.el, loadingEl, errorEl);
+// The mouse's way through the photos: big buttons together at the bottom centre (js/navbar.js).
+const nav = new NavBar(commands);
+const viewArea = h('div.iv-view', viewer.el, loadingEl, errorEl, nav.el);
+viewArea.addEventListener('pointermove', () => nav.wake());
 const split = new SplitPane({
   fixed: 'second', size: settings.get('detailsWidth'), min: 200, max: 520,
   onResize: (px) => settings.set('detailsWidth', px),
@@ -207,12 +216,20 @@ wild = new WildlifeFeature({
   openDetails: () => { if (!settings.get('showDetails')) toggleSetting('showDetails'); },
   goTo: (p) => goTo(p),
   shownItems: () => shownItems(),
-  onItems: () => itemsChanged(),
+  onItems: () => { if (dates) dates.recordsChanged(); itemsChanged(); },
   onDetails: () => { if (settings.get('showDetails')) details.refresh(state.path); },
   // The filter never takes away the photo on screen or the frames selected around it,
   // and nothing at all while Select Subject or Stabilize is open.
   keep: () => (state.mode === 'image' || state.mode === 'burst' ? [state.path, ...strip.selection] : []),
   hold: () => burst.picking || burst.active,
+});
+
+dates = new DateFilter({
+  folder,
+  recordOf: (p) => (wild.active ? wild.analysis.record(p) : null),
+  onChange: () => itemsChanged(),
+  // A day or a month chosen over a photo: the grid of them.
+  onPick: () => { if (state.mode === 'image') openFolder(folder.dir); else grid.focus(); },
 });
 
 const status = { dims: h('span.num'), zoom: h('span.num'), pos: h('span.num'), note: h('span.iv-note.hidden'), text: h('span.grow.ellipsis') };
@@ -283,6 +300,9 @@ commands.addAll([
     run: () => actions.openWithMenu(document.querySelector('[data-command="menu"]')) },
   { id: 'show-in-files', label: 'Show in Files', icon: 'folder', keys: ['Mod+Shift+O'], enabled: () => hasFile() && !!api('apps'),
     run: () => actions.showInFiles() },
+  { id: 'dates', label: 'Browse by Date', icon: 'calendar', keys: ['Mod+D'],
+    enabled: () => !!folder.dir && (state.mode === 'grid' || state.mode === 'image'), run: () => dates.toggle() },
+  { id: 'all-dates', label: 'All Dates', enabled: () => !!dates.key, run: () => dates.set('') },
   { id: 'close', label: 'Close Window', keys: ['Mod+W'], run: () => app.quit() },
   { id: 'menu', label: 'More', icon: 'more-v', run: () => moreMenu(commands) },
   ...['dark', 'mid', 'checker'].map((bg) => ({
@@ -293,7 +313,7 @@ commands.addAll([
 
 // Buttons that act on the image on screen hide in the folder grid (js/chrome.js).
 const { titleEl, zoomButton, imageOnly, burstOnly, notBurst } = buildToolbar(toolbar, commands,
-  { extra: h('div.iv-toolbar-animals', wild.searchEl, wild.filterBtn) });
+  { extra: h('div.iv-toolbar-animals', dates.button, wild.searchEl, wild.filterBtn) });
 
 function toggleSetting(key) {
   settings.set(key, !settings.get(key));
@@ -325,6 +345,9 @@ function layoutChrome() {
   const m = state.mode;
   const full = presentation.fullscreen;
   document.body.classList.toggle('iv-fullscreen', full);
+  document.body.classList.toggle('iv-slideshow', presentation.running);
+  nav.update({ pos: status.pos.textContent, fullscreen: full });
+  if (m === 'image') nav.wake();
   viewArea.classList.toggle('hidden', m !== 'image');
   grid.el.classList.toggle('hidden', m !== 'grid');
   startEmpty.classList.toggle('hidden', m !== 'empty');
@@ -350,11 +373,14 @@ function updateStatus() {
   status.zoom.textContent = m === 'image' && pic ? `${Math.round(viewer.scale() * 100)}%` : '';
   zoomButton.textContent = m === 'image' && pic ? `${Math.round(viewer.scale() * 100)}%` : '–';
   status.pos.textContent = m === 'image' && n ? `${i >= 0 ? i + 1 : '–'} / ${formatNumber(n)}` : '';
+  nav.update({ pos: status.pos.textContent, fullscreen: presentation.fullscreen });
   const note = m === 'image' ? viewNote(viewer.v) : '';
   status.note.textContent = note;
   status.note.classList.toggle('hidden', !note);
   const all = folder.items.length;
-  const count = n === all ? formatCount(n, 'image') : `${formatNumber(n)} of ${formatCount(all, 'image')}`;
+  const count = (n === all ? formatCount(n, 'image') : `${formatNumber(n)} of ${formatCount(all, 'image')}`) +
+    (dates.key ? ` · ${dates.text()}` : '');
+  dates.button.classList.toggle('hidden', !folder.dir || (m !== 'grid' && m !== 'image'));
   if (m === 'grid') status.text.textContent = folder.error ? `Cannot read this folder: ${folder.error}` : count;
   else if (m === 'image' && state.error) status.text.textContent = state.error;
   else if (m === 'image') status.text.textContent = wild.statusOf(state.path);
@@ -386,6 +412,7 @@ function syncStrip() {
 /** The folder's list changed (loaded, or a file came or went). */
 function folderChanged() {
   wild.folderChanged();
+  dates.folderChanged();
   itemsChanged();
   if (state.mode === 'image') prefetchNeighbours();
 }
@@ -628,5 +655,5 @@ app.onLaunch(({ argv, cwd, first }) => {
 });
 
 // For tests and the inspector.
-app.expose({ state, viewer, folder, grid, strip, decoder, thumbs, details, presentation, burst, wildlife: wild,
+app.expose({ state, viewer, folder, grid, strip, decoder, thumbs, details, presentation, burst, wildlife: wild, dates, nav,
   shownItems, openPath, openImage, openFolder });

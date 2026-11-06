@@ -180,5 +180,71 @@
 /* Everything but the animal darkened, over the photo; it lets the pointer through. */
 .iv-isolate { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
 
+/* Scrollbars made to be found and dragged (on a 4K screen too): wide, with a
+   thumb that stands out from the photos under it. */
+.iv-grid .vlist { scrollbar-width: 18px; scrollbar-color: rgb(255 255 255 / 0.6) rgb(0 0 0 / 0.45); }
+.iv-strip .vlist { scrollbar-width: 12px; scrollbar-color: rgb(255 255 255 / 0.6) rgb(0 0 0 / 0.35); }
+.iv-details-body { scrollbar-width: 12px; scrollbar-color: rgb(255 255 255 / 0.5) rgb(255 255 255 / 0.06); }
+
+/* The nav bar over a photo (js/navbar.js): big targets, side by side, at the
+   bottom centre; it fades while the pointer is still and away from it. */
+.iv-nav {
+  position: absolute; left: 50%; bottom: var(--s4); transform: translateX(-50%); z-index: 5;
+  display: flex; align-items: center; gap: var(--s2); padding: var(--s2);
+  border-radius: 40px; background: rgb(20 20 22 / 0.78); box-shadow: 0 2px 12px rgb(0 0 0 / 0.5);
+  transition: opacity 400ms var(--ease-std);
+}
+.iv-nav.idle { opacity: 0.25; }
+.iv-nav:hover { opacity: 1; }
+.iv-nav-btn {
+  display: flex; align-items: center; justify-content: center; width: 64px; height: 64px; padding: 0;
+  border: none; border-radius: 32px; background: transparent; color: rgb(255 255 255 / 0.92); cursor: pointer;
+}
+.iv-nav-btn .icon { width: 30px; height: 30px; }
+.iv-nav-step { width: 84px; background: rgb(255 255 255 / 0.1); }
+.iv-nav-step .icon { width: 44px; height: 44px; }
+.iv-nav-btn:hover { background: rgb(255 255 255 / 0.22); }
+.iv-nav-btn:active { background: rgb(255 255 255 / 0.32); }
+.iv-nav-btn:disabled { opacity: 0.3; cursor: default; background: transparent; }
+.iv-nav-pos { min-width: 96px; text-align: center; font-size: 18px; color: rgb(255 255 255 / 0.85); }
+body.iv-slideshow .iv-nav { display: none; }
+
+/* Browse by date (js/dates.js): the toolbar's button and its month calendar;
+   a day with photos is a big target with its count under the date. */
+.iv-dates-btn { max-width: 200px; }
+.iv-cal {
+  position: fixed; z-index: 60; width: 440px; display: flex; flex-direction: column; gap: var(--s3); padding: var(--s3);
+  border-radius: var(--r-ctl); background: var(--surface-1); border: 1px solid var(--hairline); box-shadow: var(--rim-top), var(--depth-2);
+}
+.iv-cal-head { display: flex; align-items: center; gap: var(--s2); }
+.iv-cal-arrow {
+  flex: none; display: flex; align-items: center; justify-content: center; width: 48px; height: 44px; padding: 0;
+  border: none; border-radius: var(--r-ctl); background: var(--well); color: var(--t1); cursor: pointer;
+}
+.iv-cal-arrow .icon { width: 26px; height: 26px; }
+.iv-cal-title {
+  flex: 1 1 auto; display: flex; align-items: baseline; justify-content: center; gap: var(--s2); height: 44px; padding: 0 var(--s2);
+  border: none; border-radius: var(--r-ctl); background: transparent; color: var(--t1); font-size: 18px; font-weight: 600; cursor: pointer;
+}
+.iv-cal-arrow:hover, .iv-cal-title:hover { background: var(--well-2); }
+.iv-cal-arrow:disabled { opacity: 0.3; cursor: default; background: var(--well); }
+.iv-cal-title:disabled { cursor: default; background: transparent; }
+.iv-cal-title .iv-cal-count { font-size: var(--fs-cap); font-weight: 400; }
+.iv-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.iv-cal-wd { text-align: center; font-size: var(--fs-cap); color: var(--t4); padding-bottom: 2px; }
+.iv-cal-day {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; height: 52px; padding: 0;
+  border: none; border-radius: var(--r-ctl); background: transparent; color: var(--t4);
+}
+.iv-cal-d { font-size: 15px; }
+.iv-cal-day.has { background: var(--well); color: var(--t1); cursor: pointer; }
+.iv-cal-day.has:hover { background: var(--well-2); }
+.iv-cal-count { font-size: var(--fs-micro); color: var(--accent-text); }
+.iv-cal-day.active, .iv-cal-title.active { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
+.iv-cal-empty { text-align: center; color: var(--t3); padding: var(--s2); }
+.iv-cal-foot { display: flex; justify-content: flex-end; }
+.iv-cal-all { height: 36px; padding: 0 var(--s4); }
+.iv-cal-all.active { box-shadow: inset 0 0 0 2px var(--accent); }
+
 /* Full screen and the slideshow: the picture alone. */
 body.iv-fullscreen .toolbar, body.iv-fullscreen .statusbar { display: none; }
