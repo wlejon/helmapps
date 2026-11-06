@@ -230,6 +230,10 @@ export class DirectoryModel {
       if (seq !== this.loadSeq) return false;
       this.rawEntries = raw;
       this.applyFilterAndSort();
+      if (this.entries.length > 500 && typeof requestAnimationFrame === 'function') {
+        await new Promise((r) => requestAnimationFrame(r));
+        if (seq !== this.loadSeq) return false;
+      }
       this.state.loading = false;
       this.state.done = true;
       if (this.onChange) this.onChange({ select, preserveSelection, reloaded: true });

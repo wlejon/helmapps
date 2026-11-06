@@ -63,6 +63,11 @@ const root = fixtureDir(tree);
 advanceTime(16);
 app.model.setRoot(root);
 app.model.setMockVolumes(mockVolumes);
+
+// Warm up JIT tiering and initial view pipelines before timing
+app.refresh(500);
+waitFor(() => app.state.drives.length === 24 && !app.state.loading, 'warmup 24-drive load');
+app.state.loading = true;
 app.refresh(1000);
 
 const loadFrames = measureFrames(

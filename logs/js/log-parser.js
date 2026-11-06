@@ -445,6 +445,9 @@ export async function parseLogTextAsync(text, { sourceName = 'log', startId = 1,
   if (lines.length <= chunkLines) {
     return parseLogText(text, { sourceName, startId });
   }
+  if (lines.length > 2000) {
+    await new Promise((r) => setTimeout(r, 0));
+  }
 
   const entries = [];
   let nextId = startId;

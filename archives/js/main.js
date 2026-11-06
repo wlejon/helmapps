@@ -585,13 +585,15 @@ export async function openArchive(archivePath, { preserveDir = false, quiet = fa
       searchInput.value = '';
       searchClearBtn.classList.add('hidden');
     }
+    app.setTitle(parsed.name);
+    recordRecentArchive(resolved);
+    refreshChrome();
+    updateBreadcrumbs();
     if (parsed.entries.length > 300 && typeof requestAnimationFrame === 'function') {
       await new Promise((r) => requestAnimationFrame(r));
     }
     state.loading = false;
     state.done = true;
-    app.setTitle(parsed.name);
-    recordRecentArchive(resolved);
     renderCurrentFolder({ preserveSelection: preserveDir });
     return true;
   } catch (err) {

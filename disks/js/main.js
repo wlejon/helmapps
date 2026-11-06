@@ -769,10 +769,20 @@ async function refresh(nowMs = Date.now()) {
   const seq = ++state.refreshSeq;
   const drives = await model.refresh(nowMs);
   if (seq !== state.refreshSeq) return drives;
-  state.loading = false;
   state.drives = drives;
   applyFilter();
-  renderAll();
+  if (drives.length > 4 && typeof requestAnimationFrame === 'function') {
+    renderSidebar();
+    await new Promise((r) => requestAnimationFrame(r));
+    if (seq !== state.refreshSeq) return drives;
+    state.loading = false;
+    renderDetail();
+    toolbar.refresh();
+    updateStatus();
+  } else {
+    state.loading = false;
+    renderAll();
+  }
   loadHealth(currentDrive(), false);
   return drives;
 }

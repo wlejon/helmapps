@@ -503,6 +503,9 @@ export async function openLogFile(filePath) {
     return null;
   }
   drawSidebar();
+  if (src.entries.length > 1000 && typeof requestAnimationFrame === 'function') {
+    await new Promise((r) => requestAnimationFrame(r));
+  }
   await selectSource(src.id, { reload: false });
   return src;
 }

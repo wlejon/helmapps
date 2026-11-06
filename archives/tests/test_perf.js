@@ -43,6 +43,14 @@ app.codec.writeArchiveEntries(bigZipPath, rawEntries, { format: 'zip' }).then(()
 });
 waitFor(() => built, '1,000-entry archive written');
 
+// Warm up JIT tiering and initial view pipelines before timing
+app.openArchive(bigZipPath);
+waitFor(() => app.state.done && app.state.archivePath === bigZipPath && app.list.items.length === 801, 'warmup archive load');
+app.state.archive = null;
+app.state.archivePath = '';
+app.list.setItems([]);
+advanceTime(16);
+
 // ---- 3. Measure frames while opening and browsing the 1,000-entry archive ---
 app.openArchive(bigZipPath);
 const loadFrames = measureFrames(

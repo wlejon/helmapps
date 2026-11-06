@@ -632,6 +632,10 @@ export class DisksModel {
     ]);
 
     if (isCancelled()) return this.drives;
+    if (sysBlockDevices.length > 4 && typeof requestAnimationFrame === 'function') {
+      await new Promise((r) => requestAnimationFrame(r));
+      if (isCancelled()) return this.drives;
+    }
 
     const procMounts = parseProcMounts(mountsTxt);
     const procPartitions = parseProcPartitions(partsTxt);

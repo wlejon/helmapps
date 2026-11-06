@@ -155,15 +155,22 @@ function msToDosDateTime(ms) {
   return { dosDate, dosTime };
 }
 
+let lastDosKey = -1;
+let lastDosMs = 0;
+
 function dosDateTimeToMs(dosDate, dosTime) {
   if (!dosDate && !dosTime) return Date.now();
+  const key = ((dosDate & 0xffff) << 16) | (dosTime & 0xffff);
+  if (key === lastDosKey) return lastDosMs;
   const year = ((dosDate >> 9) & 0x7f) + 1980;
   const month = Math.max(1, (dosDate >> 5) & 0x0f) - 1;
   const day = Math.max(1, dosDate & 0x1f);
   const hours = (dosTime >> 11) & 0x1f;
   const minutes = (dosTime >> 5) & 0x3f;
   const seconds = (dosTime & 0x1f) * 2;
-  return new Date(year, month, day, hours, minutes, seconds).getTime();
+  lastDosKey = key;
+  lastDosMs = new Date(year, month, day, hours, minutes, seconds).getTime();
+  return lastDosMs;
 }
 
 // ---- ZIP parser & builder ---------------------------------------------------

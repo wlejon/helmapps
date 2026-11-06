@@ -69,6 +69,10 @@ export class RecordingsLibrary {
 
     if (version !== this.loadVersion) return this.items;
     loaded.sort((a, b) => b.createdAt - a.createdAt || a.title.localeCompare(b.title));
+    if (wavFiles.length > BATCH_SIZE) {
+      await nextFrame();
+      if (version !== this.loadVersion) return this.items;
+    }
     this.items = loaded;
     this.loading = false;
     this._notify();

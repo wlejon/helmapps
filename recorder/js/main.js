@@ -615,8 +615,14 @@ async function setRecordingsDir(dir) {
   state.selected = null;
   state.audioCache.clear();
   await library.setDir(dir);
-  if (list.items.length > 0) await selectRecording(list.items[0]);
-  else renderStage();
+  if (list.items.length > 0) {
+    if (list.items.length > 20 && typeof requestAnimationFrame === 'function') {
+      await new Promise((r) => requestAnimationFrame(r));
+    }
+    await selectRecording(list.items[0]);
+  } else {
+    renderStage();
+  }
   return library.items;
 }
 

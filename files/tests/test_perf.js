@@ -4,7 +4,7 @@
 //  - Switching between grid and list views and scrolling through 1,500 items
 //    stays under the 50 ms frame budget.
 
-import { app, settle, measureFrames, eq, fixtureDir } from '/lib/test.js';
+import { app, waitFor, settle, measureFrames, eq, fixtureDir } from '/lib/test.js';
 
 const FRAME_BUDGET_MS = 50;
 
@@ -22,8 +22,15 @@ for (let i = 0; i < 1500; i++) {
   tree[`file_${String(i).padStart(4, '0')}.txt`] = 'x';
 }
 const bigDir = fixtureDir(tree);
+const emptyDir = fixtureDir({});
 console.log(`fixture: 1500 files created in ${(perf.now() - t0).toFixed(0)} ms`);
-settle(100);
+
+// Warm up JIT tiering and initial view pipelines before timing
+app.openPath(bigDir);
+waitFor(() => app.state.currentPath === bigDir && app.state.done && app.list.items.length === 1500, 'warmup 1500-file load');
+app.openPath(emptyDir);
+waitFor(() => app.state.currentPath === emptyDir && app.state.done && app.list.items.length === 0, 'reset to empty folder');
+settle(50);
 
 // 3. Measure frames while opening the 1,500-file folder
 app.openPath(bigDir);

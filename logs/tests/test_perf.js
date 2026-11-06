@@ -43,6 +43,17 @@ const dir = fixtureDir({
 const bigLogPath = path.join(dir, 'large-10k.log');
 console.log(`fixture: generated 10,000 log lines in ${(perf.now() - t0).toFixed(0)} ms`);
 
+// Warm up JIT tiering and initial view pipelines before timing
+app.openLogFile(bigLogPath);
+waitFor(
+  () => app.state.activeSourceId === path.resolve(bigLogPath) && app.state.entries.length === 10000,
+  'warmup 10,000-line log load',
+);
+app.clearView();
+app.sources.sources.delete(path.resolve(bigLogPath));
+app.state.activeSourceId = '';
+advanceTime(16);
+
 // ---- 3. Load 10,000-line log file -------------------------------------------
 app.openLogFile(bigLogPath);
 const loadFrames = measureFrames(

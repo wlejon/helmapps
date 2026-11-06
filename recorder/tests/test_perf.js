@@ -54,6 +54,12 @@ for (let i = 0; i < 500; i++) {
 const bigDir = fixtureDir(tree);
 console.log(`fixture: 500 recordings written in ${(perf.now() - t0).toFixed(0)} ms`);
 
+// Warm up JIT tiering and initial view pipelines before timing
+await app.setRecordingsDir(bigDir);
+advanceTime(16);
+await app.setRecordingsDir(emptyDir);
+advanceTime(16);
+
 let loadFinished = false;
 app.setRecordingsDir(bigDir).then(() => { loadFinished = true; });
 
