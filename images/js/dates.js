@@ -176,6 +176,7 @@ export class DateFilter {
   open() {
     if (this.pop) return;
     this.pop = h('div.iv-cal', { role: 'dialog', 'aria-label': 'Browse by date' });
+    this.built = null;
     document.body.appendChild(this.pop);
     this.render();
     const r = this.button.getBoundingClientRect();
@@ -205,47 +206,92 @@ export class DateFilter {
     return { days, months };
   }
 
-  /** The calendar's contents for the month it shows. */
+  /**
+   * The calendar for the month it shows. Its elements are made once a month
+   * (build) and brought up to date in place after (update): dates keep
+   * arriving while a folder is read, and a button replaced between the press
+   * and the release takes no click.
+   */
   render() {
     const { days, months } = this.tally();
     if (!this.month || (!months.includes(this.month) && months.length && !this.key)) this.month = months[months.length - 1] || '';
-    const pick = (key) => { this.set(key); this.close(); this.onPick(key); };
+    if (!this.built || this.built.month !== this.month) this.build();
+    this.update(days, months);
+  }
+
+  pick(key) {
+    this.set(key);
+    this.close();
+    this.onPick(key);
+  }
+
+  build() {
+    const b = this.built = { month: this.month, days: new Map(), before: '', after: '' };
     const kids = [];
-    if (!this.month) {
-      kids.push(h('div.iv-cal-empty', this.list.length ? 'Reading the photos’ dates…' : 'No photos'));
-    } else {
+    if (this.month) {
       const [y, m] = this.month.split('-').map(Number);
-      const listed = months.includes(this.month);
-      // The arrows go to the month before or after with photos.
-      const before = months.filter((x) => x < this.month).pop() || '';
-      const after = months.find((x) => x > this.month) || '';
+      // The arrows go to the month before or after with photos (update keeps which).
       const go = (to) => { if (to) { this.month = to; this.render(); } };
-      let monthCount = 0;
-      for (const [d, n] of days) if (d.startsWith(this.month)) monthCount += n;
-      kids.push(h('div.iv-cal-head',
-        h('button.iv-cal-arrow', { 'aria-label': 'Earlier month', title: before ? dateText(before) : '', disabled: !before, onclick: () => go(before) }, icon('chevron-left')),
-        h(`button.iv-cal-title${this.key === this.month ? '.active' : ''}`, { title: 'Show the whole month', disabled: !monthCount,
-          onclick: () => pick(this.month) },
-        h('span', `${MONTHS[m - 1]} ${y}`), monthCount ? h('span.iv-cal-count.num', formatNumber(monthCount)) : null),
-        h('button.iv-cal-arrow', { 'aria-label': 'Later month', title: after ? dateText(after) : '', disabled: !after, onclick: () => go(after) }, icon('chevron-right'))));
+      b.prev = h('button.iv-cal-arrow', { 'aria-label': 'Earlier month', onclick: () => go(b.before) }, icon('chevron-left'));
+      b.next = h('button.iv-cal-arrow', { 'aria-label': 'Later month', onclick: () => go(b.after) }, icon('chevron-right'));
+      b.monthCount = h('span.iv-cal-count.num');
+      b.title = h('button.iv-cal-title', { title: 'Show the whole month', onclick: () => this.pick(b.month) },
+        h('span', `${MONTHS[m - 1]} ${y}`), b.monthCount);
+      kids.push(h('div.iv-cal-head', b.prev, b.title, b.next));
       const grid = h('div.iv-cal-grid');
       for (const w of WEEKDAYS) grid.appendChild(h('div.iv-cal-wd', w));
       const first = new Date(y, m - 1, 1).getDay();
       const count = new Date(y, m, 0).getDate();
       for (let k = 0; k < first; k++) grid.appendChild(h('div.iv-cal-pad'));
+      // Every day a button, disabled while it has no photos.
       for (let d = 1; d <= count; d++) {
         const key = `${this.month}-${pad(d)}`;
-        const n = days.get(key) || 0;
-        grid.appendChild(n
-          ? h(`button.iv-cal-day.has${this.key === key ? '.active' : ''}`, { title: `${dateText(key)} · ${formatNumber(n)} photos`,
-            onclick: () => pick(key) }, h('span.iv-cal-d', String(d)), h('span.iv-cal-count.num', formatNumber(n)))
-          : h('div.iv-cal-day', h('span.iv-cal-d', String(d))));
+        const n = h('span.iv-cal-count.num');
+        const btn = h('button.iv-cal-day', { onclick: () => this.pick(key) }, h('span.iv-cal-d', String(d)), n);
+        b.days.set(key, { btn, n });
+        grid.appendChild(btn);
       }
       kids.push(grid);
-      if (!listed) kids.push(h('div.iv-cal-empty', 'No photos this month'));
     }
-    kids.push(h('div.iv-cal-foot',
-      h(`button.btn.iv-cal-all${this.key ? '' : '.active'}`, { onclick: () => pick('') }, 'All dates')));
+    b.empty = h('div.iv-cal-empty');
+    b.all = h('button.btn.iv-cal-all', { onclick: () => this.pick('') }, 'All dates');
+    kids.push(b.empty, h('div.iv-cal-foot', b.all));
     this.pop.replaceChildren(...kids);
+  }
+
+  /** The built month's counts, choices and arrows, changing only what differs. */
+  update(days, months) {
+    const b = this.built;
+    const set = (el, prop, v) => { if (el[prop] !== v) el[prop] = v; };
+    const attr = (el, name, v) => { if (el.getAttribute(name) !== v) el.setAttribute(name, v); };
+    const cls = (el, name, on) => { if (el.classList.contains(name) !== on) el.classList.toggle(name, on); };
+    let note = '';
+    if (!this.month) {
+      note = this.list.length ? 'Reading the photos’ dates…' : 'No photos';
+    } else {
+      b.before = months.filter((x) => x < this.month).pop() || '';
+      b.after = months.find((x) => x > this.month) || '';
+      set(b.prev, 'disabled', !b.before);
+      attr(b.prev, 'title', b.before ? dateText(b.before) : '');
+      set(b.next, 'disabled', !b.after);
+      attr(b.next, 'title', b.after ? dateText(b.after) : '');
+      let total = 0;
+      for (const [key, cell] of b.days) {
+        const n = days.get(key) || 0;
+        total += n;
+        set(cell.btn, 'disabled', !n);
+        cls(cell.btn, 'has', n > 0);
+        cls(cell.btn, 'active', this.key === key);
+        attr(cell.btn, 'title', n ? `${dateText(key)} · ${formatNumber(n)} photos` : '');
+        set(cell.n, 'textContent', n ? formatNumber(n) : '');
+      }
+      set(b.title, 'disabled', !total);
+      cls(b.title, 'active', this.key === this.month);
+      set(b.monthCount, 'textContent', total ? formatNumber(total) : '');
+      if (!months.includes(this.month)) note = 'No photos this month';
+    }
+    set(b.empty, 'textContent', note);
+    set(b.empty, 'hidden', !note);
+    cls(b.all, 'active', !this.key);
   }
 }

@@ -91,6 +91,20 @@ press('escape');
 assert(!cal(), 'Escape closes it');
 eq(app.state.mode, 'grid', 'and leaves the grid be');
 
+// Dates arriving while a day is pressed (a folder still being read) leave its
+// button in place, so the release still picks it.
+clickEl(datesBtn);
+clickEl(cal().querySelectorAll('.iv-cal-arrow')[1]);  // back to October
+const day5 = cal().querySelectorAll('.iv-cal-day.has')[0];
+const r5 = day5.getBoundingClientRect();
+mouseDown(r5.left + r5.width / 2, r5.top + r5.height / 2, 0);
+for (let i = 0; i < 3; i++) { app.dates.recordsChanged(); advanceTime(16); }
+assert(cal().querySelectorAll('.iv-cal-day.has')[0] === day5, 'the pressed day is the same button after dates arrive');
+mouseUp(r5.left + r5.width / 2, r5.top + r5.height / 2, 0);
+advanceTime(16);
+assert(!cal(), 'the release picks the day');
+eq(datesBtn.textContent, 'Oct 5, 2026', 'the day pressed while dates arrived');
+
 // All dates.
 clickEl(datesBtn);
 clickEl(cal().querySelector('.iv-cal-all'));
