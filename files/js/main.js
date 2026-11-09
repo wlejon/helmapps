@@ -503,7 +503,36 @@ sidebar.fillPlaces();
 sidebar.fillDrives();
 appsReady();
 
+// ---- across a reload -------------------------------------------------------------
+// An edit to the app's source (or F5) reloads the page: the folder comes back with
+// its history, the selection, the scroll position and a copy or cut waiting to paste.
+
+app.keep('place', () => ({
+  path: state.currentPath,
+  view: state.view,
+  back: state.backStack.slice(),
+  forward: state.forwardStack.slice(),
+  selected: [...views.list.selection],
+  scrollTop: views.list.scroller.scrollTop,
+  clipboard: state.clipboard,
+}));
+
+async function putBackPlace(k) {
+  if (!k || !k.path || !(await openPath(k.path, { push: false, quiet: true }))) return false;
+  state.backStack.splice(0, Infinity, ...(k.back || []));
+  state.forwardStack.splice(0, Infinity, ...(k.forward || []));
+  if (k.clipboard) state.clipboard = k.clipboard;
+  if ((k.view === 'list' || k.view === 'grid') && k.view !== state.view) views.setViewMode(k.view, { save: false });
+  if (Array.isArray(k.selected) && k.selected.length) views.list.select(k.selected, { scroll: false });
+  views.list.scroller.scrollTop = k.scrollTop || 0;
+  refreshChrome();
+  updateStatus();
+  return true;
+}
+
 async function handleLaunchArgs({ argv = [], cwd = '', first = false } = {}) {
+  const back = first ? app.kept('place') : undefined;
+  if (back && (await putBackPlace(back))) return;
   // If a test or caller already opened a path before the first-tick launch timer fired, don't override it.
   if (first && (state.currentPath || model.openSeq > 0 || model.loadSeq > 0)) return;
   if (argv.includes('--new-window') && !first) {
