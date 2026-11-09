@@ -558,7 +558,13 @@ function shown(pic) {
   state.loading = '';
   state.pic = pic;
   loadingEl.classList.add('hidden');
-  viewer.show(pic, { keepView: fromPreview });
+  // The view the photo had before a reload (zoom, pan, turn), once it is back.
+  const back = keptView && keptView.path === pic.path ? keptView.v : null;
+  if (back) {
+    keptView = null;
+    viewer.v = { ...back };
+  }
+  viewer.show(pic, { keepView: fromPreview || !!back });
   if (settings.get('showDetails')) details.show(pic.path, pic);
   prefetchNeighbours();
   updateStatus();
@@ -642,6 +648,29 @@ function chooseFile() {
 
 acceptDrops(ui.frame, openPath);
 
+// ---- across a reload ----------------------------------------------------------------------
+// An edit to the app's source (or F5) reloads the page: the photo on screen comes
+// back with its zoom, pan and turn, or the folder with the same photo selected.
+
+let keptView = null;   // { path, v }: the viewer's view to put back when that photo shows
+app.keep('view', () => ({
+  mode: state.mode, path: state.path, dir: folder.dir || '',
+  v: state.mode === 'image' && viewer.pic ? { ...viewer.v } : null,
+}));
+
+function putBackView(k) {
+  if (k.mode === 'image' && k.path) {
+    if (k.v) keptView = { path: k.path, v: k.v };
+    openImage(k.path);
+    return true;
+  }
+  if (k.dir) {
+    openFolder(k.dir, { select: k.path || '' });
+    return true;
+  }
+  return false;
+}
+
 // ---- launch -------------------------------------------------------------------------------
 // The window above is all the first frame needs. The disk is touched from here on.
 
@@ -649,6 +678,8 @@ layoutChrome();
 updateStatus();
 
 app.onLaunch(({ argv, cwd, first }) => {
+  const back = first ? app.kept('view') : undefined;
+  if (back && putBackView(back)) return;
   const target = argv.find((a) => !a.startsWith('--'));
   if (target) openPath(path.resolve(cwd || homeDir(), target));
   else if (first && settings.get('lastFolder')) openPath(settings.get('lastFolder'), { quiet: true, restore: true });
