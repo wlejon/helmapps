@@ -710,6 +710,65 @@ function showViewMenu(anchor) {
   ], anchor);
 }
 
+// ---- Across a reload ------------------------------------------------------------
+// An edit to the app's source (or F5) reloads the page: every tab comes back
+// as it was, unsaved text and caret included, rather than as a recovery offer.
+
+app.keep('tabs', () => {
+  const active = tabManager.activeDoc();
+  return {
+    active: active ? active.id : '',
+    docs: tabManager.docs.map((d) => ({
+      id: d.id, path: d.path, title: d.title, dirty: !!d.dirty,
+      text: d.dirty || !d.path ? d.text : null,
+      savedText: d.dirty ? d.savedText : null,
+      eol: d.eol, bom: !!d.bom,
+      caret: d.caret ? [d.caret.start, d.caret.end] : [0, 0],
+    })),
+  };
+});
+
+function placeCaret(doc, [start, end] = [0, 0]) {
+  const entry = editorView.views.get(doc.id);
+  if (!entry) return;
+  const n = doc.text.length;
+  entry.textarea.setSelectionRange(Math.min(start, n), Math.min(end, n));
+  editorView.updateCaret(entry);
+}
+
+async function putBackTabs(kept) {
+  const initial = tabManager.docs.length === 1 ? tabManager.docs[0] : null;
+  const carets = [];
+  let activeId = '';
+  for (const k of kept.docs) {
+    let doc;
+    if (k.dirty || !k.path) {
+      doc = new DocBuffer({
+        filePath: k.path || '', title: k.title, text: k.text || '',
+        savedText: k.savedText || '', eol: k.eol || 'LF', bom: !!k.bom, dirty: !!k.dirty,
+      });
+      tabManager.addDoc(doc, { activate: false });
+      if (doc.path) session.watchDoc(doc);
+      if (doc.dirty) session.scheduleAutosave(doc);
+    } else {
+      doc = await openFile(k.path, { activate: false, quiet: true });
+    }
+    if (!doc) continue;
+    carets.push([doc, k.caret]);
+    if (k.id === kept.active) activeId = doc.id;
+  }
+  // The Untitled tab the page booted with, unless it was all there was.
+  if (initial && tabManager.docs.length > 1 && tabManager.docs.includes(initial) &&
+      !initial.path && !initial.dirty && initial.text === '') {
+    await tabManager.closeTab(initial.id, { force: true });
+  }
+  if (activeId) tabManager.activate(activeId);
+  // After the activation, which shows (and focuses) a tab's editor.
+  for (const [doc, caret] of carets) placeCaret(doc, caret);
+  session.saveSession();
+  toolbar.refresh();
+}
+
 // ---- Initial tab & Launch -----------------------------------------------------
 
 newTab();
@@ -718,7 +777,10 @@ applyAllViewSettings();
 async function handleLaunch({ argv = [], cwd = '', first = false } = {}) {
   if (argv.includes('--new-window') && !first) { app.newWindow(); return; }
   const fileArgs = argv.filter((a) => a && !a.startsWith('-'));
-  if (fileArgs.length > 0) {
+  const back = first ? app.kept('tabs') : undefined;
+  if (back && Array.isArray(back.docs)) {
+    await putBackTabs(back);
+  } else if (fileArgs.length > 0) {
     await openFiles(fileArgs, { cwd });
   } else if (first) {
     const saved = settings.get('session');
@@ -735,7 +797,8 @@ async function handleLaunch({ argv = [], cwd = '', first = false } = {}) {
     }
   }
   if (first) {
-    await session.checkRecovery();
+    // After a reload the tabs came back whole; the offer is for a crash.
+    if (!back) await session.checkRecovery();
     state.ready = true;
   }
 }
