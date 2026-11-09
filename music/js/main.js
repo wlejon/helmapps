@@ -304,6 +304,7 @@ function draw() {
   }
   titleEl.textContent = viewTitle();
   toolbar.refresh();
+  if (keptList) putBackList();
 }
 
 function viewTitle() {
@@ -487,6 +488,55 @@ function resume() {
   playerChanged();
 }
 
+// ---- across a reload ------------------------------------------------------------------------
+// A reload (an update to the app, F5) keeps what a restart would not: the
+// song goes on playing from where it was, and the page, its search, sort,
+// selection and scroll come back as they were. The list is put back once the
+// library has filled it.
+
+app.keep('session', () => {
+  const list = state.view === 'queue' ? queueView.list : views.active;
+  return {
+    playing: player.playing,
+    position: player.readPosition(),
+    view: state.view, arg: state.arg, history: state.history, query: state.query, songSort: state.songSort,
+    selected: list && state.view !== 'queue' ? [...list.selection] : [],
+    scrollTop: list ? list.scroller.scrollTop : 0,
+  };
+});
+
+const KEPT_VIEWS = new Set(['songs', 'albums', 'artists', 'folders', 'queue', 'album', 'artist']);
+let keptList = null;
+
+/** After resume(): the reloaded page's song, playing again, and its view. */
+function putBackSession(k) {
+  if (!k || typeof k !== 'object') return;
+  if (player.queue.current && Number.isFinite(k.position)) {
+    player.position = Math.max(0, k.position);
+    if (k.playing) player.play();
+    else playerChanged();
+  }
+  if (KEPT_VIEWS.has(k.view)) {
+    state.view = k.view;
+    state.arg = typeof k.arg === 'string' ? k.arg : '';
+  }
+  if (Array.isArray(k.history)) state.history = k.history.slice(-50);
+  if (k.songSort && typeof k.songSort.id === 'string') state.songSort = { id: k.songSort.id, dir: k.songSort.dir < 0 ? -1 : 1 };
+  if (typeof k.query === 'string') { state.query = k.query; searchInput.value = k.query; }
+  keptList = { selected: Array.isArray(k.selected) ? k.selected : [], scrollTop: Number(k.scrollTop) || 0 };
+  draw();
+}
+
+/** The kept selection and scroll, once the view's list has its rows. */
+function putBackList() {
+  const list = state.view === 'queue' ? queueView.list : views.active;
+  if (!list || !list.items.length) return;
+  const k = keptList;
+  keptList = null;
+  if (k.selected.length) list.select(k.selected, { scroll: false });
+  list.scroller.scrollTop = k.scrollTop;
+}
+
 // ---- navigation ---------------------------------------------------------------------------
 
 function go(view, arg = '', { push = true } = {}) {
@@ -593,6 +643,7 @@ app.onLaunch(({ argv, cwd, first }) => {
   const args = argv.filter((a) => !a.startsWith('--'));
   if (first) {
     resume();
+    putBackSession(app.kept('session'));
     library.start();
     startScan();
   }
