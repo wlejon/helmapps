@@ -7,7 +7,7 @@
 // upper-midwest.json, upper-midwest-herps/, upper-midwest-arthropods/ and
 // pets/), or this bro cannot find animals.
 
-import { app, waitFor, measureFrames, eq, fixtureDir } from '/lib/test.js';
+import { app, waitFor, measureFrames, eq, fixtureDir, budgetsApply } from '/lib/test.js';
 import { shotsTree, analysed } from '/app/tests/wildlife.js';
 import { wildlifeSupported, locateModels } from '/app/js/wildlife/models.js';
 
@@ -30,7 +30,7 @@ app.openPath(dir);
 const f = measureFrames(() => a.state === 'done' && a.results.size === 9 && !a.groupTimer,'the folder analysed with the models', 300000);
 console.log(`9 photos with the models: ${Date.now() - t0} ms (loading included); worst frame ${f.maxMs.toFixed(1)} ms, ` +
   `${f.slow} of ${f.frames} over 16.7 ms`);
-assert(f.maxMs < 50, `the window keeps drawing while the models load and run (worst ${f.maxMs.toFixed(1)} ms)`);
+assert(!budgetsApply || f.maxMs < 50, `the window keeps drawing while the models load and run (worst ${f.maxMs.toFixed(1)} ms)`);
 eq(a.analysed, 9, 'every photo went through the models');
 for (const rec of a.results.values()) {
   assert(!rec.error, `${rec.path}: ${rec.error}`);

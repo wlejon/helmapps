@@ -3,7 +3,7 @@
 // outline and the picker stay exactly where they are (no pan, no re-fit, no
 // outline made again under the pointer), and the field keeps the focus.
 
-import { app, waitFor, clickEl, fixtureDir } from '/lib/test.js';
+import { app, waitFor, clickEl, fixtureDir, waitScale } from '/lib/test.js';
 import { stubTable, scene, JAY, CARDINAL, TABLE } from '/app/tests/wildlife.js';
 import { datedJpeg } from '/app/tests/burst.js';
 import { shown } from '/app/tests/images.js';
@@ -65,7 +65,7 @@ const before = where();
 
 a.resume();
 let frames = 0, moved = null;
-const end = Date.now() + 60000;
+const end = Date.now() + 60000 * waitScale;
 while (Date.now() < end && !(a.state === 'done' && a.results.size === N && !a.groupTimer)) {
   advanceTime(16);
   frames++;

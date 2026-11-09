@@ -8,7 +8,7 @@
 // picture after about the 18th frame was blank. Also: the timeline keeps few
 // cells, and a frame of scrolling it stays cheap.
 
-import { app, waitFor, press, fixtureDir } from '/lib/test.js';
+import { app, waitFor, press, fixtureDir, budgetsApply } from '/lib/test.js';
 import { burstTree, withoutAnimals, useKeyModel, pickSubject } from '/app/tests/burst.js';
 
 const path = require('path');
@@ -104,7 +104,7 @@ for (let i = 0; i < 40; i++) {
   worst = Math.max(worst, perf.now() - t0);
 }
 console.log(`timeline: ${maxCells} cells at most of ${N}; worst scroll frame ${worst.toFixed(1)} ms`);
-assert(worst < 120, `scrolling the timeline stays cheap (worst frame ${worst.toFixed(1)} ms)`);
+assert(!budgetsApply || worst < 120, `scrolling the timeline stays cheap (worst frame ${worst.toFixed(1)} ms)`);
 
 if (process.env.IV_SHOT_DIR) {
   view.go(60);

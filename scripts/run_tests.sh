@@ -13,7 +13,12 @@
 #   BRO_TERM_TESTCHILD term's test child; by default bro's bro_pty_child
 #                      (beside bro-headless) copied under the name
 #                      term-testchild, which selects its reporting mode
-#   TEST_TIMEOUT       seconds per test (default 180)
+#   TEST_TIMEOUT       seconds per test (default 180; 1200 under
+#                      BRONZE_GC_STRESS)
+#   BRONZE_GC_STRESS   set (not 0): every allocation collects, so the run is
+#                      many times slower; the perf tests (test_perf*,
+#                      *_perf), which assert frame times, skip, and
+#                      lib/test.js's waits stretch to match
 #   TEST_AOT           set: build each app's scripts ahead of time first
 #                      (bro-headless --aot-build, counted as <app>/aot-build)
 #                      and run its tests from those modules (--aot), as the
@@ -26,7 +31,9 @@ set -u
 here=$(cd "$(dirname "$0")/.." && pwd)
 only_app=${1:-}
 filter=${2:-}
-timeout_s=${TEST_TIMEOUT:-180}
+gc_stress=""
+[[ -n "${BRONZE_GC_STRESS:-}" && "${BRONZE_GC_STRESS}" != "0" ]] && gc_stress=1
+if [ -n "$gc_stress" ]; then timeout_s=${TEST_TIMEOUT:-1200}; else timeout_s=${TEST_TIMEOUT:-180}; fi
 
 exe=""
 case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) exe=".exe" ;; esac
@@ -108,6 +115,11 @@ for appdir in "$here"/*/; do
         [ -f "$t" ] || continue
         name=$(basename "$t" .js)
         [ -n "$filter" ] && [[ "$name" != *"$filter"* ]] && continue
+        # A frame-time budget measures the collector at every allocation, not the app.
+        if [ -n "$gc_stress" ] && [[ "$name" == test_perf* || "$name" == *_perf ]]; then
+            skip=$((skip + 1)); printf '  SKIP  %s/%s: frame budgets mean nothing under BRONZE_GC_STRESS\n' "$app" "$name"
+            continue
+        fi
         home="$work/home/$app-$name"
         mkdir -p "$home"
         log="$work/$app-$name.log"
