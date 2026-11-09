@@ -14,6 +14,11 @@
 #                      (beside bro-headless) copied under the name
 #                      term-testchild, which selects its reporting mode
 #   TEST_TIMEOUT       seconds per test (default 180)
+#   TEST_AOT           set: build each app's scripts ahead of time first
+#                      (bro-headless --aot-build, counted as <app>/aot-build)
+#                      and run its tests from those modules (--aot), as the
+#                      installed app's executable runs them; a module that
+#                      does not load fails the test instead of using the JIT
 #   VERBOSE            set: print a passing test's console.log lines too
 #                      (the timings a perf test reports)
 set -u
@@ -84,6 +89,21 @@ for appdir in "$here"/*/; do
             cat "$work/$app-check.log" | sed 's/^/        /'
         fi
     fi
+    aot_args=()
+    if [ -n "${TEST_AOT:-}" ]; then
+        aotdir="$work/aot/$app"
+        mkdir -p "$aotdir"
+        start=$(date +%s)
+        if "$headless" "${appdir%/}" --aot-build "$aotdir" > "$work/$app-aot-build.log" 2>&1; then
+            pass=$((pass + 1)); printf '  PASS  %s/aot-build (%ss)\n' "$app" "$(( $(date +%s) - start ))"
+            aot_args=(--aot "$aotdir")
+        else
+            fail=$((fail + 1)); failed+=("$app/aot-build")
+            printf '  FAIL  %s/aot-build\n' "$app"
+            tail -25 "$work/$app-aot-build.log" | sed 's/^/        /'
+            continue
+        fi
+    fi
     for t in "$appdir"tests/test_*.js; do
         [ -f "$t" ] || continue
         name=$(basename "$t" .js)
@@ -101,7 +121,7 @@ for appdir in "$here"/*/; do
         # The XDG data home is apart from the app's own data dir
         # (BRO_APP_HOME/data): bro's install roots live under the former, and
         # an app may not write a folder holding them.
-        XDG_DATA_HOME="$home/xdg-data" BRO_APP_HOME="$home" timeout "$timeout_s" "$headless" --grant declared,env --width 1280 --height 800 "${appdir%/}" "$t" > "$log" 2>&1
+        XDG_DATA_HOME="$home/xdg-data" BRO_APP_HOME="$home" timeout "$timeout_s" "$headless" "${aot_args[@]+"${aot_args[@]}"}" --grant declared,env --width 1280 --height 800 "${appdir%/}" "$t" > "$log" 2>&1
         rc=$?
         secs=$(( $(date +%s) - start ))
         if [ $rc -eq 0 ]; then
