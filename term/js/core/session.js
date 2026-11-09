@@ -9,6 +9,8 @@ import { host } from './host.js';
 import { debounce } from './emitter.js';
 import { Tab } from '../ui/tab.js';
 
+const RELOAD_KEY = 'term.reload';
+
 export class Session {
     constructor(app) {
         this.app = app;
@@ -29,6 +31,30 @@ export class Session {
             console.error('term: cannot write the session: ' + e.message);
             return false;
         }
+    }
+
+    /// Before a reload (pagehide): every running shell parked with the
+    /// engine and the window's layout put in sessionStorage, which outlives
+    /// the reload, so the new page puts the same tabs back around the same
+    /// processes (takeReloaded). A quit parks too; bro ends what it parked.
+    keepForReload() {
+        this.enabled = false;   // the page is going: session.json stays as it was
+        const ws = this.app.workspace;
+        let n = 0;
+        for (const pane of ws.allPanes()) pane.parkForReload('term.pane.' + (n++));
+        const data = ws.snapshot();
+        for (const pane of ws.allPanes()) pane.parkedAs = null;
+        try { sessionStorage.setItem(RELOAD_KEY, JSON.stringify(data)); } catch (_) { /* nothing kept */ }
+    }
+
+    /// What keepForReload kept, once (null when this start is not a reload).
+    takeReloaded() {
+        let data = null;
+        try {
+            data = JSON.parse(sessionStorage.getItem(RELOAD_KEY) || 'null');
+            sessionStorage.removeItem(RELOAD_KEY);
+        } catch (_) { data = null; }
+        return data && Array.isArray(data.tabs) ? data : null;
     }
 
     read() {
@@ -74,6 +100,7 @@ export class Session {
                 });
                 // A pane whose shell ran in a bromux session goes back to it
                 // (Pane.start attaches when it still runs, else starts anew).
+                if (typeof s.parked === 'string') pane.launch.parked = s.parked;
                 if (typeof s.session === 'number' && s.session > 0) {
                     pane.launch.session = { id: s.session, server: typeof s.server === 'string' ? s.server : null };
                 }

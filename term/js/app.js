@@ -66,11 +66,17 @@ export class App {
             this.toast('This build of bro has no <terminal> element (BRO_WITH_TERMINAL is off).', 'error');
         }
 
+        // A reload puts back the window it replaced, shells and all; the
+        // command line it was started with asked for its tab the first time.
+        const reloaded = this.session.takeReloaded();
+        window.addEventListener('pagehide', () => this.session.keepForReload());
         let restored = 0;
-        if (this.settings.values.restoreSession && !opts.noRestore) {
+        if (reloaded) {
+            restored = this.session.restore(reloaded);
+        } else if (this.settings.values.restoreSession && !opts.noRestore) {
             restored = this.session.restore(this.session.read());
         }
-        if (asksForTab(opts) || !restored) {
+        if ((asksForTab(opts) && !reloaded) || !restored) {
             let profile = opts.profile;
             if (profile && !this.profiles.get(profile)) {
                 this.toast('No profile named "' + profile + '"; using ' + this.profiles.defaultProfile().name, 'error');

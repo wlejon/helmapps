@@ -124,6 +124,35 @@ export class Pane extends Emitter {
         }
     }
 
+    /// Take over the session parked as `key` before a reload.
+    _adopt(key) {
+        if (typeof this.el.adopt !== 'function') return false;
+        try {
+            if (!this.el.adopt(key)) return false;
+            this.pid = this.el.pid || null;
+            return true;
+        } catch (e) {
+            console.error('term: cannot take back the shell parked as ' + key + ': ' + e.message);
+            return false;
+        }
+    }
+
+    /// Hand a running local shell to the engine for the page after a reload
+    /// (a bromux session needs none: it outlives the page and is attached
+    /// again). The key, or null when nothing was parked.
+    parkForReload(key) {
+        this.parkedAs = null;
+        if (this.exited || this.sessionId || typeof this.el.park !== 'function') return null;
+        try {
+            this.el.park(key);
+            this.parkedAs = key;
+            return key;
+        } catch (e) {
+            console.error('term: cannot keep the shell across the reload: ' + e.message);
+            return null;
+        }
+    }
+
     /// Start the process. False (and a banner saying why) when it could not.
     start() {
         this.exited = false;
@@ -131,6 +160,14 @@ export class Pane extends Emitter {
         this.startError = null;
         this.root.classList.remove('exited');
         this.banner.textContent = '';
+        // The shell a reload parked (Session.keepForReload): the same
+        // process, its screen and history, taken over by this element.
+        const parked = this.launch.parked;
+        this.launch.parked = null;
+        if (parked && this._adopt(parked)) {
+            this.attached = false;
+            return true;
+        }
         const saved = this.launch.session;   // { id, server } from a saved session
         this.launch.session = null;
         if (saved && this._attach(saved.id, saved.server)) {
@@ -406,6 +443,7 @@ export class Pane extends Emitter {
         else if (this.launch.spawn.cwd) s.cwd = this.launch.spawn.cwd;
         if (this.userTitle) s.title = this.userTitle;
         if (this.launch.commandline) s.commandline = this.launch.commandline;
+        if (this.parkedAs) s.parked = this.parkedAs;
         return s;
     }
 }
