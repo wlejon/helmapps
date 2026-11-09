@@ -362,9 +362,32 @@ function cancelRecording() {
   return true;
 }
 
+/** The clip to write: a stopped capture, at least a sliver long. */
+function finishedClip() {
+  const clip = capture.stop();
+  if (!clip) return null;
+  if (!clip.samples || clip.samples.length === 0) {
+    clip.samples = new Float32Array(Math.round(clip.sampleRate * 0.1));
+    clip.duration = clip.samples.length / clip.sampleRate;
+    clip.peaks = wav.computePeaks(clip.samples, 256, 1);
+  }
+  return clip;
+}
+
+// A recording still running when the page goes (the window closed, Quit, an
+// update to the app) is saved as Stop would, before the page is gone: what
+// was said is never lost to a close.
+addEventListener('pagehide', () => {
+  if (!state.recording) return;
+  const clip = finishedClip();
+  state.recording = false;
+  state.paused = false;
+  if (clip) library.saveRecordingSync({ samples: clip.samples, sampleRate: clip.sampleRate, duration: clip.duration, peaks: clip.peaks, markers: clip.markers });
+});
+
 async function stopAndSaveRecording(customTitle) {
   if (!state.recording) return null;
-  const clip = capture.stop();
+  const clip = finishedClip();
   state.recording = false;
   state.paused = false;
   if (!clip) {
@@ -373,14 +396,7 @@ async function stopAndSaveRecording(customTitle) {
     return null;
   }
 
-  let samples = clip.samples;
-  let duration = clip.duration;
-  let peaks = clip.peaks;
-  if (!samples || samples.length === 0) {
-    samples = new Float32Array(Math.round(clip.sampleRate * 0.1));
-    duration = samples.length / clip.sampleRate;
-    peaks = wav.computePeaks(samples, 256, 1);
-  }
+  const { samples, duration, peaks } = clip;
 
   const saved = await library.saveRecording({
     samples,

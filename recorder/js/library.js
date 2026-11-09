@@ -84,6 +84,25 @@ export class RecordingsLibrary {
    */
   async saveRecording(rec) {
     await this.ensureDir();
+    const r = this._prepareRecording(rec);
+    await fs.promises.writeFile(r.wavPath, r.wavBytes);
+    await fs.promises.writeFile(r.jsonPath, JSON.stringify(r.meta, null, 2));
+    return this._added(r);
+  }
+
+  /**
+   * saveRecording, written before it returns: for the page's last moment
+   * (pagehide), when a promise started would not finish.
+   */
+  saveRecordingSync(rec) {
+    try { fs.mkdirSync(this.dir, { recursive: true }); } catch (_) {}
+    const r = this._prepareRecording(rec);
+    fs.writeFileSync(r.wavPath, r.wavBytes);
+    fs.writeFileSync(r.jsonPath, JSON.stringify(r.meta, null, 2));
+    return this._added(r);
+  }
+
+  _prepareRecording(rec) {
     const now = Date.now();
     const indexNum = this.items.length + 1;
     const title = (rec.title && String(rec.title).trim()) || `Recording ${indexNum}`;
@@ -109,10 +128,10 @@ export class RecordingsLibrary {
       transcript,
       peaks: peaksArr,
     };
+    return { wavPath, jsonPath, wavBytes, meta };
+  }
 
-    await fs.promises.writeFile(wavPath, wavBytes);
-    await fs.promises.writeFile(jsonPath, JSON.stringify(meta, null, 2));
-
+  _added({ wavPath, jsonPath, wavBytes, meta }) {
     const entry = this._makeEntry(wavPath, jsonPath, meta, wavBytes.byteLength);
     this.items = [entry, ...this.items];
     this._notify();
