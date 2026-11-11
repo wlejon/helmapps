@@ -72,8 +72,16 @@ export function notAnimalBox(answer, box) {
  * answered the photo: her answer is the last word.
  */
 export function uncertainCrops(rec, labels, taxa, mine) {
-  if (mine) return [];
-  return cropList(rec, taxa).filter((c) => !c.sure && !labelOfBox(labels, c.box));
+  if (mine || !rec || rec.error || !rec.animal || !Array.isArray(rec.animals)) return [];
+  const wl = bro.vision.wildlife;
+  const out = [];
+  rec.animals.forEach((a, i) => {
+    if (!a || !a.box || !a.species || !a.species.length) return;
+    if (labelOfBox(labels, a.box)) return;
+    const sure = wl.labels({ animal: true, animals: [a] }, null, { taxa }).length > 0;
+    if (!sure) out.push({ i, box: a.box, query: a.label || '', species: a.species, queryTop: a.queryTop || null, sure: false });
+  });
+  return out;
 }
 
 /** The best guess for an uncertain crop: its top suggestion ('Blue Jay'; labels.js suggestionsOf), or ''. */
@@ -88,13 +96,18 @@ export function guessScore(crop) {
   return s ? s.score : 0;
 }
 
+const countsMemo = new WeakMap();
+
 /** What the detector found, counted by query: "3 birds, 1 dog" ('' for nothing). */
 export function countsText(rec) {
   if (!rec || rec.error || !rec.detections || !rec.detections.length) return '';
+  if (countsMemo.has(rec)) return countsMemo.get(rec);
   const by = new Map();
   for (const d of rec.detections) by.set(d.label, (by.get(d.label) || 0) + 1);
-  return [...by].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
+  const text = [...by].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
     .map(([q, n]) => `${formatNumber(n)} ${plural(q, n)}`).join(', ');
+  countsMemo.set(rec, text);
+  return text;
 }
 
 // ---- her per-animal answers: boxes on her animals -------------------------------------

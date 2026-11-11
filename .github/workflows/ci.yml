@@ -46,11 +46,27 @@ jobs:
             bash zsh fish
           sudo chmod -R g-w,o-w /usr/local/share/zsh /usr/share/zsh 2>/dev/null || true
 
+      - name: Seed sccache tool cache
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ARCH="x64"; ASSET="sccache-v0.19.0-x86_64-unknown-linux-musl.tar.gz"
+          DEST="$RUNNER_TOOL_CACHE/sccache/0.19.0/$ARCH"
+          mkdir -p "$DEST"
+          if (cd "$DEST" && gh release download v0.19.0 -R mozilla/sccache -p "$ASSET" -O "$ASSET" && tar -xzf "$ASSET" --strip-components=1 && rm -f "$ASSET"); then
+            touch "${DEST}.complete"
+          fi
+
       - name: sccache
         uses: mozilla-actions/sccache-action@v0.0.11
+        with:
+          version: "v0.19.0"
 
       - name: Build bro
         working-directory: bro
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           cat > opus.cmake << 'EOF'
           if(NOT TARGET Opus::opus)
