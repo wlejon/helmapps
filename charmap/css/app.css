@@ -1,5 +1,9 @@
 /* Character Map app styles — uses only helm kit tokens (/lib/css/tokens.css) */
 
+.sidebar {
+  width: 260px;
+}
+
 .cm-toolbar-zoom {
   display: flex;
   align-items: center;

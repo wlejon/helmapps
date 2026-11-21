@@ -1,7 +1,7 @@
 /* Music: only what the kit does not already draw. */
 
 /* Covers: a square picture, or a disc glyph on a well when there is none. */
-.mu-art { position: relative; display: flex; align-items: center; justify-content: center; flex: none; overflow: hidden;
+.mu-art { position: relative; display: flex; align-items: center; justify-content: center; flex: none; padding: 0; overflow: hidden;
   border-radius: var(--r-ctl); background: var(--well-2); color: var(--t4); }
 .mu-art img { width: 100%; height: 100%; object-fit: cover; }
 .mu-art.sm { width: 26px; height: 26px; border-radius: var(--r-sm); }

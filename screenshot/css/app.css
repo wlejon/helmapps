@@ -88,6 +88,10 @@
   color: var(--t3);
 }
 
+.ss-mode-card.active .ss-mode-sub {
+  color: var(--t2);
+}
+
 .ss-actions {
   display: flex;
   align-items: center;

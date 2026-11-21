@@ -1,5 +1,9 @@
 /* Disks & Volumes: only what the helm app kit does not already draw. */
 
+.sidebar {
+  width: 288px;
+}
+
 .disks-main {
   display: flex;
   flex-direction: column;
@@ -129,7 +133,7 @@
   flex-direction: column;
   justify-content: space-between;
   gap: var(--s1);
-  min-width: 108px;
+  min-width: 184px;
   padding: var(--s2) var(--s3);
   border-radius: var(--r-ctl);
   background: var(--surface-2);
@@ -192,6 +196,11 @@
 .disks-seg-mount {
   font-size: var(--fs-micro);
   color: var(--t3);
+}
+
+.disks-map-seg.selected .disks-seg-mount,
+.disks-map-seg.selected .dim {
+  color: var(--t2);
 }
 
 .disks-seg-meter {
@@ -277,6 +286,23 @@
 .disks-prop-rows .form-row {
   min-height: 40px;
   padding: var(--s2) var(--s4);
+}
+
+.disks-prop-rows .form-label {
+  flex: 0 0 210px;
+}
+
+.disks-prop-rows .form-control {
+  flex: 1 1 0px;
+  min-width: 0;
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.disks-prop-rows .form-control > * {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .disks-mount-link {

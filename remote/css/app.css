@@ -36,7 +36,8 @@ html, body {
 .card h1 { margin: 0 0 4px; font-size: 22px; font-weight: 600; }
 .card h2 { margin: 8px 0 4px; font-size: var(--fs-body); color: var(--dim); font-weight: 600; text-transform: uppercase; }
 .card label { display: flex; flex-direction: column; gap: 4px; }
-.card label.check { flex-direction: row; align-items: center; gap: 6px; }
+.card label.check { flex-direction: row; align-items: center; gap: 6px; cursor: pointer; }
+.card label.check input[type=checkbox] { width: 24px; height: 24px; cursor: pointer; accent-color: var(--accent); }
 .hint { color: var(--dim); font-size: var(--fs-cap); }
 .row { display: flex; align-items: center; gap: var(--s4); }
 input[type=text] {

@@ -180,7 +180,7 @@
 .cp-swatch-chip {
   padding: 1px 4px;
   border-radius: var(--r-sm);
-  background: var(--scrim);
+  background: var(--surface-0);
   color: var(--t1);
   font-size: var(--fs-micro);
 }

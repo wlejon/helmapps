@@ -166,7 +166,7 @@
   padding: var(--s3) var(--s2) var(--s3) var(--s3);
   background: var(--surface-1);
   border-right: 1px solid var(--hairline);
-  color: var(--t4);
+  color: var(--t3);
   text-align: right;
   overflow: hidden;
   user-select: none;
@@ -213,7 +213,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--s1);
-  height: 20px;
+  height: 24px;
   padding: 0 var(--s2);
   border-radius: var(--r-sm);
   color: var(--t3);

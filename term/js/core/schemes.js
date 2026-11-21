@@ -108,7 +108,7 @@ export function chromeVariables(scheme) {
         '--term-fg': fg,
         '--chrome-bg': mix(bg, dark ? '#000000' : '#FFFFFF', dark ? 0.35 : 0.5),
         '--chrome-fg': fg,
-        '--chrome-dim': mix(fg, bg, 0.45),
+        '--chrome-dim': mix(fg, bg, 0.25),
         '--chrome-hover': mix(bg, fg, 0.08),
         '--chrome-active': bg,
         '--chrome-border': mix(bg, fg, 0.16),

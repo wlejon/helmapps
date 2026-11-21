@@ -140,13 +140,14 @@
 .sidebar-item:hover { background: var(--well-2); color: var(--t1); }
 .sidebar-item.selected { background: var(--accent-soft); color: var(--t1); font-weight: 500; }
 .sidebar-item.selected .icon { color: var(--accent-text); }
+.sidebar-item.selected .count, .sidebar-item.selected .sidebar-sub { color: var(--t2); }
 .sidebar-item:focus-visible { box-shadow: inset 0 0 0 1px var(--accent-line); }
-.sidebar-item .count { color: var(--t4); font-size: var(--fs-cap); font-variant-numeric: tabular-nums; }
+.sidebar-item .count { color: var(--t3); font-size: var(--fs-cap); font-variant-numeric: tabular-nums; }
 
 /* An item with a second line (a drive's free space) and an optional meter. */
 .sidebar-item .sidebar-text { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
 .sidebar-item .sidebar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sidebar-item .sidebar-sub { color: var(--t4); font-size: var(--fs-cap); font-weight: 400; font-variant-numeric: tabular-nums; }
+.sidebar-item .sidebar-sub { color: var(--t3); font-size: var(--fs-cap); font-weight: 400; font-variant-numeric: tabular-nums; }
 .sidebar-item .meter { margin-top: 3px; }
 .sidebar-item.two-line { align-items: flex-start; padding: 7px var(--s2); }
 .sidebar-item.two-line > .icon { margin-top: 1px; }
