@@ -217,7 +217,7 @@ toolbar.button('rescan');
 toolbar.button('folders');
 
 const mpris = new MprisBridge({
-  player, commands,
+  player, commands, autoInit: false,
   onSeek: (t) => { player.seek(t); savePosition(); },
   onVolume: (v, done) => { player.setVolume(v); if (player.muted && v > 0) player.setMuted(false); if (done) saveVolume(); },
   onRepeat: (mode) => setRepeat(mode),
@@ -642,6 +642,7 @@ drawScanStatus();
 app.onLaunch(({ argv, cwd, first }) => {
   const args = argv.filter((a) => !a.startsWith('--'));
   if (first) {
+    if (!mpris.service) mpris.initService();
     resume();
     putBackSession(app.kept('session'));
     library.start();

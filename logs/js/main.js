@@ -332,7 +332,7 @@ async function selectSource(id, { reload = false } = {}) {
 
   const src = sources.getSource(id);
   state.entries = src ? src.entries.slice() : [];
-  app.setTitle(src ? `${src.label} — Logs` : 'Logs');
+  app.setTitle(src ? src.label : '');
   showDrawer(null);
   applyFilter();
   syncWatcher();
@@ -611,14 +611,13 @@ function sourceContextMenu(e, item) {
 
 // ---- launch -----------------------------------------------------------------
 
-discoverSources({ selectDefault: true });
-
 app.onLaunch(({ argv, cwd, first }) => {
   if (argv.includes('--new-window') && !first) {
     app.newWindow();
     return;
   }
   const target = argv.find((a) => !a.startsWith('--'));
+  if (first) discoverSources({ selectDefault: !target });
   if (target) {
     openLogFile(path.resolve(cwd || '.', target));
   }

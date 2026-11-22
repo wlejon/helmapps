@@ -439,12 +439,14 @@ document.addEventListener('visibilitychange', () => {
   sampler.setPaused(document.hidden || document.visibilityState === 'hidden');
 });
 
-// Initialize active page synchronously, then start async sampling and volume lookup
+// Initialize active page synchronously; defer permission-gated sampling past first paint.
 setPage(state.page);
-sampler.start();
-filesystemsView.refresh().then(() => updateStatusBar());
 
 app.onLaunch(({ argv, first }) => {
+  if (first) {
+    if (!sampler.stopped) sampler.start();
+    filesystemsView.refresh().then(() => updateStatusBar());
+  }
   if (argv && argv.includes('--new-window') && !first) {
     app.newWindow();
     return;

@@ -551,10 +551,11 @@ function contextMenu(e, items) {
 // The window above is all the first frame needs. Everything that touches the
 // disk starts here and answers later.
 
-fillPlaces();
-fillDrives();
-
 app.onLaunch(({ argv, cwd, first }) => {
+  if (first) {
+    fillPlaces();
+    fillDrives();
+  }
   if (argv.includes('--new-window') && !first) { app.newWindow(); return; }
   const target = argv.find((a) => !a.startsWith('--'));
   if (target) openPath(path.resolve(cwd || '.', target));

@@ -4,7 +4,7 @@
  */
 
 import { api } from '/lib/dom.js';
-import { userDirs, openFile, openApp, addRecent } from '/lib/files.js';
+import { homeDir, userDirs, userDirsCached, openFile, openApp, addRecent } from '/lib/files.js';
 import { toast } from '/lib/toast.js';
 import { renderFlattenedPixels } from './tools.js';
 
@@ -34,10 +34,11 @@ export function formatFilename(date = new Date(), ext = 'png') {
 }
 
 /** Resolve the configured save folder, defaulting to ~/Pictures/Screenshots. */
-export function getSaveFolder(settings) {
+export function getSaveFolder(settings, { lazy = false } = {}) {
   const custom = settings && settings.get('saveFolder');
   if (custom && String(custom).trim()) return String(custom).trim();
-  return path.join(userDirs().pictures, 'Screenshots');
+  const dirs = lazy ? userDirsCached() : userDirs();
+  return path.join(dirs ? dirs.pictures : path.join(homeDir(), 'Pictures'), 'Screenshots');
 }
 
 /**

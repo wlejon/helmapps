@@ -598,7 +598,7 @@ function renderDetail() {
   emptyView.classList.add('hidden');
   mainPane.classList.remove('hidden');
   const part = currentPartition();
-  app.setTitle(`${drive.title} — Disks`);
+  app.setTitle(drive.title);
   renderDriveCard(drive);
   renderHealth(drive);
   renderMapCard(drive, part);
@@ -818,10 +818,13 @@ function setDisks(ns) {
 
 // ---- launch & expose --------------------------------------------------------
 
-watchDisks();
-refresh();
+renderAll();
 
 app.onLaunch(({ argv, first }) => {
+  if (first) {
+    watchDisks();
+    refresh();
+  }
   if (argv.includes('--new-window') && !first) {
     app.newWindow();
     return;

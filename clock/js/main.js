@@ -286,7 +286,7 @@ export function showPage(pageId) {
 
 // ---- persistence load / restore ---------------------------------------------
 
-export function reloadFromSettings() {
+export function reloadFromSettings({ syncSchedules = true } = {}) {
   const currentNow = now();
   const savedCities = settings.get('cities');
   state.cities = Array.isArray(savedCities)
@@ -311,7 +311,7 @@ export function reloadFromSettings() {
   state.ringingAlarm = state.alarms.find((a) => a.ringing) || null;
   // The OS's launches follow the alarms as saved (an earlier run's, or ones
   // deleted with the OS's own tools).
-  alarmsView.syncSchedules();
+  if (syncSchedules) alarmsView.syncSchedules();
 
   const savedSw = settings.get('stopwatch');
   if (savedSw && typeof savedSw === 'object') {
@@ -375,7 +375,7 @@ onClockOverride(() => {
 });
 
 // Initialize from settings synchronously for the first frame (settings uses bro.conf in-memory cache)
-reloadFromSettings();
+reloadFromSettings({ syncSchedules: false });
 
 // Periodic 250ms tick for clocks, timers, and alarms; plus rAF when stopwatch is actively running
 setInterval(() => tick(), 250);
@@ -389,7 +389,8 @@ function rafLoop() {
 requestAnimationFrame(rafLoop);
 
 /** A launch (the first, or one handed over): a page name, or a scheduled `--alarm <id>`. */
-function handleLaunch({ argv }) {
+function handleLaunch({ argv, first }) {
+  if (first && state.alarms.length > 0) alarmsView.syncSchedules();
   const alarmId = alarmFromArgv(argv);
   if (alarmId) {
     showPage('alarms');

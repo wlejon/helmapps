@@ -128,7 +128,7 @@ const formatSeg = new Segmented({
   onChange: (v) => settings.set('format', v),
 });
 
-const folderPathLabel = h('span.dim.mono.ellipsis', getSaveFolder(settings));
+const folderPathLabel = h('span.dim.mono.ellipsis', getSaveFolder(settings, { lazy: true }));
 const chooseFolderBtn = h('button.btn.small', { onclick: () => commands.run('choose-save-folder') },
   icon('folder-open'), 'Change…');
 
@@ -508,7 +508,7 @@ function refreshChrome() {
   for (const [id, card] of modeCards) card.classList.toggle('active', id === mode);
   unavailBox.classList.toggle('hidden', state.captureAvailable);
   takeHomeBtn.disabled = !state.captureAvailable || state.capturing;
-  folderPathLabel.textContent = getSaveFolder(settings);
+  folderPathLabel.textContent = getSaveFolder(settings, { lazy: true });
 
   const activeColor = (settings.get('color') || '#ef4444').toLowerCase();
   for (const [hex, btn] of swatchButtons) btn.classList.toggle('active', hex === activeColor);

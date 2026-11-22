@@ -59,6 +59,7 @@ export class MprisBridge {
     onOpenUri,
     onRaise,
     createService,
+    autoInit = true,
   } = {}) {
     this.player = player;
     this.commands = commands;
@@ -83,7 +84,7 @@ export class MprisBridge {
     };
 
     this.service = null;
-    this.initService(createService);
+    if (autoInit) this.initService(createService);
   }
 
   initService(customCreateService) {

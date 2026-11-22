@@ -58,6 +58,7 @@ export class Sampler {
     this.proc = new ProcSampler(root);
     this.timer = null;
     this.running = false;
+    this.stopped = false;
     this.paused = false;
     this.tickCount = 0;
     this.inFlight = null;
@@ -90,6 +91,7 @@ export class Sampler {
   }
 
   start() {
+    this.stopped = false;
     if (this.running) return;
     this.running = true;
     this.paused = false;
@@ -98,6 +100,7 @@ export class Sampler {
   }
 
   stop() {
+    this.stopped = true;
     this.running = false;
     if (this.timer != null) {
       clearInterval(this.timer);
