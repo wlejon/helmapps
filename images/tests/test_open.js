@@ -87,4 +87,25 @@ document.querySelector('[data-command="open-folder"]').click();
 waitFor(() => app.state.mode === 'grid' && app.folder.dir === emptyFolder, 'Open Folder opens the folder grid');
 waitFor(() => app.shownItems().length === 2, 'Open Folder lists the folder images');
 
+// Opening a parent folder whose images live in subdirectories scans them recursively
+// (ignoring dot-folders) and keeps the parent folder when opening and returning from a photo.
+const nestedFolder = fixtureDir({
+  'a/one.png': png(20, 20),
+  'b/two.png': png(24, 24),
+  '.git/hidden.png': png(16, 16),
+});
+setPickedFiles([nestedFolder]);
+document.querySelector('[data-command="open-folder"]').click();
+waitFor(() => app.state.mode === 'grid' && app.folder.dir === nestedFolder && app.shownItems().length === 2,
+  'Nested folder lists images from subdirectories only');
+eq(app.shownItems().map((it) => it.rel), ['a/one.png', 'b/two.png'], 'sorted naturally by relative path');
+app.openImage(path.join(nestedFolder, 'a', 'one.png'));
+shown(app, waitFor, 'one.png');
+eq(app.folder.dir, nestedFolder, 'opening a photo inside a recursive folder keeps the parent folder');
+press('right');
+shown(app, waitFor, 'two.png', 'Next steps across subdirectories');
+press('escape');
+waitFor(() => app.state.mode === 'grid' && app.folder.dir === nestedFolder, 'Escape returns to parent folder grid');
+eq(app.grid.selectedItems().map((it) => it.rel), ['b/two.png'], 'and keeps the subdirectory photo selected');
+
 console.log('test_open PASSED');

@@ -233,7 +233,7 @@ dates = new DateFilter({
   recordOf: (p) => (wild.active ? wild.analysis.record(p) : null),
   onChange: () => itemsChanged(),
   // A day or a month chosen over a photo: the grid of them.
-  onPick: () => { if (state.mode === 'image') openFolder(folder.dir); else grid.focus(); },
+  onPick: () => { if (state.mode === 'image') openFolder(folder.dir, { recursive: folder.recursive }); else grid.focus(); },
 });
 
 const status = { dims: h('span.num'), zoom: h('span.num'), pos: h('span.num'), note: h('span.iv-note.hidden'), text: h('span.grow.ellipsis') };
@@ -287,7 +287,7 @@ commands.addAll([
   { id: 'exit-fullscreen', label: 'Leave Full Screen', keys: ['Escape'], enabled: () => presentation.fullscreen,
     run: () => presentation.setFullscreen(false) },
   { id: 'show-folder', label: 'Show Folder', icon: 'grid', keys: ['Escape'], enabled: () => state.mode === 'image' && !!folder.dir,
-    run: () => openFolder(folder.dir, { select: state.path }) },
+    run: () => openFolder(folder.dir, { select: state.path, recursive: folder.recursive }) },
   { id: 'fullscreen', label: 'Full Screen', icon: 'fullscreen', keys: ['F11'], checked: () => presentation.fullscreen,
     run: () => presentation.setFullscreen(!presentation.fullscreen) },
   { id: 'slideshow', label: 'Slideshow', icon: 'play', keys: ['F5'], enabled: () => presentation.canRun(),
@@ -464,21 +464,28 @@ function rememberFolder(dir) {
   if (settings.get('lastFolder') !== dir) settings.set('lastFolder', dir);
 }
 
+/** Whether `filePath` is strictly inside `dir`. */
+function isInside(filePath, dir) {
+  if (!filePath || !dir) return false;
+  const rel = path.relative(dir, filePath);
+  return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
+}
+
 /** The folder grid, with `select` (an image path) selected. */
-function openFolder(dir, { select = '' } = {}) {
+function openFolder(dir, { select = '', recursive = true } = {}) {
   presentation.stopSlideshow();
   state.mode = 'grid';
   state.error = '';
   rememberFolder(dir);
   if (select) state.path = select;
-  else if (path.dirname(state.path) !== dir) state.path = '';
+  else if (!(recursive ? isInside(state.path, dir) : path.dirname(state.path) === dir)) state.path = '';
   layoutChrome();
-  folder.load(dir).then(() => {
+  folder.load(dir, { recursive }).then(() => {
     if (state.mode !== 'grid') return;
     if (state.path && folder.indexOf(state.path) >= 0) grid.select([state.path]);
     grid.focus();
   });
-  if (folder.dir === dir && folder.items.length) folderChanged();
+  if (folder.dir === dir && folder.recursive === !!recursive && folder.items.length) folderChanged();
   if (state.path) grid.select([state.path]);
   grid.focus();
   updateStatus();
@@ -490,9 +497,11 @@ function openImage(p) {
   state.mode = 'image';
   state.path = p;
   state.error = '';
-  const dir = path.dirname(p);
+  const keep = !!folder.dir && (folder.recursive ? isInside(p, folder.dir) : path.dirname(p) === folder.dir);
+  const dir = keep ? folder.dir : path.dirname(p);
+  const recursive = keep ? folder.recursive : false;
   rememberFolder(dir);
-  folder.load(dir);
+  folder.load(dir, { recursive });
   layoutChrome();
   // Keys go to the view (not to the grid now hidden); the strip keeps them if it has them.
   if (!strip.el.contains(document.activeElement)) viewer.el.focus();
@@ -640,7 +649,7 @@ function trashed(p) {
   folder.reload();
   if (state.mode === 'grid' || !rest.length) {
     state.path = '';
-    openFolder(path.dirname(p));
+    openFolder(folder.dir || path.dirname(p), { recursive: folder.dir ? folder.recursive : false });
     return;
   }
   openImage(rest[Math.min(Math.max(i, 0), rest.length - 1)].path);
@@ -678,18 +687,19 @@ acceptDrops(ui.frame, openPath);
 
 let keptView = null;   // { path, v }: the viewer's view to put back when that photo shows
 app.keep('view', () => ({
-  mode: state.mode, path: state.path, dir: folder.dir || '',
+  mode: state.mode, path: state.path, dir: folder.dir || '', recursive: folder.recursive,
   v: state.mode === 'image' && viewer.pic ? { ...viewer.v } : null,
 }));
 
 function putBackView(k) {
   if (k.mode === 'image' && k.path) {
     if (k.v) keptView = { path: k.path, v: k.v };
+    if (k.dir && k.recursive && isInside(k.path, k.dir)) folder.load(k.dir, { recursive: true });
     openImage(k.path);
     return true;
   }
   if (k.dir) {
-    openFolder(k.dir, { select: k.path || '' });
+    openFolder(k.dir, { select: k.path || '', recursive: k.recursive !== false });
     return true;
   }
   return false;

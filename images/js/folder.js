@@ -12,19 +12,27 @@
  */
 
 import { api, debounce } from '/lib/dom.js';
-import { isImage, sortNames } from './formats.js';
+import { isImage, nameKey } from './formats.js';
 
 const fs = require('fs');
 const path = require('path');
 
 /** How long a burst of file events settles before the folder is re-read. */
 const SETTLE_MS = 150;
+const MAX_DEPTH = 8;
+
+function sortItems(collected) {
+  const keyed = collected.map((it) => ({ it, k: nameKey(it.rel) }));
+  keyed.sort((x, y) => (x.k !== y.k ? (x.k < y.k ? -1 : 1) : (x.it.rel < y.it.rel ? -1 : x.it.rel > y.it.rel ? 1 : 0)));
+  return keyed.map((x) => x.it);
+}
 
 export class Folder {
   constructor({ onChange, onWatch } = {}) {
     this.onChange = onChange;
     this.onWatch = onWatch;     // after a file event's re-read, changed list or not (a file rewritten in place)
     this.dir = '';
+    this.recursive = false;
     this.items = [];
     this.index = new Map();      // path -> position
     this.loading = null;
@@ -35,38 +43,65 @@ export class Folder {
   }
 
   /** Read `dir` (and watch it). Resolves when the list is in. */
-  async load(dir) {
-    if (dir === this.dir && this.loading) return this.loading;
-    if (dir !== this.dir) {
+  async load(dir, { recursive = false } = {}) {
+    const rec = !!recursive;
+    if (dir === this.dir && rec === this.recursive && this.loading) return this.loading;
+    if (dir !== this.dir || rec !== this.recursive) {
       this.unwatch();
       this.dir = dir;
+      this.recursive = rec;
       this.items = [];
       this.index.clear();
       this.watch();
     }
-    this.loading = this.read(dir);
+    this.loading = this.read(dir, rec);
     return this.loading;
   }
 
   /** Read the folder again (after a rename, a trash, a file event). */
   reload() {
     if (!this.dir) return Promise.resolve();
-    this.loading = this.read(this.dir);
+    this.loading = this.read(this.dir, this.recursive);
     return this.loading;
   }
 
-  async read(dir) {
-    let names = [];
-    try {
-      const entries = await fs.promises.readdir(dir, { withFileTypes: true });
-      names = entries.filter((e) => !e.isDirectory() && isImage(e.name)).map((e) => e.name);
-      this.error = '';
-    } catch (err) {
-      this.error = err.message;
-    }
-    if (dir !== this.dir) return;               // another folder took over meanwhile
-    names = sortNames(names);
-    const items = names.map((name) => ({ name, path: path.join(dir, name) }));
+  async read(dir, recursive = false) {
+    const collected = [];
+    const walk = async (curDir, relDir, depth) => {
+      let entries;
+      try {
+        entries = await fs.promises.readdir(curDir, { withFileTypes: true });
+      } catch (err) {
+        if (depth === 0) this.error = err.message;
+        return;
+      }
+      if (dir !== this.dir || recursive !== this.recursive) return;
+      if (depth === 0) this.error = '';
+      const subdirs = [];
+      for (const e of entries) {
+        if (e.isDirectory()) {
+          if (recursive && depth < MAX_DEPTH && !e.name.startsWith('.')) {
+            subdirs.push({
+              dir: path.join(curDir, e.name),
+              rel: relDir ? `${relDir}/${e.name}` : e.name,
+            });
+          }
+        } else if (isImage(e.name)) {
+          collected.push({
+            name: e.name,
+            rel: relDir ? `${relDir}/${e.name}` : e.name,
+            path: path.join(curDir, e.name),
+          });
+        }
+      }
+      for (const sub of subdirs) {
+        if (dir !== this.dir || recursive !== this.recursive) return;
+        await walk(sub.dir, sub.rel, depth + 1);
+      }
+    };
+    await walk(dir, '', 0);
+    if (dir !== this.dir || recursive !== this.recursive) return; // another folder took over meanwhile
+    const items = sortItems(collected);
     const same = items.length === this.items.length && items.every((it, i) => it.path === this.items[i].path);
     this.loading = null;
     if (same) return;
@@ -89,7 +124,7 @@ export class Folder {
     const vfs = api('vfs');
     if (!vfs || typeof vfs.watch !== 'function' || !this.dir) return;
     try {
-      this.watcher = vfs.watch(this.dir, () => this.relist(), { recursive: false });
+      this.watcher = vfs.watch(this.dir, () => this.relist(), { recursive: this.recursive });
     } catch (err) {
       console.warn(`watch ${this.dir}: ${err.message}`);
       this.watcher = null;

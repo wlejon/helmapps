@@ -19,7 +19,7 @@ export function cellRenderer(thumbs, cells, decorate = null) {
   return (item, el) => {
     cells.add(el);
     el._path = item.path;
-    el.title = item.name;
+    el.title = item.rel || item.name;
     if (!el._box) {
       el._box = h('div.iv-thumb');
       el.replaceChildren(el._box);
