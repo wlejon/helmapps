@@ -463,9 +463,22 @@ function activate(node) {
   else openFile(node.path).then((ok) => { if (!ok) toast(`No app opens ${node.name}`, { error: true }); });
 }
 
+let pickingFolder = false;
 async function chooseFolder() {
-  const picked = typeof showOpenFolderDialog === 'function' ? showOpenFolderDialog(state.rootPath || homeDir(), false) : [];
-  if (picked && picked.length) openPath(picked[0]);
+  if (pickingFolder) return;
+  pickingFolder = true;
+  try {
+    let picked = [];
+    const start = state.rootPath || homeDir();
+    if (typeof showOpenFolderDialogAsync === 'function') {
+      picked = await showOpenFolderDialogAsync(start, false);
+    } else if (typeof showOpenFolderDialog === 'function') {
+      picked = showOpenFolderDialog(start, false);
+    }
+    if (picked && picked.length) openPath(picked[0]);
+  } finally {
+    pickingFolder = false;
+  }
 }
 
 async function showInFiles(node) {

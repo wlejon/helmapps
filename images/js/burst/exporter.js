@@ -32,8 +32,14 @@ export async function exportBurst({ view, media, dir, format }) {
   if (plan.length < 2) return null;
   const ext = format === 'webm' ? 'webm' : 'gif';
   const suggested = path.join(dir, exportName(plan[0].path, plan[plan.length - 1].path, ext));
-  if (typeof showSaveFileDialog !== 'function') throw new Error('this bro has no save dialog');
-  let out = showSaveFileDialog(FILTERS[ext], suggested);
+  let out = null;
+  if (typeof showSaveFileDialogAsync === 'function') {
+    out = await showSaveFileDialogAsync(FILTERS[ext], suggested);
+  } else if (typeof showSaveFileDialog === 'function') {
+    out = showSaveFileDialog(FILTERS[ext], suggested);
+  } else {
+    throw new Error('this bro has no save dialog');
+  }
   if (!out) return null;
   if (!new RegExp(`\\.${ext}$`, 'i').test(out)) out = `${out}.${ext}`;
   return render({ view, media, out, format: ext });

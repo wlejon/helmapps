@@ -24,6 +24,7 @@
 .iv-loading { position: absolute; left: 0; top: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
 .iv-error { position: absolute; left: 0; top: 0; right: 0; bottom: 0; display: flex; background: var(--surface-0); }
 .iv-start { flex: 1 1 0px; }
+.iv-start-actions { display: flex; align-items: center; justify-content: center; gap: var(--s2); margin-top: var(--s1); }
 
 /* Previews, in the folder grid and the strip. */
 .iv-thumb { display: flex; align-items: center; justify-content: center; flex: 1 1 0px; min-height: 0; width: 100%; color: var(--t4); }

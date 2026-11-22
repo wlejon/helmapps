@@ -42,12 +42,24 @@ export async function editFolders(settings) {
       : [h('div.dim.mu-folders-empty', 'No folders: the library is empty.')]));
   };
   draw();
+  let pickingFolder = false;
   const add = h('button.btn', {
-    onclick: () => {
-      if (typeof showOpenFolderDialog !== 'function') return;
-      const picked = showOpenFolderDialog(folders[0] || homeDir(), false);
-      for (const p of picked || []) if (p && !folders.includes(p)) folders.push(p);
-      draw();
+    onclick: async () => {
+      if (pickingFolder) return;
+      pickingFolder = true;
+      try {
+        let picked = [];
+        const start = folders[0] || homeDir();
+        if (typeof showOpenFolderDialogAsync === 'function') {
+          picked = await showOpenFolderDialogAsync(start, false);
+        } else if (typeof showOpenFolderDialog === 'function') {
+          picked = showOpenFolderDialog(start, false);
+        }
+        for (const p of picked || []) if (p && !folders.includes(p)) folders.push(p);
+        draw();
+      } finally {
+        pickingFolder = false;
+      }
     },
   }, icon('folder-plus'), 'Add Folder…');
   d.body.append(

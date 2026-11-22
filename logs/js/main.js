@@ -510,12 +510,22 @@ export async function openLogFile(filePath) {
   return src;
 }
 
+let pickingLog = false;
 async function pickLogFile() {
-  const picked = typeof showOpenFileDialog === 'function'
-    ? showOpenFileDialog('Log Files|log;jsonl;txt', false)
-    : [];
-  if (picked && picked.length) {
-    await openLogFile(picked[0]);
+  if (pickingLog) return;
+  pickingLog = true;
+  try {
+    let picked = [];
+    if (typeof showOpenFileDialogAsync === 'function') {
+      picked = await showOpenFileDialogAsync('Log Files|log;jsonl;txt', false);
+    } else if (typeof showOpenFileDialog === 'function') {
+      picked = showOpenFileDialog('Log Files|log;jsonl;txt', false);
+    }
+    if (picked && picked.length) {
+      await openLogFile(picked[0]);
+    }
+  } finally {
+    pickingLog = false;
   }
 }
 
@@ -553,8 +563,12 @@ async function copySelectedEntries() {
 
 export async function exportFiltered(targetPath) {
   let outPath = targetPath;
-  if (!outPath && typeof showSaveFileDialog === 'function') {
-    outPath = showSaveFileDialog('Log Files|log;txt;jsonl', 'filtered.log');
+  if (!outPath) {
+    if (typeof showSaveFileDialogAsync === 'function') {
+      outPath = await showSaveFileDialogAsync('Log Files|log;txt;jsonl', 'filtered.log');
+    } else if (typeof showSaveFileDialog === 'function') {
+      outPath = showSaveFileDialog('Log Files|log;txt;jsonl', 'filtered.log');
+    }
   }
   if (!outPath) return false;
   const resolved = path.resolve(outPath);

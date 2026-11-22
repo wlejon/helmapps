@@ -680,10 +680,7 @@ export async function deleteSelectedEntries({ skipConfirm = false, entries = nul
 
 async function promptOpenArchive() {
   if (!app.headless && typeof showOpenFileDialogAsync === 'function') {
-    const picked = await showOpenFileDialogAsync({
-      title: 'Open Archive',
-      filters: [{ name: 'Archives', extensions: ['zip', 'tar', 'gz', 'tgz'] }],
-    });
+    const picked = await showOpenFileDialogAsync('Archives|zip;tar;gz;tgz', false);
     if (picked && picked.length) await openArchive(picked[0]);
     return;
   }
@@ -745,7 +742,8 @@ async function promptExtract(onlySelected = false) {
     : '';
 
   if (!app.headless && typeof showOpenFolderDialogAsync === 'function') {
-    const dest = await showOpenFolderDialogAsync({ title: 'Extract To Folder', defaultPath: defaultDest });
+    const picked = await showOpenFolderDialogAsync(defaultDest, false);
+    const dest = picked && picked.length ? picked[0] : '';
     if (dest) {
       if (onlySelected) await extractSelectedTo(dest);
       else await extractAllTo(dest);
@@ -767,7 +765,7 @@ async function promptExtract(onlySelected = false) {
 async function promptAddFiles() {
   if (!state.archivePath) return;
   if (!app.headless && typeof showOpenFileDialogAsync === 'function') {
-    const picked = await showOpenFileDialogAsync({ title: 'Add Files to Archive', multiSelections: true });
+    const picked = await showOpenFileDialogAsync('', true);
     if (picked && picked.length) await addFilesToArchive(picked);
     return;
   }

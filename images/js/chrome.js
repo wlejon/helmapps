@@ -46,6 +46,7 @@ export function buildToolbar(toolbar, commands, { extra = null } = {}) {
   only(toolbar.sep());
   outBurst(toolbar.button('slideshow'));
   outBurst(toolbar.button('details'));
+  outBurst(toolbar.button('open-folder'));
   outBurst(toolbar.button('open'));
   outBurst(toolbar.button('menu'));
   return { titleEl, zoomButton, imageOnly, burstOnly, notBurst };
@@ -67,6 +68,8 @@ export function moreMenu(commands) {
   const anchor = document.querySelector('[data-command="menu"]');
   const has = (id) => commands.has(id) && commands.isEnabled(id);
   menu.showBelow([
+    commands.item('open-folder'), commands.item('open'),
+    { separator: true },
     commands.item('flip-h'), commands.item('flip-v'),
     { separator: true },
     commands.item('fullscreen'), commands.item('strip'),
@@ -93,11 +96,30 @@ export function stageMenu(commands, e) {
   ], e.clientX, e.clientY);
 }
 
-/** The Open dialog: the path picked, or ''. */
-export function chooseImage(filter) {
-  if (typeof showOpenFileDialog !== 'function') return '';
-  const picked = showOpenFileDialog(filter, false);
-  return picked && picked.length ? picked[0] : '';
+/** The Open Image dialog: the path picked, or ''. Async so native portals never block the window loop. */
+export async function chooseImage(filter) {
+  if (typeof showOpenFileDialogAsync === 'function') {
+    const picked = await showOpenFileDialogAsync(filter, false);
+    return picked && picked.length ? picked[0] : '';
+  }
+  if (typeof showOpenFileDialog === 'function') {
+    const picked = showOpenFileDialog(filter, false);
+    return picked && picked.length ? picked[0] : '';
+  }
+  return '';
+}
+
+/** The Open Folder dialog: the path picked, or ''. */
+export async function chooseFolder(defaultDir = '') {
+  if (typeof showOpenFolderDialogAsync === 'function') {
+    const picked = await showOpenFolderDialogAsync(defaultDir, false);
+    return picked && picked.length ? picked[0] : '';
+  }
+  if (typeof showOpenFolderDialog === 'function') {
+    const picked = showOpenFolderDialog(defaultDir, false);
+    return picked && picked.length ? picked[0] : '';
+  }
+  return '';
 }
 
 /** Drop an image (or a folder) onto the window: open(path). */

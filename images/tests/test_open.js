@@ -80,4 +80,11 @@ shown(app, waitFor, 'small.png');
 eq(app.viewer.model().scale, 1, 'a small image shows at 100%');
 eq(app.viewer.model().rotation, 0, 'a new image starts upright');
 
+// Open Folder… opens a directory directly via the folder picker.
+const emptyFolder = fixtureDir({ 'one.png': png(20, 20), 'two.png': png(20, 20) });
+setPickedFiles([emptyFolder]);
+document.querySelector('[data-command="open-folder"]').click();
+waitFor(() => app.state.mode === 'grid' && app.folder.dir === emptyFolder, 'Open Folder opens the folder grid');
+waitFor(() => app.shownItems().length === 2, 'Open Folder lists the folder images');
+
 console.log('test_open PASSED');

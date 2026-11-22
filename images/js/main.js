@@ -19,6 +19,7 @@
 import { startApp } from '/lib/app.js';
 import { h, api, debounce } from '/lib/dom.js';
 import { appFrame, Toolbar, SplitPane, emptyState } from '/lib/layout.js';
+import { icon } from '/lib/icons.js';
 import { VirtualList } from '/lib/list.js';
 import { menu } from '/lib/menu.js';
 import { toast } from '/lib/toast.js';
@@ -35,7 +36,7 @@ import { Presentation } from './presentation.js';
 import { NavBar } from './navbar.js';
 import { DateFilter } from './dates.js';
 import { isImage, dialogFilter, compareNames } from './formats.js';
-import { buildToolbar, zoomMenu, moreMenu, stageMenu, viewNote, chooseImage, acceptDrops } from './chrome.js';
+import { buildToolbar, zoomMenu, moreMenu, stageMenu, viewNote, chooseImage, chooseFolder, acceptDrops } from './chrome.js';
 import { BurstFeature, BURST_SETTINGS } from './burst/burst.js';
 import { WildlifeFeature, WILDLIFE_SETTINGS } from './wildlife/feature.js';
 
@@ -173,8 +174,11 @@ grid.scroller.addEventListener('scroll', trimThumbs);
 strip.scroller.addEventListener('scroll', trimThumbs);
 
 const startEmpty = emptyState({ icon: 'image', title: 'No image open',
-  hint: 'Open an image or a folder of images, or drop one onto the window.', action: { label: 'Open…', run: () => commands.run('open') } });
+  hint: 'Open a folder of images or a single picture, or drop one onto the window.' });
 startEmpty.classList.add('iv-start');
+startEmpty.appendChild(h('div.iv-start-actions',
+  h('button.btn.primary', { 'data-open-action': 'folder', onclick: () => commands.run('open-folder') }, icon('folder-open'), 'Open Folder…'),
+  h('button.btn', { 'data-open-action': 'file', onclick: () => commands.run('open') }, icon('file-image'), 'Open Image…')));
 const loadingEl = h('div.iv-loading.hidden', h('div.spinner'));
 const errorEl = h('div.iv-error.hidden');
 
@@ -261,7 +265,8 @@ const several = () => state.mode === 'image' && shownItems().length > 1;
 commands.addAll(burst.commands({ imageShown: () => state.mode === 'image' && !!state.path && !state.error }));
 commands.addAll(wild.commandList());
 commands.addAll([
-  { id: 'open', label: 'Open…', icon: 'folder-open', keys: ['Mod+O'], run: chooseFile },
+  { id: 'open-folder', label: 'Open Folder…', icon: 'folder-open', keys: ['Mod+Alt+O'], run: chooseDir },
+  { id: 'open', label: 'Open Image…', icon: 'file-image', keys: ['Mod+O'], run: chooseFile },
   { id: 'next', label: 'Next Image', icon: 'chevron-right', keys: ['ArrowRight', 'PageDown', 'Space'],
     enabled: several, run: () => step(1) },
   { id: 'prev', label: 'Previous Image', icon: 'chevron-left', keys: ['ArrowLeft', 'PageUp', 'Backspace'],
@@ -641,9 +646,28 @@ function trashed(p) {
   openImage(rest[Math.min(Math.max(i, 0), rest.length - 1)].path);
 }
 
-function chooseFile() {
-  const picked = chooseImage(dialogFilter());
-  if (picked) openPath(picked);
+let pickingDialog = false;
+async function chooseFile() {
+  if (pickingDialog) return;
+  pickingDialog = true;
+  try {
+    const picked = await chooseImage(dialogFilter());
+    if (picked) openPath(picked);
+  } finally {
+    pickingDialog = false;
+  }
+}
+
+async function chooseDir() {
+  if (pickingDialog) return;
+  pickingDialog = true;
+  try {
+    const start = folder.dir || settings.get('lastFolder') || homeDir();
+    const picked = await chooseFolder(start);
+    if (picked) openPath(picked);
+  } finally {
+    pickingDialog = false;
+  }
 }
 
 acceptDrops(ui.frame, openPath);
