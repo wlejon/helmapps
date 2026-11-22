@@ -183,8 +183,8 @@ const inspector = new Inspector({
 
 const split = new SplitPane({
   fixed: 'second',
-  size: settings.get('inspectorWidth') || 310,
-  min: 240,
+  size: settings.get('inspectorWidth') || 348,
+  min: 260,
   max: 520,
   onResize: (px) => settings.set('inspectorWidth', px),
 });

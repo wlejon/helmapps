@@ -17,6 +17,8 @@
 import { api } from '/lib/dom.js';
 import { formatOf } from './formats.js';
 
+const fs = require('fs');
+
 /**
  * Previews asked for at once. bro.thumb spreads them over the machine's
  * cores, and a camera JPEG's decode is serial within a file, so a screenful
@@ -101,7 +103,7 @@ export class Thumbs {
     if (this.thumb) {
       try {
         const r = await this.thumb.get(path, { size: THUMB_SIZE, priority: 'high' });
-        if (r && r.path) return r.path;
+        if (r && r.path && fs.existsSync(r.path)) return r.path;
       } catch (_) { /* fall through to our own decoder */ }
     }
     return this.fromWorker(path);

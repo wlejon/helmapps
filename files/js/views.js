@@ -12,6 +12,8 @@ import { formatBytes, formatDate, formatCount } from '/lib/format.js';
 import { iconFor } from '/lib/files.js';
 import { TRASH_URI } from './model.js';
 
+const fs = require('fs');
+
 const PARALLEL_THUMBS = 8;
 const THUMB_FAILED = 'failed';
 
@@ -72,7 +74,11 @@ export class ThumbnailCache {
 
   extractUrl(res) {
     if (!res) return THUMB_FAILED;
-    if (res.path) return res.path;
+    if (res.path) {
+      try {
+        if (fs.existsSync(res.path)) return res.path;
+      } catch (_) { /* fall through to pixels */ }
+    }
     if (res.pixels && res.width > 0 && res.height > 0) {
       try {
         const c = document.createElement('canvas');
@@ -273,6 +279,13 @@ export class FilesView {
     return h('div.col-name-wrap', ...children);
   }
 
+  makeGridThumbImg(item, box, url) {
+    const fallback = () => icon(item.isDirectory ? 'folder' : iconFor({ name: item.name, isDir: item.isDirectory }), 'lg');
+    const img = h('img', { src: url, alt: item.name, draggable: 'false' });
+    img.addEventListener('error', () => box.replaceChildren(fallback()));
+    return img;
+  }
+
   renderGridCell(item, el) {
     el.dataset.path = item.path;
     const thumbBox = h('div.files-grid-thumb');
@@ -280,7 +293,7 @@ export class FilesView {
 
     const url = this.thumbs.get(item);
     if (url) {
-      thumbBox.appendChild(h('img', { src: url, alt: item.name, draggable: 'false' }));
+      thumbBox.appendChild(this.makeGridThumbImg(item, thumbBox, url));
     } else {
       thumbBox.appendChild(icon(item.isDirectory ? 'folder' : iconFor({ name: item.name, isDir: item.isDirectory }), 'lg'));
     }
@@ -295,7 +308,7 @@ export class FilesView {
       if (el._item && el._item.path === filePath) {
         const box = el.querySelector('.files-grid-thumb');
         if (box) {
-          box.replaceChildren(h('img', { src: url, alt: el._item.name, draggable: 'false' }));
+          box.replaceChildren(this.makeGridThumbImg(el._item, box, url));
         }
       }
     }

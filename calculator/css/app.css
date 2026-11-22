@@ -235,6 +235,8 @@
   display: grid;
   flex: 1 1 0px;
   gap: var(--s1);
+  align-items: center;
+  align-content: stretch;
 }
 
 .calc-pad-basic {
@@ -253,10 +255,19 @@
 }
 
 .calc-key {
-  height: 100%;
-  min-height: 32px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 0 var(--s2);
   font-size: var(--fs-title);
   font-weight: 500;
+}
+
+.calc-pad-scientific .calc-key,
+.calc-pad-programmer .calc-key {
+  height: 38px;
 }
 
 .calc-key.fn {

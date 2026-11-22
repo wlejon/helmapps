@@ -53,10 +53,13 @@ export class Inspector {
     const previewBox = h('div.files-props-preview');
     if (single) {
       const url = this.thumbs ? this.thumbs.get(single) : null;
+      const fallback = () => icon(single.isDirectory ? 'folder' : iconFor({ name: single.name, isDir: single.isDirectory }), 'lg');
       if (url) {
-        previewBox.appendChild(h('img', { src: url, alt: single.name }));
+        const img = h('img', { src: url, alt: single.name });
+        img.addEventListener('error', () => previewBox.replaceChildren(fallback()));
+        previewBox.appendChild(img);
       } else {
-        previewBox.appendChild(icon(single.isDirectory ? 'folder' : iconFor({ name: single.name, isDir: single.isDirectory }), 'lg'));
+        previewBox.appendChild(fallback());
       }
     } else {
       previewBox.appendChild(icon('layers', 'lg'));

@@ -201,7 +201,19 @@ function drawSidebar() {
   if (state.rootPath) sidebar.select(state.rootPath);
 }
 
+function isPermissionDeniedError(err) {
+  if (!err) return false;
+  return err.code === 'EACCES' || err.code === 'EPERM' || /permission|denied/i.test(err.message || '');
+}
+
 async function fillPlaces() {
+  // Probe Home before calling userDirs() so missing `files` permission triggers one prompt, not two.
+  let homeOk = false;
+  try {
+    homeOk = (await fs.promises.stat(homeDir())).isDirectory();
+  } catch (err) {
+    if (isPermissionDeniedError(err)) return false;
+  }
   const d = userDirs();
   const places = [
     { id: d.home, label: 'Home', icon: 'home' },
@@ -211,9 +223,11 @@ async function fillPlaces() {
     { id: d.music, label: 'Music', icon: 'music' },
     { id: d.videos, label: 'Videos', icon: 'video' },
   ];
-  const there = await Promise.all(places.map((p) => isDirectoryAsync(p.id)));
+  const rest = await Promise.all(places.slice(1).map((p) => isDirectoryAsync(p.id)));
+  const there = [homeOk, ...rest];
   sidebarSections.places = places.filter((_, i) => there[i]);
   drawSidebar();
+  return true;
 }
 
 async function fillDrives() {
@@ -553,8 +567,7 @@ function contextMenu(e, items) {
 
 app.onLaunch(({ argv, cwd, first }) => {
   if (first) {
-    fillPlaces();
-    fillDrives();
+    fillPlaces().then((ok) => { if (ok) fillDrives(); });
   }
   if (argv.includes('--new-window') && !first) { app.newWindow(); return; }
   const target = argv.find((a) => !a.startsWith('--'));

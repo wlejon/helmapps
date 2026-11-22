@@ -81,7 +81,8 @@
 /* The models card (when the radio cannot start yet) and the Models… panel. */
 .radio-setup { width: 680px; max-width: 100%; display: flex; flex-direction: column; gap: var(--s3); padding: var(--s6); }
 .radio-setup-error { display: flex; align-items: center; gap: var(--s2); color: var(--danger-text); }
-.radio-setup-actions { display: flex; align-items: center; gap: var(--s2); }
+.radio-setup-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.models-size { min-width: 0; }
 
 .models-panel { display: flex; flex-direction: column; gap: var(--s4); }
 .models-rows { display: flex; flex-direction: column; }
