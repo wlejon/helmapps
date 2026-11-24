@@ -25,6 +25,7 @@ import { TransferManager } from './transfer.js';
 import { TrashManager } from './trash.js';
 import { Inspector } from './inspector.js';
 import { SearchController } from './search.js';
+import { FileCatalog } from './catalog.js';
 import { ArchiveActions, isArchiveItem } from './archive-actions.js';
 
 const fs = require('fs');
@@ -142,10 +143,13 @@ const archiveActions = new ArchiveActions({
   model,
 });
 
+const catalog = new FileCatalog();
+
 const search = new SearchController({
   state,
   settings,
   model,
+  catalog,
   onUpdate: () => {
     views.list.setItems(model.entries);
     refreshChrome();
@@ -576,6 +580,7 @@ app.expose({
   crumbs: locationBar.crumbs,
   locationBar,
   search,
+  catalog,
   transfer,
   trash,
   inspector,

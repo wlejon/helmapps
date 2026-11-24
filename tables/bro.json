@@ -1,0 +1,36 @@
+{
+    "id": "helm.tables",
+    "name": "Tables",
+    "version": "0.1.0",
+    "description": "Inspect, query, profile, and export columnar .brotable, Parquet, and CSV/TSV datasets",
+    "icon": "assets/icon.svg",
+    "categories": ["Utility", "Development", "Science"],
+    "keywords": ["table", "brotable", "parquet", "csv", "tsv", "data", "query", "sql", "analytics"],
+    "singleInstance": true,
+    "fileTypes": [
+        {
+            "name": "BroTable Columnar Dataset",
+            "mimeTypes": ["application/x-brotable"],
+            "extensions": ["brotable"]
+        },
+        {
+            "name": "Apache Parquet Dataset",
+            "mimeTypes": ["application/vnd.apache.parquet"],
+            "extensions": ["parquet"]
+        },
+        {
+            "name": "CSV / TSV Table",
+            "mimeTypes": ["text/csv", "text/tab-separated-values"],
+            "extensions": ["csv", "tsv"]
+        }
+    ],
+    "permissions": ["files"],
+    "app": ".",
+    "width": 1160,
+    "height": 760,
+    "minWidth": 680,
+    "minHeight": 460,
+    "resizable": true,
+    "splash": false,
+    "watch": false
+}

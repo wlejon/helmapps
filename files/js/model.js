@@ -24,6 +24,7 @@ const KIND_LABELS = {
   document: 'Document',
   font: 'Font',
   model: '3D Model',
+  data: 'Data Table',
   file: 'File',
 };
 

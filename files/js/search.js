@@ -16,10 +16,11 @@ const fs = require('fs');
 const path = require('path');
 
 export class SearchController {
-  constructor({ state, settings, model, onUpdate, onFocusList }) {
+  constructor({ state, settings, model, catalog = null, onUpdate, onFocusList }) {
     this.state = state;
     this.settings = settings;
     this.model = model;
+    this.catalog = catalog;
     this.onUpdate = onUpdate;
     this.onFocusList = onFocusList;
     this.searchSeq = 0;
@@ -140,6 +141,22 @@ export class SearchController {
         : `Found ${formatCount(count, 'match', 'matches')} for “${query}”`;
       if (this.onUpdate) this.onUpdate();
     };
+
+    const normRoot = path.resolve(rootDir);
+    if (this.catalog && this.catalog.rootDir === normRoot && this.catalog.rowCount() > 0) {
+      const showHidden = this.settings ? !!this.settings.get('showHidden') : true;
+      const hits = this.catalog.query({ query, showHidden, limit: 2000 });
+      for (const item of hits) {
+        const score = matchScore(item.name);
+        if (score !== null) {
+          item.score = score;
+          results.push(item);
+        }
+      }
+      this.state.searching = false;
+      flush();
+      return;
+    }
 
     // Walk directory tree asynchronously, streaming matches
     const queue = [{ dir: rootDir, hiddenAncestor: false }];
