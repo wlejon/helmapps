@@ -37,7 +37,6 @@ import {
 import { ProcessesView } from './processes-view.js';
 import { ResourcesView } from './resources-view.js';
 import { FilesystemsView } from './filesystems-view.js';
-import { TelemetryStore } from './telemetry-table.js';
 
 const app = startApp({
   settings: {
@@ -106,11 +105,9 @@ const sampler = new Sampler({
   intervalSec: settings.get('interval') || 1.0,
   onTick: () => onSampleTick(),
 });
-const telemetry = new TelemetryStore();
 
 function onSampleTick() {
   state.tickCount = sampler.tickCount;
-  telemetry.recordTick(sampler.sys, sampler.proc, sampler.sys.prevSampleMs || Date.now());
   processesView.update(sampler.proc);
   resourcesView.update(sampler.sys);
   updateStatusBar();
@@ -289,14 +286,6 @@ commands.addAll([
       await Promise.all([sampler.tick(), filesystemsView.refresh()]);
     },
   },
-  {
-    id: 'export-telemetry',
-    label: 'Export Telemetry Bundle…',
-    icon: 'download',
-    keys: ['Mod+S'],
-    enabled: () => telemetry.supported && state.tickCount > 0,
-    run: (targetPath) => exportTelemetry(typeof targetPath === 'string' ? targetPath : undefined),
-  },
   { id: 'new-window', label: 'New Window', keys: ['Mod+N'], run: () => app.newWindow() },
   { id: 'quit', label: 'Quit', keys: ['Mod+Q'], run: () => app.quit() },
 ]);
@@ -467,28 +456,11 @@ app.onLaunch(({ argv, first }) => {
   else if (argv && argv.includes('--processes')) setPage('processes');
 });
 
-async function exportTelemetry(targetPath) {
-  let outPath = targetPath;
-  if (!outPath) {
-    if (typeof showSaveFileDialogAsync === 'function') {
-      outPath = await showSaveFileDialogAsync('BroTable|brotable', 'telemetry.brotable');
-    } else if (typeof showSaveFileDialog === 'function') {
-      outPath = showSaveFileDialog('BroTable|brotable', 'telemetry.brotable');
-    }
-  }
-  if (!outPath) return false;
-  const ok = telemetry.exportBundle(outPath, { compress: true });
-  if (ok) toast('Exported telemetry bundle', { icon: 'download', key: 'export-telemetry' });
-  return ok;
-}
-
 app.expose({
   state,
   settings,
   commands,
   sampler,
-  telemetry,
-  exportTelemetry,
   sysSampler: sampler.sys,
   procSampler: sampler.proc,
   processesView,

@@ -26,7 +26,6 @@ import {
   filterLogEntries,
 } from './log-parser.js';
 import { JOURNAL_ID, LogSourceManager } from './log-sources.js';
-import { LogTableStore } from './log-table.js';
 
 const fs = require('fs');
 const path = require('path');
@@ -44,7 +43,6 @@ const app = startApp({
 const { commands, settings } = app;
 const searchApi = api('search');
 const sources = new LogSourceManager();
-const logStore = new LogTableStore();
 
 // ---- state ------------------------------------------------------------------
 
@@ -243,12 +241,6 @@ commands.addAll([
   { id: 'export-filtered', label: 'Export Filtered…', icon: 'download', keys: ['Mod+S'], inText: true,
     enabled: () => state.filtered.length > 0,
     run: (targetPath) => exportFiltered(typeof targetPath === 'string' ? targetPath : undefined) },
-  { id: 'export-brotable', label: 'Export .brotable…', icon: 'layers',
-    enabled: () => state.entries.length > 0 && logStore.supported,
-    run: (targetPath) => exportBrotable(typeof targetPath === 'string' ? targetPath : undefined) },
-  { id: 'export-parquet', label: 'Export Parquet…', icon: 'file-text',
-    enabled: () => state.entries.length > 0 && logStore.supported,
-    run: (targetPath) => exportParquet(typeof targetPath === 'string' ? targetPath : undefined) },
   { id: 'clear-view', label: 'Clear View', icon: 'trash', keys: ['Mod+K'],
     enabled: () => state.entries.length > 0,
     run: () => clearView() },
@@ -318,7 +310,6 @@ async function discoverSources({ selectDefault = true } = {}) {
       await selectSource(preferred.id, { reload: false });
     } else {
       state.entries = [];
-      logStore.replaceAll([]);
       applyFilter();
     }
   } else {
@@ -341,7 +332,6 @@ async function selectSource(id, { reload = false } = {}) {
 
   const src = sources.getSource(id);
   state.entries = src ? src.entries.slice() : [];
-  logStore.replaceAll(state.entries);
   app.setTitle(src ? src.label : '');
   showDrawer(null);
   applyFilter();
@@ -352,13 +342,7 @@ function syncWatcher() {
   sources.stopWatch();
   if (state.tail && state.activeSourceId) {
     sources.watchSource(state.activeSourceId, (_added, allEntries) => {
-      const prevLen = state.entries.length;
       state.entries = allEntries.slice();
-      if (state.entries.length >= prevLen) {
-        logStore.appendEntries(state.entries, prevLen);
-      } else {
-        logStore.replaceAll(state.entries);
-      }
       drawSidebar();
       applyFilter({ scrollToEnd: true });
     });
@@ -442,16 +426,10 @@ function updateStatus() {
 
   let errors = 0;
   let warns = 0;
-  if (logStore.supported && logStore.entryCount === state.entries.length) {
-    const counts = logStore.severityCounts();
-    errors = counts.error;
-    warns = counts.warn;
-  } else {
-    for (let i = 0; i < state.entries.length; i++) {
-      const s = state.entries[i].severity;
-      if (s === 'error') errors++;
-      else if (s === 'warn') warns++;
-    }
+  for (let i = 0; i < state.entries.length; i++) {
+    const s = state.entries[i].severity;
+    if (s === 'error') errors++;
+    else if (s === 'warn') warns++;
   }
 
   const filterNote = shown !== total
@@ -511,7 +489,6 @@ export async function loadOlderJournal() {
     if (state.activeSourceId === JOURNAL_ID || state.activeSourceId === 'all') {
       const src = sources.getSource(state.activeSourceId);
       state.entries = src ? src.entries.slice() : [];
-      logStore.replaceAll(state.entries);
       applyFilter();
     }
   }
@@ -563,7 +540,6 @@ export async function refresh() {
 function clearView() {
   state.entries = [];
   state.filtered = [];
-  logStore.replaceAll([]);
   showDrawer(null);
   list.setItems([]);
   refreshChrome();
@@ -608,38 +584,6 @@ export async function exportFiltered(targetPath) {
     toast(`Could not export: ${err.message}`, { error: true });
     return false;
   }
-}
-
-export async function exportBrotable(targetPath) {
-  let outPath = targetPath;
-  if (!outPath) {
-    if (typeof showSaveFileDialogAsync === 'function') {
-      outPath = await showSaveFileDialogAsync('BroTable|brotable', 'logs.brotable');
-    } else if (typeof showSaveFileDialog === 'function') {
-      outPath = showSaveFileDialog('BroTable|brotable', 'logs.brotable');
-    }
-  }
-  if (!outPath) return false;
-  const resolved = path.resolve(outPath);
-  const ok = logStore.exportTable(resolved, { compress: true });
-  if (ok) toast(`Saved ${path.basename(resolved)}`, { icon: 'layers', key: 'export' });
-  return ok;
-}
-
-export async function exportParquet(targetPath) {
-  let outPath = targetPath;
-  if (!outPath) {
-    if (typeof showSaveFileDialogAsync === 'function') {
-      outPath = await showSaveFileDialogAsync('Parquet|parquet', 'logs.parquet');
-    } else if (typeof showSaveFileDialog === 'function') {
-      outPath = showSaveFileDialog('Parquet|parquet', 'logs.parquet');
-    }
-  }
-  if (!outPath) return false;
-  const resolved = path.resolve(outPath);
-  const ok = logStore.exportParquet(resolved, { compress: true });
-  if (ok) toast(`Exported ${path.basename(resolved)}`, { icon: 'file-text', key: 'export' });
-  return ok;
 }
 
 function entryContextMenu(e, items) {
@@ -695,9 +639,6 @@ app.expose({
   setUseRegex,
   setTail,
   exportFiltered,
-  exportBrotable,
-  exportParquet,
-  logTable: logStore,
   refresh,
   clearView,
   parsers: {

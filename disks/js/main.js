@@ -26,7 +26,6 @@ import {
   groupVolumesAndBlockDevices,
   annotateWithUDisks,
 } from './disks-model.js';
-import { DiskIoHistory } from './io-history.js';
 
 const app = startApp({
   settings: {
@@ -36,7 +35,6 @@ const app = startApp({
 });
 const { commands, settings } = app;
 const model = new DisksModel();
-const ioHistory = new DiskIoHistory();
 
 // ---- state ------------------------------------------------------------------
 
@@ -772,7 +770,6 @@ async function refresh(nowMs = Date.now()) {
   const drives = await model.refresh(nowMs);
   if (seq !== state.refreshSeq) return drives;
   state.drives = drives;
-  ioHistory.recordDrives(drives, nowMs);
   applyFilter();
   if (drives.length > 4 && typeof requestAnimationFrame === 'function') {
     renderSidebar();
@@ -839,7 +836,6 @@ app.onLaunch(({ argv, first }) => {
 app.expose({
   state,
   model,
-  ioHistory,
   sidebar,
   selectDrive,
   selectPartition,
