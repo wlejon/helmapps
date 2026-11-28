@@ -1,10 +1,11 @@
 # helmapps
 
 The core apps of the helm desktop, one folder per app. Each is a bro folder
-app: a `bro.json` manifest plus HTML, CSS and JavaScript, run by the stock
-`bro` binary. No app here has native code, a build step or pinned
-dependencies; a native capability an app needs goes into bro (or a sibling
-library exposed as `bro.<x>`), never into the app.
+app: a `bro.json` manifest plus HTML, CSS and JavaScript, run by the `helm`
+desktop runtime executable (`helm <app-dir>` or `helm <app-id>`). No app here
+has native code, a build step or pinned dependencies; a desktop capability an
+app needs lives in `helm` (or its sibling libraries exposed as `bro.<x>`), and
+core engine capabilities live in `bro`, never in the app.
 
 | App | id | What |
 |-----|----|------|
@@ -41,10 +42,10 @@ copy. Open engine and kit gaps are in each app's `GAPS.md`, where it has any.
 ## Running
 
 ```bash
-bro term                     # from this directory
-bro term -- htop             # arguments after the folder go to the app
-bro --install term --link    # install it (Linux: also writes helm.term.desktop)
-bro helm.term                # run an installed app by its id
+helm term                    # from this directory
+helm term -- htop            # arguments after the folder go to the app
+helm --install term --link   # install it (Linux: also writes helm.term.desktop)
+helm helm.term               # run an installed app by its id
 ```
 
 The manifest keys (`id`, `singleInstance`, `actions`, `fileTypes`,
@@ -61,8 +62,8 @@ scripts/run_tests.sh term      # one app
 scripts/run_tests.sh term tabs # tests whose name contains "tabs"
 ```
 
-Each `<app>/tests/test_*.js` runs under `bro-headless` (`BRO_HEADLESS`, else
-`../bro`'s build tree) with its own `BRO_APP_HOME`, so the tests never touch
+Each `<app>/tests/test_*.js` runs under `helm-headless` (`HELM_HEADLESS`, else
+`../helm`'s build tree) with its own `BRO_APP_HOME`, so the tests never touch
 your settings. The terminal's tests drive a test child: bro's `bro_pty_child`
 copied as `term-testchild`, the name that selects its reporting mode
 (`BRO_TERM_TESTCHILD` overrides). Exit status 77 is a skip.

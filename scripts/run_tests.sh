@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
-# Run the helm apps' headless tests against a stock bro-headless.
+# Run the helm apps' headless tests against helm-headless (or BRO_HEADLESS override).
 #
 #   scripts/run_tests.sh [app] [test-name-filter]
 #
 # Every <app>/tests/test_*.js runs as
-#   bro-headless --width 1280 --height 800 <app> <test>
+#   helm-headless --width 1280 --height 800 <app> <test>
 # with its own BRO_APP_HOME, so no test reads or writes the user's settings
 # and no test sees what an earlier one left behind. Exit status 77 is a skip.
 #
 # Environment:
-#   BRO_HEADLESS       the bro-headless binary (default: ../bro's build tree)
-#   BRO_TERM_TESTCHILD term's test child; by default bro's bro_pty_child
-#                      (beside bro-headless) copied under the name
+#   HELM_HEADLESS      the helm-headless binary (default: ../helm's build tree)
+#   BRO_HEADLESS       override headless binary (also checked if HELM_HEADLESS unset)
+#   BRO_TERM_TESTCHILD term's test child; bro's bro_pty_child (beside helm-headless
+#                      or in ../bro's build tree) copied under the name
 #                      term-testchild, which selects its reporting mode
 #   TEST_TIMEOUT       seconds per test (default 180; 1200 under
 #                      BRONZE_GC_STRESS)
@@ -38,31 +39,41 @@ if [ -n "$gc_stress" ]; then timeout_s=${TEST_TIMEOUT:-1200}; else timeout_s=${T
 exe=""
 case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) exe=".exe" ;; esac
 
-headless=${BRO_HEADLESS:-}
+headless=${HELM_HEADLESS:-${BRO_HEADLESS:-}}
 if [ -z "$headless" ]; then
-    for c in "$here/../bro/build/Release/bro-headless$exe" "$here/../bro/build-release/bro-headless$exe" \
+    for c in "$here/../helm/build/Release/helm-headless$exe" "$here/../helm/build-arm64/helm-headless$exe" \
+             "$here/../helm/build-release/helm-headless$exe" "$here/../helm/build/helm-headless$exe" \
+             "$(command -v helm-headless 2>/dev/null)" \
+             "$here/../bro/build/Release/bro-headless$exe" "$here/../bro/build-release/bro-headless$exe" \
              "$here/../bro/build/bro-headless$exe" "$(command -v bro-headless 2>/dev/null)"; do
         if [ -n "$c" ] && [ -x "$c" ]; then headless=$c; break; fi
     done
 fi
 if [ -z "$headless" ] || [ ! -x "$headless" ]; then
-    echo "run_tests: no bro-headless (set BRO_HEADLESS)" >&2
+    echo "run_tests: no helm-headless (set HELM_HEADLESS or BRO_HEADLESS)" >&2
     exit 2
 fi
-echo "bro-headless: $headless"
+echo "helm-headless: $headless"
 
 work=$(mktemp -d "${TMPDIR:-/tmp}/helmapps-tests.XXXXXX")
 trap 'rm -rf "$work"' EXIT
 
 # term's test child: bro_pty_child under a name containing "testchild".
 if [ -z "${BRO_TERM_TESTCHILD:-}" ]; then
-    src="$(dirname "$headless")/bro_pty_child$exe"
-    if [ -x "$src" ]; then
+    src=""
+    for pty in "$(dirname "$headless")/bro_pty_child$exe" \
+               "$here/../bro/build-arm64-app/bro_pty_child$exe" \
+               "$here/../bro/build/Release/bro_pty_child$exe" \
+               "$here/../bro/build-release/bro_pty_child$exe" \
+               "$here/../bro/build/bro_pty_child$exe"; do
+        if [ -x "$pty" ]; then src=$pty; break; fi
+    done
+    if [ -n "$src" ]; then
         mkdir -p "$work/bin"
         cp "$src" "$work/bin/term-testchild$exe"
         export BRO_TERM_TESTCHILD="$work/bin/term-testchild$exe"
     else
-        echo "run_tests: no bro_pty_child beside bro-headless; tests that need the child skip" >&2
+        echo "run_tests: no bro_pty_child found beside helm-headless or in ../bro; tests that need the child skip" >&2
     fi
 fi
 
